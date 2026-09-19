@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "dialect": "hive",
+  "root": "/root/projects/sql-lineage-mvp/examples/warehouse_issues",
+  "nodes": [
+    {
+      "name": "ads.ads_销量修正结果",
+      "schema": "ads",
+      "table": "ads_销量修正结果",
+      "layer": "ads",
+      "produced_by": [
+        {
+          "file": "01_cycle_demo.sql",
+          "statement_index": 2,
+          "task_type": "INSERT_SELECT"
+        }
+      ],
+      "consumed_by": [
+        {
+          "file": "01_cycle_demo.sql",
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT"
+        }
+      ],
+      "ref_count": 1
+    },
+    {
+      "name": "dwd.dwd_销量回写池",
+      "schema": "dwd",
+      "table": "dwd_销量回写池",
+      "layer": "dwd",
+      "produced_by": [
+        {
+          "file": "01_cycle_demo.sql",
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT"
+        }
+      ],
+      "consumed_by": [
+        {
+          "file": "01_cycle_demo.sql",
+          "statement_index": 2,
+          "task_type": "INSERT_SELECT"
+        }
+      ],
+      "ref_count": 1
+    }
+  ],
+  "edges": [
+    {
+      "source": "ads.ads_销量修正结果",
+      "target": "dwd.dwd_销量回写池",
+      "files": [
+        "01_cycle_demo.sql"
+      ],
+      "statements": [
+        {
+          "file": "01_cycle_demo.sql",
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT"
+        }
+      ],
+      "column_mappings": 3,
+      "unresolved_mappings": 0,
+      "constant_mappings": 0,
+      "columns": [
+        {
+          "target_column": "brand_code",
+          "source_column": "brand_code",
+          "expression": "s.brand_code AS brand_code",
+          "resolved": true
+        },
+        {
+          "target_column": "corrected_qty",
+          "source_column": "corrected_qty",
+          "expression": "s.corrected_qty AS corrected_qty",
+          "resolved": true
+        },
+        {
+          "target_column": "dt",
+          "source_column": "dt",
+          "expression": "s.dt AS dt",
+          "resolved": true
+        }
+      ],
+      "columns_truncated": false,
+      "partition_filters": {
+        "dt": "2026-01-01"
+      }
+    },
+    {
+      "source": "dwd.dwd_销量回写池",
+      "target": "ads.ads_销量修正结果",
+      "files": [
+        "01_cycle_demo.sql"
+      ],
+      "statements": [
+        {
+          "file": "01_cycle_demo.sql",
+          "statement_index": 2,
+          "task_type": "INSERT_SELECT"
+        }
+      ],
+      "column_mappings": 3,
+      "unresolved_mappings": 0,
+      "constant_mappings": 0,
+      "columns": [
+        {
+          "target_column": "brand_code",
+          "source_column": "brand_code",
+          "expression": "p.brand_code AS brand_code",
+          "resolved": true
+        },
+        {
+          "target_column": "corrected_qty",
+          "source_column": "corrected_qty",
+          "expression": "p.corrected_qty AS corrected_qty",
+          "resolved": true
+        },
+        {
+          "target_column": "dt",
+          "source_column": "dt",
+          "expression": "p.dt AS dt",
+          "resolved": true
+        }
+      ],
+      "columns_truncated": false,
+      "partition_filters": {
+        "dt": "2026-01-01"
+      }
+    }
+  ],
+  "failures": [
+    {
+      "file": "02_broken_syntax.sql",
+      "error": "TokenError: Error tokenizing '_qty\nFROM ods.ods_不存在表 x\nWHERE x.dt = '2026-01-01'"
+    }
+  ],
+  "scan_meta": {
+    "root": "/root/projects/sql-lineage-mvp/examples/warehouse_issues",
+    "scanned_files": [
+      "01_cycle_demo.sql",
+      "02_broken_syntax.sql"
+    ]
+  }
+}

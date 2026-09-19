@@ -1,0 +1,97 @@
+flowchart LR
+  subgraph sg_src["源系统层"]
+    direction LR
+    n0["src.erp_生产工单明细"]
+    n1["src.fin_税金凭证"]
+    n2["src.iot_设备工况采集"]
+    n3["src.mes_销售出库明细"]
+    n4["src.srm_采购到货单"]
+    n5["src.wms_库存快照"]
+  end
+  subgraph sg_ods["ODS 贴源层"]
+    direction LR
+    n6["ods.ods_卷烟产量流水"]
+    n7["ods.ods_卷烟销量流水"]
+    n8["ods.ods_成品库存快照"]
+    n9["ods.ods_烟叶采购到货"]
+    n10["ods.ods_税利上缴流水"]
+    n11["ods.ods_设备运行工况"]
+  end
+  subgraph sg_dim["维度层"]
+    direction LR
+    n12["dim.dim_brand"]
+    n13["dim.dim_equipment"]
+    n14["dim.dim_plant"]
+    n15["dim.dim_supplier"]
+  end
+  subgraph sg_dwd["DWD 明细层"]
+    direction LR
+    n16["cdw.dwd_卷烟产量明细"]
+    n17["cdw.dwd_卷烟销量明细"]
+    n18["cdw.dwd_成品库存明细"]
+    n19["cdw.dwd_烟叶采购明细"]
+    n20["cdw.dwd_税利明细"]
+    n21["cdw.dwd_设备运行明细"]
+  end
+  subgraph sg_dws["DWS 汇总层"]
+    direction LR
+    n22["cdw.dws_产量汇总"]
+    n23["cdw.dws_产销存汇总"]
+    n24["cdw.dws_库存汇总"]
+    n25["cdw.dws_烟叶采购供应商汇总"]
+    n26["cdw.dws_税利汇总"]
+    n27["cdw.dws_设备效率汇总"]
+  end
+  subgraph sg_ads["ADS 应用层"]
+    direction LR
+    n28["ads.ads_产销存月报"]
+    n29["ads.ads_烟叶供应商排名"]
+    n30["ads.ads_税利分析"]
+    n31["ads.ads_经营指标明细"]
+    n32["ads.ads_经营指标驾驶舱"]
+    n33["ads.ads_设备运行看板"]
+  end
+  n0 -- "8 字段" --> n6
+  n1 -- "8 字段" --> n10
+  n2 -- "8 字段" --> n11
+  n3 -- "8 字段" --> n7
+  n4 -- "8 字段" --> n9
+  n5 -- "8 字段" --> n8
+  n6 -- "10 字段" --> n16
+  n7 -- "9 字段" --> n17
+  n8 -- "9 字段" --> n18
+  n9 -- "9 字段" --> n19
+  n10 -- "9 字段" --> n20
+  n11 -- "11 字段" --> n21
+  n12 -- "2 字段" --> n16
+  n12 -- "1 字段" --> n17
+  n12 -- "1 字段" --> n20
+  n12 -- "2 字段" --> n28
+  n12 -- "1 字段" --> n30
+  n13 -- "2 字段" --> n21
+  n14 -- "1 字段" --> n16
+  n14 -- "1 字段" --> n18
+  n14 -- "1 字段" --> n28
+  n15 -- "2 字段" --> n19
+  n16 -- "4 字段" --> n22
+  n17 -- "2 字段" --> n23
+  n18 -- "5 字段" --> n24
+  n19 -- "7 字段" --> n25
+  n20 -- "7 字段" --> n26
+  n21 -- "10 字段" --> n27
+  n22 -- "3 字段" --> n23
+  n22 -- "2 字段" --> n26
+  n23 -- "10 字段" --> n28
+  n23 -- "2 字段" --> n30
+  n24 -- "1 字段" --> n23
+  n25 -- "9 字段" --> n29
+  n26 -- "8 字段" --> n30
+  n27 -- "7 字段" --> n33
+  n28 -- "8 字段" --> n31
+  n29 -- "1 字段" --> n32
+  n30 -- "2 字段" --> n31
+  n31 -- "7 字段" --> n32
+  n33 -- "1 字段" --> n32
+  classDef hlc fill:#fde047,stroke:#a16207,stroke-width:2px,color:#1f2937
+  classDef hlu fill:#bfdbfe,stroke:#1d4ed8,color:#1e3a8a
+  classDef hld fill:#fed7aa,stroke:#c2410c,color:#7c2d12

@@ -1,0 +1,8 @@
+# 开发 / 测试依赖
+#   pip install -r requirements-dev.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+-r requirements.txt
+pytest>=8.0.0
+
+# 可选：装了它，tests/test_viz.py 会用真实的 JS 引擎执行 HTML 内联脚本
+# （验证力导向布局 / 上下游高亮 / 搜索等交互逻辑确实能跑）；不装则该用例自动跳过。
+quickjs>=1.19.0
