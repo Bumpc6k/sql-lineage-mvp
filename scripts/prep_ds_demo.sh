@@ -28,6 +28,9 @@ if [ ! -d "$ROOT/ds-plugin" ]; then
   echo "   请用项目内路径运行：bash <项目>/scripts/prep_ds_demo.sh" >&2
   exit 1
 fi
+# ⚠️ 唯一的编译/部署目录就是 <项目>/ds-plugin/（内含源码、build.sh 与 jar）。
+# 不要在别处保留第二份同名 jar —— 曾经因为副本较旧，本脚本按 md5 判断"不一致"
+# 后把较旧的那份 cp 进容器，反而覆盖了新 jar，导致改动"看起来没生效"。
 PLUGIN_DIR="$ROOT/ds-plugin"
 CONTAINER="${DS_CONTAINER:-ds-standalone}"
 IMAGE="apache/dolphinscheduler-standalone-server:3.2.2"
