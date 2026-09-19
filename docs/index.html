@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL 血缘解析与数据资产智能运营平台 · 演示</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #0f1729 0%, #131f38 55%, #0d1626 100%);
+    color: #e6edf7; min-height: 100vh; padding: 40px 20px;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .badge {
+    display: inline-block; font-size: 12px; letter-spacing: .5px;
+    color: #7dd3fc; border: 1px solid #29506d; background: #0d2137;
+    padding: 4px 12px; border-radius: 20px; margin-bottom: 18px;
+  }
+  h1 { font-size: 32px; font-weight: 700; letter-spacing: .5px; margin-bottom: 12px;
+       background: linear-gradient(90deg,#7dd3fc,#a78bfa); -webkit-background-clip: text;
+       -webkit-text-fill-color: transparent; }
+  .sub { color: #93a7c0; font-size: 15px; margin-bottom: 30px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr));
+          gap: 14px; margin-bottom: 34px; }
+  .kpi { background: rgba(29,48,74,.55); border: 1px solid #23395c; border-radius: 12px;
+         padding: 16px; text-align: center; }
+  .kpi .n { font-size: 26px; font-weight: 700; color: #7dd3fc; }
+  .kpi .l { font-size: 12px; color: #8fa4bd; margin-top: 4px; }
+  h2 { font-size: 18px; margin: 34px 0 14px; padding-left: 11px;
+       border-left: 3px solid #4a7cc7; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(300px,1fr)); gap: 16px; }
+  .card { display: block; text-decoration: none; color: inherit;
+          background: rgba(29,48,74,.5); border: 1px solid #23395c; border-radius: 14px;
+          padding: 20px; transition: .18s; }
+  .card:hover { border-color: #4a7cc7; background: rgba(38,62,95,.72); transform: translateY(-2px); }
+  .card .t { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #cfe3ff; }
+  .card .d { font-size: 13px; color: #93a7c0; }
+  .card .go { margin-top: 12px; font-size: 13px; color: #7dd3fc; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 8px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #23395c; }
+  th { color: #a9bdd6; font-weight: 600; background: rgba(29,48,74,.45); }
+  td { color: #cfe3ff; }
+  code { background: #0d2137; color: #7dd3fc; padding: 2px 6px; border-radius: 5px;
+         font-family: Consolas, Monaco, monospace; font-size: 12.5px; }
+  pre { background: #0a1a2c; border: 1px solid #1e3a5f; border-radius: 10px;
+        padding: 14px; overflow-x: auto; font-size: 12.5px; color: #b8d4f0;
+        font-family: Consolas, Monaco, monospace; margin-top: 10px; }
+  .foot { margin-top: 40px; padding-top: 20px; border-top: 1px solid #23395c;
+          font-size: 12.5px; color: #7d90a8; }
+  a.link { color: #7dd3fc; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge">数据开发 · 作品集演示</div>
+  <h1>SQL 血缘解析与数据资产智能运营平台</h1>
+  <p class="sub">
+    从加工脚本中自动解析血缘与业务口径，构建「工程 → 工作流 → 任务节点 → 表」多层图谱，
+    服务于数据治理、影响分析与智能问数。
+  </p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">205</div><div class="l">单元测试全通过</div></div>
+    <div class="kpi"><div class="n">34</div><div class="l">血缘表节点</div></div>
+    <div class="kpi"><div class="n">41</div><div class="l">血缘边</div></div>
+    <div class="kpi"><div class="n">215</div><div class="l">字段级映射</div></div>
+    <div class="kpi"><div class="n">7 层</div><div class="l">最大血缘深度</div></div>
+    <div class="kpi"><div class="n">4</div><div class="l">真实调度工作流</div></div>
+  </div>
+
+  <h2>🔍 交互式可视化（点击体验）</h2>
+  <div class="cards">
+    <a class="card" href="lineage.html">
+      <div class="t">① 数仓血缘图谱</div>
+      <div class="d">
+        扫描 21 个 SQL 脚本构建的全局血缘图：34 张表 / 41 条血缘边 / 7 层深度。<br>
+        支持点击节点高亮上下游、搜索表名、分层筛选、缩放拖拽、导出 PNG。
+      </div>
+      <div class="go">打开图谱 →</div>
+    </a>
+    <a class="card" href="ds_lineage.html">
+      <div class="t">② DolphinScheduler 调度血缘</div>
+      <div class="d">
+        通过 OpenAPI 从真实 DolphinScheduler 实例拉取：4 工作流 / 16 任务 / 23 表。<br>
+        打通「血缘 × 调度」——每张上游表可追溯由哪个工作流的哪个任务产出。
+      </div>
+      <div class="go">打开图谱 →</div>
+    </a>
+  </div>
+
+  <h2>📸 效果预览</h2>
+  <div class="cards">
+    <div class="card" style="cursor:default">
+      <div class="t">演示首页</div>
+      <img src="screenshots/01-home.png" alt="演示首页" style="width:100%;border-radius:10px;margin-top:8px;border:1px solid #23395c">
+    </div>
+    <div class="card" style="cursor:default">
+      <div class="t">① 数仓血缘图谱</div>
+      <img src="screenshots/02-lineage-graph.png" alt="数仓血缘图谱" style="width:100%;border-radius:10px;margin-top:8px;border:1px solid #23395c">
+      <div class="d" style="margin-top:8px">34 张表 / 41 条血缘边，分层 DAG（src→ods→dim→dwd→dws→ads）</div>
+    </div>
+    <div class="card" style="cursor:default">
+      <div class="t">② 下游影响分析</div>
+      <img src="screenshots/03-impact-analysis.png" alt="下游影响分析" style="width:100%;border-radius:10px;margin-top:8px;border:1px solid #23395c">
+      <div class="d" style="margin-top:8px">改一张 ODS 表 → 高亮 8 张下游表 / 6 层链路（橙色为下游）</div>
+    </div>
+    <div class="card" style="cursor:default">
+      <div class="t">③ 上游溯源</div>
+      <img src="screenshots/04-upstream-trace.png" alt="上游溯源" style="width:100%;border-radius:10px;margin-top:8px;border:1px solid #23395c">
+      <div class="d" style="margin-top:8px">看板指标 → 追溯 33 张上游表 / 10 个源系统（蓝色为上游）</div>
+    </div>
+    <div class="card" style="cursor:default">
+      <div class="t">④ DolphinScheduler 调度血缘</div>
+      <img src="screenshots/05-ds-lineage.png" alt="调度血缘" style="width:100%;border-radius:10px;margin-top:8px;border:1px solid #23395c">
+      <div class="d" style="margin-top:8px">从真实海豚实例拉取：4 工作流 / 16 任务 / 23 表</div>
+    </div>
+  </div>
+
+  <h2>🧩 核心能力</h2>
+  <table>
+    <tr><th>能力</th><th>说明</th><th>命令</th></tr>
+    <tr>
+      <td>SQL 静态血缘解析</td>
+      <td>表级 + 字段级血缘、过滤条件、多方言（Hive/Spark/Doris/PG）</td>
+      <td><code>python -m lineage.cli &lt;sqlfile&gt;</code></td>
+    </tr>
+    <tr>
+      <td>目录批量扫描</td>
+      <td>扫整个数仓脚本目录，跨文件血缘贯通，输出扫描报告</td>
+      <td><code>scan &lt;dir&gt;</code></td>
+    </tr>
+    <tr>
+      <td>下游影响分析</td>
+      <td>改一张表，列出所有受影响的下游表与链路</td>
+      <td><code>impact &lt;table&gt;</code></td>
+    </tr>
+    <tr>
+      <td>上游溯源</td>
+      <td>追溯某个指标的完整来源链路，直至源系统表</td>
+      <td><code>upstream &lt;table&gt;</code></td>
+    </tr>
+    <tr>
+      <td>环路检测</td>
+      <td>Tarjan SCC 检出循环依赖（调度无法确定顺序的风险）</td>
+      <td><code>cycle</code></td>
+    </tr>
+    <tr>
+      <td>调度平台旁路集成</td>
+      <td>DolphinScheduler OpenAPI 只读接入，不改源码；任务节点级血缘</td>
+      <td><code>ds sync / tables / task</code></td>
+    </tr>
+    <tr>
+      <td>可视化导出</td>
+      <td>Mermaid 图 + 自包含交互式 HTML（零外链，离线可用）</td>
+      <td><code>viz --format html</code></td>
+    </tr>
+  </table>
+
+  <h2>🏗 架构</h2>
+<pre>┌──────────────────────────────────────────────────────┐
+│  应用层：血缘追溯 · 影响分析 · 智能问数 · 智能运维       │
+├──────────────────────────────────────────────────────┤
+│  知识层：口径知识库 · 表字段语义 · 图谱（向量+倒排+图）  │
+├──────────────────────────────────────────────────────┤
+│  解析层：SQL Parser（多方言）· 变量渲染 · 口径提炼       │
+├──────────────────────────────────────────────────────┤
+│  采集层：DolphinScheduler OpenAPI · 元数据 · 脚本仓库    │
+└──────────────────────────────────────────────────────┘</pre>
+
+  <h2>🚀 本地运行</h2>
+<pre>git clone git@github.com:Bumpc6k/sql-lineage-mvp.git
+cd sql-lineage-mvp
+python -m venv .venv &amp;&amp; .venv/bin/pip install -r requirements.txt
+
+# 扫描示例数仓并构建血缘图
+.venv/bin/python -m lineage.cli scan examples/warehouse --graph-out graph.json
+
+# 影响分析：改这张表会波及谁
+.venv/bin/python -m lineage.cli impact ods.ods_卷烟产量流水 --graph graph.json
+
+# 导出交互式 HTML
+.venv/bin/python -m lineage.cli viz graph.json --format html --out lineage.html</pre>
+
+  <h2>📅 演进路线</h2>
+  <table>
+    <tr><th>阶段</th><th>内容</th><th>状态</th></tr>
+    <tr><td>P1</td><td>SQL 静态解析（表级/字段级血缘 · 多方言）</td><td>✅ 已完成</td></tr>
+    <tr><td>P2</td><td>血缘图引擎 + 目录扫描 + 影响分析 + 可视化</td><td>✅ 已完成</td></tr>
+    <tr><td>P3</td><td>DolphinScheduler 旁路集成（任务级血缘）</td><td>✅ 已完成</td></tr>
+    <tr><td>P4</td><td>业务口径提炼 + 知识库 + 智能问数（Text-to-SQL）</td><td>🚧 规划中</td></tr>
+    <tr><td>P5</td><td>智能运维：异常检测 · SQL 反模式与优化建议</td><td>📋 规划中</td></tr>
+  </table>
+
+  <div class="foot">
+    源码：<a class="link" href="https://github.com/Bumpc6k/sql-lineage-mvp">github.com/Bumpc6k/sql-lineage-mvp</a>
+    &nbsp;·&nbsp; 技术栈：Python · sqlglot · DolphinScheduler OpenAPI · 纯标准库图引擎
+    &nbsp;·&nbsp; 205 个单元测试通过
+  </div>
+</div>
+</body>
+</html>
