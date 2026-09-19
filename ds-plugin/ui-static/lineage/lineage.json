@@ -1,0 +1,69 @@
+[
+  {
+    "name": "mode",
+    "fieldName": "mode",
+    "formType": "radio",
+    "title": "解析模式",
+    "value": "sql",
+    "validateList": [{ "required": true, "message": "解析模式必填", "trigger": "blur" }],
+    "options": [
+      { "label": "SQL 血缘解析 (parse)", "value": "sql", "disabled": false },
+      { "label": "下游影响分析 (impact)", "value": "impact", "disabled": false },
+      { "label": "上游溯源 (upstream)", "value": "upstream", "disabled": false }
+    ]
+  },
+  {
+    "name": "sql",
+    "fieldName": "sql",
+    "formType": "input",
+    "title": "SQL 内容",
+    "props": { "placeholder": "INSERT INTO dwd.t_order SELECT * FROM ods.t_order_src", "type": "textarea", "rows": 6 }
+  },
+  {
+    "name": "dialect",
+    "fieldName": "dialect",
+    "formType": "input",
+    "title": "SQL 方言",
+    "value": "hive",
+    "props": { "placeholder": "hive" }
+  },
+  {
+    "name": "table",
+    "fieldName": "table",
+    "formType": "input",
+    "title": "表名（impact / upstream 模式用）",
+    "props": { "placeholder": "dim.dim_plant" }
+  },
+  {
+    "name": "depth",
+    "fieldName": "depth",
+    "formType": "input",
+    "title": "分析深度",
+    "value": 3,
+    "props": { "placeholder": "3" }
+  },
+  {
+    "name": "graph",
+    "fieldName": "graph",
+    "formType": "input",
+    "title": "血缘图文件",
+    "value": "warehouse_graph.json",
+    "props": { "placeholder": "warehouse_graph.json" }
+  },
+  {
+    "name": "serviceUrl",
+    "fieldName": "serviceUrl",
+    "formType": "input",
+    "title": "血缘服务地址",
+    "value": "http://172.17.0.1:18080",
+    "props": { "placeholder": "http://172.17.0.1:18080" }
+  },
+  {
+    "name": "timeout",
+    "fieldName": "timeout",
+    "formType": "input",
+    "title": "HTTP 超时(ms)",
+    "value": 30000,
+    "props": { "placeholder": "30000" }
+  }
+]
