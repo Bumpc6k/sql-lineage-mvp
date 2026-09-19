@@ -165,6 +165,26 @@ if [ -f "$UI_CFG_SRC" ]; then
     done
     ok "UI 静态资源已同步"
   fi
+
+  # 前端 bundle 补丁：海豚前端把任务类型表写死在 bundle 里（setTaskTypes 用
+  # filter(e=>!!u[e]) 丢掉未知类型），不补丁的话 LINEAGE 不会出现在侧边栏。
+  if [ -d "$PLUGIN_DIR/ui-static/assets" ]; then
+    for f in "$PLUGIN_DIR"/ui-static/assets/*; do
+      bn="$(basename "$f")"
+      f_md5="$(md5sum "$f" | cut -d' ' -f1)"
+      c_md5="$(docker exec "$CONTAINER" sh -c "md5sum $DS_HOME/ui/assets/$bn 2>/dev/null | cut -d' ' -f1")"
+      if [ -z "$c_md5" ]; then
+        warn "容器内无 assets/$bn（海豚版本不同，前端补丁需重新适配）"
+      elif [ "$f_md5" != "$c_md5" ]; then
+        docker exec "$CONTAINER" sh -c "cp -n $DS_HOME/ui/assets/$bn $DS_HOME/ui/assets/$bn.orig 2>/dev/null || true" >/dev/null 2>&1
+        docker cp "$f" "$CONTAINER:$DS_HOME/ui/assets/$bn" >/dev/null 2>&1 \
+          && info "已应用前端补丁: assets/$bn" || bad "前端补丁失败: $bn"
+      else
+        info "前端补丁已是最新: assets/$bn"
+      fi
+    done
+    ok "前端任务类型表补丁已同步"
+  fi
 else
   warn "未找到 conf/dynamic-task-type-config.yaml，跳过"
 fi
