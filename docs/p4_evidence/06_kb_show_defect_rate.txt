@@ -1,0 +1,19 @@
+========================================================================
+指标口径：defect_rate（命中 1 条）
+========================================================================
+[1] 口径：不良品率 = CASE WHEN 产量 > 0 THEN ROUND(不良品量 / 产量, 6) ELSE 0 END
+     忠实表达式：不良品率 = CASE WHEN 产量 > 0 THEN ROUND(不良品量 / 产量, 6) ELSE 0 END
+指标名：不良品率 / defect_rate
+所属表：cdw.dwd_卷烟产量明细（dwd 层）
+口径类型：条件分支
+依赖字段：ods.ods_卷烟产量流水.output_qty(产量)、ods.ods_卷烟产量流水.defect_qty(不良品量)
+来源脚本：examples/warehouse/cdw/dwd_卷烟产量明细.sql 第 1 条语句（CTAS）；责任人：待指定；版本：v1
+置信度：0.85
+实现 SQL 片段：CASE WHEN p.output_qty > 0 THEN ROUND(p.defect_qty / p.output_qty, 6) ELSE 0 END AS defect_rate
+血缘链路（上游 → 本表）：
+    cdw.dwd_卷烟产量明细  →  dim.dim_brand
+    cdw.dwd_卷烟产量明细  →  dim.dim_plant
+    cdw.dwd_卷烟产量明细  →  ods.ods_卷烟产量流水  →  src.erp_生产工单明细
+------------------------------------------------------------------------
+检索：kb search defect_rate  /  kb ask "不良品率怎么算的"
+========================================================================

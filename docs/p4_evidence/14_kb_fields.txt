@@ -1,0 +1,27 @@
+========================================================================
+表 cdw.dwd_卷烟产量码段明细（卷烟产量（码段口径）明细，dwd 层）
+========================================================================
+字段 11 个 / 口径 7 条
+------------------------------------------------------------------------
+字段                      中文业务名               来源            角色        单位
+batch_no                批次号                 comment       target    -
+brand_code              牌号编码                comment       both      -
+chanliang_cig           产量（条）               exact_glossaryboth      -
+chanliang_qty           产量                  exact_glossaryboth      箱
+chongma_qty_total       重码量合计               comment       target    箱
+dama_cig_qty            打码量（条）              exact_glossarytarget    -
+dama_qty_total          打码量合计               comment       target    箱
+dama_rate               打码占比                exact_glossaryboth      -
+plant_code              生产厂编码               comment       both      -
+tiaoma_qty_total        跳码量合计               comment       target    箱
+work_order_no           工单号                 comment       target    -
+------------------------------------------------------------------------
+该表的指标口径：
+  - 产量（条） = (打码量 + 跳码量 - 重码量) * 250   [聚合]
+  - 产量 = 打码量 + 跳码量 - 重码量   [聚合]
+  - 重码量合计 = SUM(重码量)   [聚合]
+  - 打码量（条） = 打码量 * 250   [聚合]
+  - 打码量合计 = SUM(打码量)   [聚合]
+  - 打码占比 = CASE WHEN 打码量 + 跳码量 - 重码量 > 0 THEN ROUND(打码量 / (打码量 + 跳码量 - 重码量), 6) ELSE 0 END   [条件分支]
+  - 跳码量合计 = SUM(跳码量)   [聚合]
+========================================================================

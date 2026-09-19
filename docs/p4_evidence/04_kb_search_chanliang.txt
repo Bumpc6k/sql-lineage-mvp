@@ -1,0 +1,76 @@
+========================================================================
+知识库检索：产量
+========================================================================
+命中分布：metrics=8  fields=8  tables=5  terms=8  rules=8
+
+—— 指标口径（8 条）——
+  [130.0] 产量（chanliang_qty）  @ cdw.dwd_卷烟产量码段明细  [聚合]
+        口径：产量 = 打码量 + 跳码量 - 重码量
+        来源：examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第1条语句（命中 chinese_name·完全相等）
+  [130.0] 产量（output_qty）  @ ads.ads_码段产量日报  [聚合]
+        口径：产量 = SUM(产量)
+        来源：examples/knowledge_demo/ads/ads_码段产量日报.sql 第1条语句（命中 chinese_name·完全相等）
+  [130.0] 产量（output_qty）  @ ads.ads_经营指标驾驶舱  [聚合]
+        口径：产量 = SUM(产量)
+        来源：examples/warehouse/ads/ads_经营指标驾驶舱.sql 第2条语句（命中 chinese_name·完全相等）
+  [130.0] 产量（output_qty）  @ ads.ads_设备运行看板  [聚合]
+        口径：产量 = SUM(总产量)
+        来源：examples/warehouse/ads/ads_设备运行看板.sql 第1条语句（命中 chinese_name·完全相等）
+  [130.0] 产量（output_qty）  @ ods.ods_卷烟产量流水  [函数转换]
+        口径：产量 = CAST(产量 AS DECIMAL(18, 4))
+        来源：examples/warehouse/ods/ods_卷烟产量流水.sql 第1条语句（命中 chinese_name·完全相等）
+  [130.0] 产量（output_qty）  @ ods.ods_设备运行工况  [函数转换]
+        口径：产量 = CAST(产量 AS DECIMAL(18, 4))
+        来源：examples/warehouse/ods/ods_设备运行工况.sql 第1条语句（命中 chinese_name·完全相等）
+  [106.6] 产量（条）（chanliang_cig）  @ cdw.dwd_卷烟产量码段明细  [聚合]
+        口径：产量（条） = (打码量 + 跳码量 - 重码量) * 250
+        来源：examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第1条语句（命中 chinese_name·前缀命中）
+  [106.6] 产量（条）（output_qty_cig）  @ cdw.dwd_卷烟产量明细  [算术计算]
+        口径：产量（条） = 产量 * 250
+        来源：examples/warehouse/cdw/dwd_卷烟产量明细.sql 第1条语句（命中 chinese_name·前缀命中）
+
+—— 字段术语（8 条）——
+  [130.0] 产量  = ads.ads_产销存月报.output_qty   来源=exact_glossary
+  [130.0] 产量  = ads.ads_码段产量日报.output_qty   来源=comment
+  [130.0] 产量  = ads.ads_经营指标明细.output_qty   来源=exact_glossary
+  [130.0] 产量  = ads.ads_经营指标驾驶舱.output_qty   来源=exact_glossary
+  [130.0] 产量  = ads.ads_设备运行看板.output_qty   来源=exact_glossary
+  [130.0] 产量  = cdw.dwd_卷烟产量明细.output_qty   来源=exact_glossary
+  [130.0] 产量  = cdw.dwd_卷烟产量码段明细.chanliang_qty   来源=exact_glossary
+  [130.0] 产量  = cdw.dwd_设备运行明细.output_qty   来源=exact_glossary
+
+—— 表（5 张）——
+  [106.6] cdw.dws_产量汇总（产量汇总表）  分层=dws  字段数=5
+  [84.5] cdw.dwd_卷烟产量明细（卷烟产量明细事实表）  分层=dwd  字段数=12
+  [84.5] ods.ods_卷烟产量流水（卷烟产量贴源流水）  分层=ods  字段数=8
+  [84.5] cdw.dwd_卷烟产量码段明细（卷烟产量（码段口径）明细）  分层=dwd  字段数=11
+  [84.5] ads.ads_码段产量日报（码段产量日报）  分层=ads  字段数=6
+
+—— 业务术语（8 条）——
+  [130.0] chanliang_qty => 产量  来源=builtin  出现=1 次
+  [130.0] output_qty => 产量  来源=builtin  出现=12 次
+  [106.6] dws_产量汇总 => 产量汇总表  来源=builtin  出现=0 次
+  [106.6] chanliang_cig => 产量（条）  来源=builtin  出现=1 次
+  [106.6] output_qty_cig => 产量（条）  来源=builtin  出现=1 次
+  [84.5] max_chanliang_cig => 单工单最高产量  来源=builtin  出现=1 次
+  [84.5] dwd_卷烟产量明细 => 卷烟产量明细事实表  来源=builtin  出现=0 次
+  [84.5] ods_卷烟产量流水 => 卷烟产量贴源流水  来源=builtin  出现=0 次
+
+—— 业务规则（8 条）——
+  [90.2] [业务规则（注释）] 产量为 0 的工单不计入日报（脚本注释）
+        来源：examples/knowledge_demo/ads/ads_码段产量日报.sql 第1条语句
+  [90.2] [业务规则（注释）] 产量口径：打码量+跳码量-重码量（箱）（脚本注释）
+        来源：examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第1条语句
+  [45.5] [分区规则] 分区/时点条件：dt = 2026-01-01
+        来源：examples/knowledge_demo/ads/ads_码段产量日报.sql 第1条语句
+  [45.5] [过滤规则] 时点/分区过滤：d.dt = '2026-01-01' AND d.chanliang_qty > 0
+        来源：examples/knowledge_demo/ads/ads_码段产量日报.sql 第1条语句
+  [45.5] [关联规则] p LEFT JOIN bd ON p.brand_code = bd.brand_code
+        来源：examples/warehouse/cdw/dwd_卷烟产量明细.sql 第1条语句
+  [45.5] [关联规则] p LEFT JOIN pl ON p.plant_code = pl.plant_code
+        来源：examples/warehouse/cdw/dwd_卷烟产量明细.sql 第1条语句
+  [45.5] [分区规则] 分区/时点条件：dt = 2026-01-01
+        来源：examples/warehouse/cdw/dwd_卷烟产量明细.sql 第1条语句
+  [45.5] [过滤规则] 时点/分区过滤：p.dt = '2026-01-01'
+        来源：examples/warehouse/cdw/dwd_卷烟产量明细.sql 第1条语句
+========================================================================

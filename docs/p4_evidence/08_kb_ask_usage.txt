@@ -1,0 +1,17 @@
+========================================================================
+问题：哪些表用到了打码量
+意图：指标/字段使用方查询（metric_usage）    实体：打码量    模式：rule
+========================================================================
+「打码量」出现在 2 张表的字段定义里：
+
+  - ods.ods_卷烟码段流水：dama_qty(打码量)
+  - src.mes_码段采集接口：dama_qty(打码量)
+
+另有 5 条指标口径直接依赖它：
+  - 产量（条） = (打码量 + 跳码量 - 重码量) * 250  @ cdw.dwd_卷烟产量码段明细（examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+  - 产量 = 打码量 + 跳码量 - 重码量  @ cdw.dwd_卷烟产量码段明细（examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+  - 打码量（条） = 打码量 * 250  @ cdw.dwd_卷烟产量码段明细（examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+  - 打码量合计 = SUM(打码量)  @ cdw.dwd_卷烟产量码段明细（examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+  - 打码占比 = CASE WHEN 打码量 + 跳码量 - 重码量 > 0 THEN ROUND(打码量 / (打码量 + 跳码量 - 重码量), 6) ELSE 0 END  @ cdw.dwd_卷烟产量码段明细（examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+========================================================================
+提示：未配置 LLM_API_KEY，当前为规则模式（离线可用）；配置 LLM_API_KEY/LLM_BASE_URL/LLM_MODEL 可启用智能润色。

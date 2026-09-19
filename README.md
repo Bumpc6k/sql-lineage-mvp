@@ -1,15 +1,18 @@
 # SQL 血缘解析 MVP（sql-lineage-mvp）
 
-> 一个可运行的「SQL 静态血缘解析 + 血缘图谱分析」最小可用版本：
+> 一个可运行的「SQL 静态血缘解析 + 血缘图谱分析 + 业务口径知识库」最小可用版本：
 > 输入 Hive / Spark SQL 脚本（或一整个数仓脚本目录），输出
 > **表级血缘（输入表 → 输出表）**、**字段级血缘（目标字段 ← 来源字段）**、
 > **过滤条件 / 分区过滤**，并进一步构建 **全局血缘图谱**：
 > 上游溯源、下游影响分析、两表链路、环路检测、图谱统计，
-> 可导出 **Mermaid 图** 与 **自包含交互式 HTML**（离线双击即开）。
+> 可导出 **Mermaid 图** 与 **自包含交互式 HTML**（离线双击即开）；
+> 还能从脚本里**自动提炼业务口径**（如 `产量 = 打码量 + 跳码量 − 重码量`），
+> 落进 **可检索的知识库（SQLite）**，支持关键词检索 / 口径溯源 / 自然语言问数 / Markdown 知识文档导出。
 >
 > **P1 已完成**（SQL 静态解析 + 血缘提取）、**P2 已完成**（图谱引擎 + 影响分析 + 可视化 + 目录批量扫描）、
-> **P3 已完成**（旁路对接 DolphinScheduler OpenAPI：工程 → 工作流 → 任务节点 → 表 的多层血缘），
-> P4 规划见文末「后续规划」。
+> **P3 已完成**（旁路对接 DolphinScheduler OpenAPI：工程 → 工作流 → 任务节点 → 表 的多层血缘）、
+> **P4 已完成**（业务口径知识提炼 + 知识库：口径提炼 / 术语推断 / 检索 / 问数 / Markdown 导出 / HTTP 端点），
+> 后续规划见文末「后续规划」。
 
 ---
 
@@ -22,7 +25,8 @@
 | P1 范围（已完成） | SQL 解析 + 表级血缘 + 字段级血缘 + 过滤条件提取 + JSON/文本输出 + 单元测试。 |
 | P2 范围（已完成） | 目录批量扫描 → 内存血缘图引擎 → 上游溯源 / 下游影响 / 路径 / 环路 / 统计 → Mermaid + 自包含交互式 HTML 可视化；**零新增运行期依赖**（纯 Python 邻接表 + 原生 JS canvas 渲染）。 |
 | P3 范围（已完成） | **旁路对接 DolphinScheduler**：只读海豚 OpenAPI（不改海豚一行源码）拉取工作流 / 任务定义，解析 SQL 与 SHELL 任务里的脚本，构建 **工程 → 工作流 → 任务节点 → 表** 多层血缘；给出工作流依赖拓扑（表血缘推导 + 海豚原生依赖）、任务读 / 写表清单，反向查询「这张表被谁加工」；`ds` 子命令 + 真实演示数据 + mock/集成双层测试。仍然**零新增运行期依赖**（只用标准库 `urllib`）。 |
-| 明确不做的 | 不接图数据库（用内存图 + JSON 落盘）、不接元数据（`SELECT *` 仍无法展开）、不做动态分区 / 运行期语义分析（P4 规划）、不替代调度（只读不写、不触发实例）。 |
+| P4 范围（已完成） | **业务口径知识提炼 + 知识库**：从字段级血缘的 `expression` 提炼指标口径（聚合 / 算术 / 比率 / 条件 / 窗口），归一化成中文可读公式（`产量 = 打码量 + 跳码量 - 重码量`）；字段名 → 中文业务名（脚本注释 > 内置词典 > 命名规则 > 待确认）；从 WHERE / JOIN / 注释提炼业务规则；落进 **SQLite 知识库**（幂等 rebuild / 增量 upsert / 内容指纹），提供 `kb` 子命令（build/summary/search/show/ask/export/terms/fields）、HTTP 端点（`/kb/search`、`/kb/ask`、`/kb/summary`、`/kb/metric`）与《业务口径知识库.md》导出。仍然**零新增运行期依赖**（`sqlite3` + `urllib` + `http.server` 全是标准库）。 |
+| 明确不做的 | 不接图数据库（用内存图 + JSON 落盘）、不接元数据（`SELECT *` 仍无法展开）、不做动态分区 / 运行期语义分析、不做口径的语义聚类与跨层一致性校验（P4 只做「语法级」提炼）、不替代调度（只读不写、不触发实例）。 |
 
 **技术选型**：Python 3.10+ / [sqlglot](https://github.com/tobymao/sqlglot)（多方言 AST 解析，`hive` / `spark` / `doris` / `postgres` 均可切换）。
 
@@ -1126,7 +1130,657 @@ $ .venv/bin/python -m lineage.cli ds sync --base-url http://127.0.0.1:1/dolphins
 
 ---
 
-## 6. 支持的 SQL 形态
+## 6. 业务口径知识提炼 + 知识库（P4，已完成）
+
+数仓里最贵的资产不是表，是**散落在几百个脚本里的业务口径**。比如这条：
+
+```sql
+SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty
+```
+
+它就是「**产量 = 打码量 + 跳码量 − 重码量**」这条公司统一口径的唯一权威定义 ——
+但没有文档、写在脚本里、改口径要翻代码、新人问「产量怎么算的」没人答得上来。
+
+P4 做的事：**把脚本里的口径自动提炼出来，落进可检索的知识库，并能用自然语言问出来。**
+
+| 能力 | 命令 | 产物 |
+| --- | --- | --- |
+| 口径提炼 | `kb build` | SQLite 知识库（`data/knowledge.db`） |
+| 概览 | `kb summary` | 口径条数 / 分层与类型分布 / 口径最多的表 |
+| 检索 | `kb search <关键词>` | 按表名 / 字段名 / 中文名 / 口径关键词命中 |
+| 口径溯源 | `kb show <指标>` | 公式 + 依赖字段 + 来源脚本 + 血缘链路 |
+| 问数 | `kb ask "<问题>"` | 规则模式（离线）+ 可选 LLM 润色 |
+| 知识文档 | `kb export --md` | 《业务口径知识库.md》 |
+| HTTP | `POST /kb/search`、`POST /kb/ask`、`GET /kb/summary`、`GET /kb/metric` | 给前端 / 其他系统调 |
+
+**零新增运行期依赖**：SQLite 用标准库 `sqlite3`，HTTP 用标准库 `http.server`，
+LLM 调用用标准库 `urllib`（且无 key 时自动降级，不报错）。
+
+---
+
+### 6.1 快速上手（4 条命令）
+
+```bash
+# ① 建库：扫描脚本目录 → 提炼口径 → 写入 SQLite（默认扫 examples/warehouse + examples/knowledge_demo）
+.venv/bin/python -m lineage.cli kb build
+
+# ② 看看库里有什么
+.venv/bin/python -m lineage.cli kb summary
+
+# ③ 问口径 / 查指标
+.venv/bin/python -m lineage.cli kb search 产量
+.venv/bin/python -m lineage.cli kb show chanliang_qty
+.venv/bin/python -m lineage.cli kb ask "产量怎么算的"
+
+# ④ 导出人类可读的知识文档
+.venv/bin/python -m lineage.cli kb export --md docs/业务口径知识库.md
+```
+
+`kb` 子命令全集：
+
+```text
+build    扫描 SQL 目录 → 提炼指标口径 / 字段术语 / 业务规则 → 写入 SQLite
+summary  知识库概览（口径条数、分层/类型分布、口径最多的表）
+search   关键词 / 模糊检索（按表名、字段名、中文名、口径关键词）
+show     某个指标口径详情：公式 + 依赖字段 + 来源脚本 + 血缘链路
+ask      自然语言问数：口径怎么算 / 哪些表用到某字段 / 某表从哪来 / 有哪些指标
+export   导出《业务口径知识库.md》（也可导出整库 JSON）
+terms    业务术语词典（--pending 只看待确认）
+fields   某张表的字段清单（含中文业务名与名来源）
+```
+
+常用开关：`--db PATH`（库路径，默认 `data/knowledge.db`，环境变量 `KB_DB` 可覆盖）、
+`--glossary PATH`（叠加自定义词典）、`--incremental`（增量模式）、`--md-out PATH`（建库顺手导出文档）、
+`-o json`（结构化输出）。
+
+---
+
+### 6.2 `kb build`：从脚本提炼口径（真实输出）
+
+```bash
+$ .venv/bin/python -m lineage.cli kb build
+```
+
+```text
+========================================================================
+业务口径知识库构建报告（rebuild）
+========================================================================
+扫描目录：/root/projects/sql-lineage-mvp/examples/warehouse, /root/projects/sql-lineage-mvp/examples/knowledge_demo
+SQL 文件：24 个    语句：28 条    耗时 0.108 秒
+内置词典：v1.0.0（208 条词条）
+------------------------------------------------------------------------
+指标口径（metrics）  : 75 条   按类型 聚合=41 函数转换=17 条件分支=8 算术计算=5 比率=2 窗口函数=2
+按分层分布           : ads=23 dwd=15 dws=24 ods=13
+字段（fields）       : 298 个（其中 296 个有中文业务名）
+表（tables）         : 38 张
+业务术语（terms）    : 139 条   来源 builtin=131 rule=7 pending=1
+待确认术语           : 1 个（需人工补充词典）
+业务规则（rules）    : 76 条
+表级血缘（edges）    : 44 条
+脚本档案（scripts）  : 24 个
+------------------------------------------------------------------------
+知识库文件：/root/projects/sql-lineage-mvp/data/knowledge.db
+内容指纹  ：f230aebe5750676b（同样输入 rebuild 后指纹不变 = 幂等）
+========================================================================
+下一步：kb summary / kb search 产量 / kb show 产量 / kb ask "产量怎么算的"
+========================================================================
+```
+
+只扫 P2 的 `examples/warehouse/`（21 个文件）也能出 **64 条口径 / 261 个字段 / 66 条规则**：
+
+```bash
+$ .venv/bin/python -m lineage.cli kb build examples/warehouse --db /tmp/kb_warehouse_only.db
+```
+
+```text
+SQL 文件：21 个    语句：24 条    耗时 0.098 秒
+指标口径（metrics）  : 64 条   按类型 聚合=31 函数转换=17 条件分支=7 算术计算=5 比率=2 窗口函数=2
+按分层分布           : ads=19 dwd=8 dws=24 ods=13
+字段（fields）       : 261 个（其中 261 个有中文业务名）
+业务术语（terms）    : 137 条   来源 builtin=131 rule=6
+业务规则（rules）    : 66 条
+表级血缘（edges）    : 41 条
+```
+
+> 演示目录 `examples/knowledge_demo/`（3 个脚本）是专门补的「码段产量」场景，
+> 里面写着 `SUM(dama_qty) + SUM(tiaoma_qty) - SUM(chongma_qty) AS chanliang_qty`，
+> 用来演示「口径 = 打码量 + 跳码量 − 重码量」这类中文口径的提炼。
+
+---
+
+### 6.3 `kb summary`：知识库概览
+
+```bash
+$ .venv/bin/python -m lineage.cli kb summary
+```
+
+```text
+========================================================================
+业务口径知识库概览
+========================================================================
+库文件：/root/projects/sql-lineage-mvp/data/knowledge.db（结构版本 1.0.0）
+最近建库：2026-09-19 23:24:47+0800
+------------------------------------------------------------------------
+指标口径 75 条 / 字段 298 个（中文化 296）/ 表 38 张
+业务术语 139 条（待确认 1）/ 业务规则 76 条 / 脚本 24 个 / 表级血缘 44 条
+口径类型分布：聚合=41  函数转换=17  条件分支=8  算术计算=5  窗口函数=2  比率=2
+口径分层分布：ads=23  dwd=15  dws=24  ods=13
+术语来源分布：builtin=131  rule=7  pending=1
+------------------------------------------------------------------------
+口径最多的表：
+  ads.ads_经营指标驾驶舱                  经营指标驾驶舱          [ads] 7 条口径
+  cdw.dwd_卷烟产量码段明细                 卷烟产量（码段口径）明细     [dwd] 7 条口径
+  ads.ads_设备运行看板                   设备运行看板           [ads] 6 条口径
+  cdw.dws_烟叶采购供应商汇总                烟叶采购供应商汇总表       [dws] 5 条口径
+  cdw.dws_税利汇总                     税利汇总表            [dws] 5 条口径
+  cdw.dws_设备效率汇总                   设备效率汇总表          [dws] 5 条口径
+  ...
+========================================================================
+```
+
+---
+
+### 6.4 `kb search`：关键词 / 模糊检索
+
+```bash
+$ .venv/bin/python -m lineage.cli kb search 产量
+```
+
+```text
+========================================================================
+知识库检索：产量
+========================================================================
+命中分布：metrics=8  fields=8  tables=5  terms=8  rules=8
+
+—— 指标口径（8 条）——
+  [130.0] 产量（chanliang_qty）  @ cdw.dwd_卷烟产量码段明细  [聚合]
+        口径：产量 = 打码量 + 跳码量 - 重码量
+        来源：examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第1条语句（命中 chinese_name·完全相等）
+  [130.0] 产量（output_qty）  @ ads.ads_码段产量日报  [聚合]
+        口径：产量 = SUM(产量)
+        来源：examples/knowledge_demo/ads/ads_码段产量日报.sql 第1条语句（命中 chinese_name·完全相等）
+  [130.0] 产量（output_qty）  @ ads.ads_经营指标驾驶舱  [聚合]
+        口径：产量 = SUM(产量)
+        来源：examples/warehouse/ads/ads_经营指标驾驶舱.sql 第2条语句（命中 chinese_name·完全相等）
+  [130.0] 产量（output_qty）  @ ads.ads_设备运行看板  [聚合]
+        口径：产量 = SUM(总产量)
+        来源：examples/warehouse/ads/ads_设备运行看板.sql 第1条语句（命中 chinese_name·完全相等）
+  [130.0] 产量（output_qty）  @ ods.ods_卷烟产量流水  [函数转换]
+        口径：产量 = CAST(产量 AS DECIMAL(18, 4))
+        来源：examples/warehouse/ods/ods_卷烟产量流水.sql 第1条语句（命中 chinese_name·完全相等）
+  [106.6] 产量（条）（chanliang_cig）  @ cdw.dwd_卷烟产量码段明细  [聚合]
+        口径：产量（条） = (打码量 + 跳码量 - 重码量) * 250
+        来源：examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第1条语句（命中 chinese_name·前缀命中）
+
+—— 字段术语（8 条）——
+  [130.0] 产量  = ads.ads_产销存月报.output_qty   来源=exact_glossary
+  [130.0] 产量  = ads.ads_码段产量日报.output_qty   来源=comment
+  [130.0] 产量  = cdw.dwd_卷烟产量码段明细.chanliang_qty   来源=exact_glossary
+  ...
+
+—— 表（5 张）——
+  [106.6] cdw.dws_产量汇总（产量汇总表）  分层=dws  字段数=5
+  [84.5] cdw.dwd_卷烟产量明细（卷烟产量明细事实表）  分层=dwd  字段数=12
+  ...
+
+—— 业务术语（8 条）——
+  [130.0] chanliang_qty => 产量  来源=builtin  出现=1 次
+  [130.0] output_qty => 产量  来源=builtin  出现=12 次
+  ...
+
+—— 业务规则（8 条）——
+  [90.2] [业务规则（注释）] 产量口径：打码量+跳码量-重码量（箱）（脚本注释）
+        来源：examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第1条语句
+  ...
+========================================================================
+```
+
+检索的「为什么搜出来」是可解释的：每条结果都带 `score`（加权得分）与
+`matched_field·match_reason`（命中的字段与原因：完全相等 / 前缀命中 / 子串命中 / 中文字序命中）。
+中文没有词边界，所以没有用 FTS5，而是「多字段加权 + 中文字序包含」——
+搜索 `不良率` 能命中 `不良品率`，搜索 `产量` 能命中 `总产量`。
+
+---
+
+### 6.5 `kb show`：口径溯源（公式 + 依赖 + 来源 + 血缘）
+
+```bash
+$ .venv/bin/python -m lineage.cli kb show chanliang_qty
+```
+
+```text
+========================================================================
+指标口径：chanliang_qty（命中 1 条）
+========================================================================
+[1] 口径：产量 = 打码量 + 跳码量 - 重码量
+     忠实表达式：产量 = SUM(打码量) + SUM(跳码量) - SUM(重码量)
+指标名：产量 / chanliang_qty
+所属表：cdw.dwd_卷烟产量码段明细（dwd 层）
+口径类型：聚合（聚合函数 SUM）
+依赖字段：ods.ods_卷烟码段流水.chongma_qty(重码量)、ods.ods_卷烟码段流水.dama_qty(打码量)、ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+来源脚本：examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句（INSERT_SELECT）；责任人：待指定；版本：v1
+置信度：0.9
+备注：脚本注释：产量口径：打码量+跳码量-重码量（箱）；口径本体已剥离一致的聚合函数 SUM()（共 3 个依赖字段）
+实现 SQL 片段：SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty
+血缘链路（上游 → 本表）：
+    cdw.dwd_卷烟产量码段明细  →  ods.ods_卷烟码段流水  →  src.mes_码段采集接口
+------------------------------------------------------------------------
+检索：kb search chanliang_qty  /  kb ask "产量怎么算的"
+========================================================================
+```
+
+> 注意 `口径` 与 `忠实表达式` 的差别：**口径**是给业务看的人话（剥掉一致的聚合壳）；
+> **忠实表达式**是给开发看的原始语义（保留 `SUM`）。两者都存库，谁都不丢。
+
+---
+
+### 6.6 `kb ask`：自然语言问数
+
+```bash
+$ .venv/bin/python -m lineage.cli kb ask "产量怎么算的"
+```
+
+```text
+========================================================================
+问题：产量怎么算的
+意图：指标口径查询（metric_formula）    实体：产量    模式：rule
+========================================================================
+【产量】计算口径（共 6 条相关口径，列前 3 条）
+
+[1] 口径：产量 = 打码量 + 跳码量 - 重码量
+     忠实表达式：产量 = SUM(打码量) + SUM(跳码量) - SUM(重码量)
+指标名：产量 / chanliang_qty
+所属表：cdw.dwd_卷烟产量码段明细（dwd 层）
+口径类型：聚合（聚合函数 SUM）
+依赖字段：ods.ods_卷烟码段流水.chongma_qty(重码量)、ods.ods_卷烟码段流水.dama_qty(打码量)、ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+来源脚本：examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句（INSERT_SELECT）；责任人：待指定；版本：v1
+置信度：0.9
+备注：脚本注释：产量口径：打码量+跳码量-重码量（箱）；口径本体已剥离一致的聚合函数 SUM()（共 3 个依赖字段）
+实现 SQL 片段：SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty
+血缘链路（上游 → 本表）：
+    cdw.dwd_卷烟产量码段明细  →  ods.ods_卷烟码段流水  →  src.mes_码段采集接口
+
+[2] 口径：产量 = SUM(产量)
+     ...
+========================================================================
+提示：未配置 LLM_API_KEY，当前为规则模式（离线可用）；配置 LLM_API_KEY/LLM_BASE_URL/LLM_MODEL 可启用智能润色。
+```
+
+换几个问法（都走同一套意图识别 + 知识库检索）：
+
+```bash
+$ .venv/bin/python -m lineage.cli kb ask "哪些表用到了打码量"
+```
+
+```text
+问题：哪些表用到了打码量
+意图：指标/字段使用方查询（metric_usage）    实体：打码量    模式：rule
+「打码量」出现在 2 张表的字段定义里：
+
+  - ods.ods_卷烟码段流水：dama_qty(打码量)
+  - src.mes_码段采集接口：dama_qty(打码量)
+
+另有 5 条指标口径直接依赖它：
+  - 产量（条） = (打码量 + 跳码量 - 重码量) * 250  @ cdw.dwd_卷烟产量码段明细（examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+  - 产量 = 打码量 + 跳码量 - 重码量  @ cdw.dwd_卷烟产量码段明细（examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+  - 打码量（条） = 打码量 * 250  @ cdw.dwd_卷烟产量码段明细（...）
+  - 打码量合计 = SUM(打码量)  @ cdw.dwd_卷烟产量码段明细（...）
+  - 打码占比 = CASE WHEN 打码量 + 跳码量 - 重码量 > 0 THEN ROUND(打码量 / (打码量 + 跳码量 - 重码量), 6) ELSE 0 END  @ ...
+```
+
+```bash
+$ .venv/bin/python -m lineage.cli kb ask "卷烟产量流水从哪来"
+```
+
+```text
+问题：卷烟产量流水从哪来
+意图：上游溯源（upstream）    实体：卷烟产量流水    模式：rule
+「ods.ods_卷烟产量流水」的上游血缘（1 条链路）：
+
+  ods.ods_卷烟产量流水  →  src.erp_生产工单明细
+```
+
+支持的问法（规则模式，离线可用）：
+
+| 问法 | 意图 | 回答 |
+| --- | --- | --- |
+| 产量怎么算的 / 不良品率的口径 / 单箱税利怎么来的 | `metric_formula` | 口径公式 + 依赖字段 + 来源脚本 + 血缘链路 |
+| 哪些表用到了打码量 / 打码量用在哪些表 | `metric_usage` | 出现该字段的表 + 依赖它的口径清单 |
+| X 从哪来 / X 的上游 | `upstream` | 表级血缘链路（从源系统一路到本表） |
+| 改 X 影响谁 / X 的下游 | `downstream` | 下游表清单 |
+| dwd_卷烟产量明细有哪些字段 | `table_fields` | 字段清单 + 中文业务名 |
+| 产量是什么意思 | `term_meaning` | 术语解释 + 涉及的表 + 相关口径 |
+| 有哪些指标 / 指标清单 | `list_metrics` | 全库口径清单与分布 |
+
+**LLM 是可插拔的**：设置了 `LLM_API_KEY`（可选 `LLM_BASE_URL` / `LLM_MODEL`）后，
+用 OpenAI 兼容接口把「检索到的知识」润色成答案；任何异常（没 key、网络不通、返回格式不对）
+都**静默降级回规则模式**，问答永远可用。测试里专门覆盖了「配了 key 但接口不可达 → 降级」这条路径。
+
+---
+
+### 6.7 《业务口径知识库.md》导出
+
+```bash
+$ .venv/bin/python -m lineage.cli kb export --md docs/业务口径知识库.md
+[已导出] Markdown 知识文档 -> /root/projects/sql-lineage-mvp/docs/业务口径知识库.md（168.0 KB / 2195 行）
+         内容：75 条口径 / 298 个字段 / 139 条术语 / 76 条规则
+```
+
+文档前 30 行（真实输出）：
+
+```markdown
+# 业务口径知识库
+
+> 由 sql-lineage-mvp `kb export --md` 自动生成：从数仓 SQL 脚本里提炼业务口径、
+> 字段术语与业务规则。**改动脚本后建议重跑 `kb build`**，本文档随库一起刷新。
+
+- 生成时间：2026-09-19 23:24:48
+- 知识库文件：`/root/projects/sql-lineage-mvp/data/knowledge.db`（结构版本 1.0.0，最近建库 2026-09-19 23:24:47+0800）
+- 规模：**75 条指标口径 / 298 个字段 / 38 张表 / 139 条业务术语 / 76 条业务规则 / 24 个脚本**
+- 字段中文化覆盖：296/298，待确认术语 1 个
+
+## 0. 概览
+
+### 0.1 指标口径按分层分布
+
+| 分层 | 含义 | 口径条数 |
+| --- | --- | --- |
+| ods | ODS 贴源层 | 13 |
+| dwd | DWD 明细层 | 15 |
+| dws | DWS 汇总层 | 24 |
+| ads | ADS 应用层 | 23 |
+| **合计** | — | **75** |
+
+### 0.2 指标口径按类型分布
+
+| 口径类型 | 条数 | 说明 |
+| --- | --- | --- |
+| 聚合 | 41 | SUM / COUNT / AVG / MAX / MIN 等聚合 |
+| 函数转换 | 17 | COALESCE / CAST / ROUND 等函数包装 |
+| 条件分支 | 8 | CASE WHEN 条件判定（含条件计数） |
+| 算术计算 | 5 | 加减乘除组合（a+b-c） |
+```
+
+文档结构（8 节）：`0 概览`（分层 / 类型 / 口径最多的表）→ `1 指标口径总览`（按分层 → 表 → 表格）
+→ `2 指标口径明细`（每条：口径 / 忠实表达式 / 依赖字段 / 来源脚本 / 血缘链路 / 检索命令）
+→ `3 业务术语词典` → `4 字段清单（按表）` → `5 业务规则` → `6 待确认与需复核术语`
+→ `7 脚本档案` → `8 已知限制`。其中第 2 节正文长这样：
+
+```markdown
+### 2.1 产销率（`ads.ads_产销存月报.sale_output_ratio`）
+
+- **口径**：`产销率 = ROUND(销量 / NULLIF(产量, 0), 4)`
+- **口径类型**：比率；涉及函数：NULLIF、ROUND
+- **依赖字段**：`cdw.dws_产销存汇总.sale_qty`（销量）、`cdw.dws_产销存汇总.output_qty`（产量）
+- **来源**：`examples/warehouse/ads/ads_产销存月报.sql` 第 1 条语句（INSERT_SELECT）；责任人：待指定；版本：v1；置信度：0.9
+- **实现片段**：`ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio`
+- **血缘链路（示例）**：
+    ads.ads_产销存月报  →  cdw.dws_产销存汇总  →  ...
+- 检索：`kb show sale_output_ratio` / `kb ask "产销率怎么算的"`
+```
+
+---
+
+### 6.8 HTTP 端点（给前端 / 其他系统调）
+
+在原来的 `/parse`、`/impact`、`/upstream` 之外新增 4 个知识库端点（旧端点行为不变）：
+
+```text
+GET  /kb/summary                业务口径知识库概览
+POST /kb/search                 {"query": "产量", "kinds": ["metrics"], "limit": 20}
+POST /kb/ask                    {"question": "产量怎么算的", "use_llm": "auto"}
+GET  /kb/metric?name=产量        指标口径详情（公式 + 依赖 + 血缘链路）
+```
+
+启动（与 P3 插件共用同一个服务、同一个端口）：
+
+```bash
+tmux new -s lineage-api -d
+tmux send-keys -t lineage-api '.venv/bin/python -m lineage.api_server --host 0.0.0.0 --port 18080' Enter
+```
+
+真实 curl 输出（字段有截断，`…` 表示省略）：
+
+```bash
+$ curl -s http://127.0.0.1:18080/kb/summary
+{"success": true, "db": "/root/projects/sql-lineage-mvp/data/knowledge.db", "schema_version": "1.0.0",
+ "built_at": "2026-09-19 23:24:47+0800",
+ "counts": {"kb_scripts": 24, "kb_tables": 38, "kb_fields": 298, "kb_metrics": 75, "kb_rules": 76,
+            "kb_terms": 139, "kb_table_lineage": 44, "pending_terms": 1, "fields_with_chinese": 296},
+ "metric_by_type": {"聚合": 41, "函数转换": 17, "条件分支": 8, "算术计算": 5, "窗口函数": 2, "比率": 2},
+ "metric_by_layer": {"ads": 23, "dwd": 15, "dws": 24, "ods": 13},
+ "term_by_source": {"builtin": 131, "rule": 7, "pending": 1},
+ "top_tables": [{"name": "ads.ads_经营指标驾驶舱", "chinese": "经营指标驾驶舱", "layer": "ads", "metric_count": 7}, …]}
+
+$ curl -s -X POST http://127.0.0.1:18080/kb/search -H 'Content-Type: application/json' \
+       -d '{"query":"产量","kinds":["metrics"],"limit":3}'
+{"success": true, "query": "产量", "total": 3, "counts": {"metrics": 3}, "groups": {"metrics": [
+  {"metric_name": "chanliang_qty", "table_name": "cdw.dwd_卷烟产量码段明细", "chinese_name": "产量",
+   "layer": "dwd", "metric_type": "聚合", "aggregate_func": "SUM",
+   "formula": "产量 = 打码量 + 跳码量 - 重码量",
+   "formula_full": "产量 = SUM(打码量) + SUM(跳码量) - SUM(重码量)",
+   "depends_on": [{"chinese_name": "打码量", "column": "dama_qty", "table": "ods.ods_卷烟码段流水"}, …],
+   "source_file": "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql", "source_stmt": 1,
+   "confidence": 0.9, "unit": "箱", "score": 130.0, "match_reason": "完全相等"}, …]}}
+
+$ curl -s -X POST http://127.0.0.1:18080/kb/ask -H 'Content-Type: application/json' \
+       -d '{"question":"产量怎么算的"}'
+{"success": true, "question": "产量怎么算的", "intent": "metric_formula", "intent_label": "指标口径查询",
+ "entity": "产量", "mode": "rule",
+ "answer": "【产量】计算口径（共 6 条相关口径，列前 3 条）\n\n[1] 口径：产量 = 打码量 + 跳码量 - 重码量\n     忠实表达式：产量 = SUM(打码量) + SUM(跳码量) - SUM(重码量)\n…",
+ "llm": {"enabled": false, "model": null, "base_url": null},
+ "evidence": {"entity": "产量", "metrics": [ … ]}}
+
+$ curl -s http://127.0.0.1:18080/health
+{"success": true, "service": "lineage-api",
+ "endpoints": ["/impact", "/kb/ask", "/kb/metric", "/kb/search", "/kb/summary", "/parse", "/upstream"],
+ "get_endpoints": ["/health", "/kb/metric", "/kb/summary"],
+ "default_graph": "warehouse_graph.json", "graph_exists": true,
+ "kb_db": "/root/projects/sql-lineage-mvp/data/knowledge.db", "kb_db_exists": true}
+```
+
+原端点回归验证（未受影响）：
+
+```bash
+$ curl -s -X POST http://127.0.0.1:18080/upstream -H 'Content-Type: application/json' \
+       -d '{"table":"ads.ads_经营指标驾驶舱"}'
+{"success": true, "direction": "upstream", "start_table": "ads.ads_经营指标驾驶舱",
+ "graph_file": "warehouse_graph.json", "found": true,
+ "direct": ["ads.ads_烟叶供应商排名", "ads.ads_经营指标明细", "ads.ads_设备运行看板"], …}
+```
+
+> 原始（未截断）的 curl 输出见 `docs/p4_evidence/16_http.txt`；
+> 本节的其它输出也都留了原文：`docs/p4_evidence/`（可用 `bash scripts/kb_collect_evidence.sh` 一键重跑）。
+
+---
+
+### 6.9 提炼规则：口径是怎么算出来的（可解释、可复现，不依赖 LLM）
+
+输入是 P1 的字段级血缘（`column_lineage[].expression`）+ P2 的血缘图 + SQL 注释，
+整个提炼过程是**确定性规则**，没有模型、没有随机性、离线可跑。
+
+**① 什么样的字段才算「口径」？**
+
+`a.col AS col` 这种直取**不产生口径**（它只是搬运，没有加工逻辑）。只有带加工的才算：
+
+| 指标类型 | 判定 | 例子 |
+| --- | --- | --- |
+| 窗口函数 | 含 `OVER(` | `ROW_NUMBER() OVER (ORDER BY c.total_amt DESC)` |
+| 条件分支 | 含 `CASE WHEN` | `CASE WHEN output_qty > 0 THEN ROUND(defect_qty / output_qty, 6) ELSE 0 END` |
+| 比率 | 含除号 | `ROUND(sale_qty / NULLIF(output_qty, 0), 4)` |
+| 聚合 | 含 `SUM/COUNT/AVG/MAX/MIN` | `SUM(dama_qty) + SUM(tiaoma_qty) - SUM(chongma_qty)` |
+| 算术计算 | 含 `+ - *` | `output_qty * 250`、`output_qty - sale_qty` |
+| 函数转换 | 含其它函数 | `COALESCE(s.total_sale_qty, 0)`、`CAST(x AS DECIMAL(18,4))` |
+
+**② 表达式怎么归一化成人话？**
+
+```text
+SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty   ← 解析器原始 expression
+    │ ① 去 AS 别名、去表别名前缀（db.table.column → column）
+    ▼
+SUM(dama_qty) + SUM(tiaoma_qty) - SUM(chongma_qty)                          ← expression_normalized（忠实）
+    │ ② 所有聚合函数一致（都是 SUM）→ 剥掉聚合壳，聚合类型记到 metric_type 里
+    ▼
+dama_qty + tiaoma_qty - chongma_qty
+    │ ③ 字段名换成中文业务名（词典 / 注释 / 命名规则）
+    ▼
+产量 = 打码量 + 跳码量 - 重码量                                              ← 量化的「口径」
+```
+
+第 ② 步刻意保守：**只有全部聚合函数一致时才剥壳**（`SUM(a)/MAX(b)` 这种混合聚合不剥，
+宁可不给，也不给一个误导性的口径）；而且剥完之后如果退化成 `产量 = 产量`（`SUM(output_qty)`），
+就退回显示 `SUM(产量)`。忠实表达式始终保存在库里，随时可查原始语义。
+
+**③ 字段的中文业务名从哪来？**（优先级从高到低）
+
+| 来源 | 规则 | 例子 | 置信度 |
+| --- | --- | --- | --- |
+| `comment` | 脚本里的行内注释（作者自己写的业务名最权威） | `CAST(a.output_qty AS DECIMAL) AS output_qty, -- 产量（箱）` | 0.9 |
+| `exact_glossary` | 内置词典精确命中（`lineage/knowledge/glossary.json`，208 条词条，可维护） | `defect_rate → 不良品率` | 1.0 |
+| `rule` | 命名规则组合：词根 / 前缀 / 后缀 | `total_stock_amt → 总 + 库存 + 金额` | 0.7 |
+| `rule_partial` | 部分词根命中（有英文残留，建议复核） | — | 0.45 |
+| `pending` | 都不命中 → **待确认清单**，人工补词典 | `bz → (待确认)` | 0.0 |
+
+注释里如果写的是「箱转条」这类**口径说明**而不是字段名，会以词典正式名为准（`产量（条）`），
+说明进备注；注释里出现「待确认 / 历史遗留 / TODO」时不会把这句话当字段名，而是走待确认流程。
+
+**④ 业务规则**：`WHERE`（空值过滤 / 时点分区 / 时间范围 / 枚举 / 状态）、`JOIN ON`（关联规则）、
+分区子句（分区规则）、以及带「仅统计 / 只统计 / 剔除 / 视为 / 口径」等关键词的行内注释
+（业务规则（注释））。例如：
+
+```text
+[业务规则（注释）] 仅统计有效扫码（剔除作废扫码）（脚本注释）  ←  from  c.scan_status = 'VALID'  -- 仅统计有效扫码（剔除作废扫码）
+[过滤规则] 空值过滤：c.dama_qty IS NOT NULL（该字段为空视为脏数据）
+[分区规则] 分区/时点条件：dt = 2026-01-01
+```
+
+---
+
+### 6.10 知识库数据模型（SQLite，8 张表）
+
+```
+data/knowledge.db
+├── kb_scripts        脚本档案：文件 → 语句数 / 分层 / 产出表 / 读取表 / 文件头注释
+├── kb_tables         表：库.表名 / 分层 / 中文名 / 名来源 / 说明 / 字段数 / 是否源表叶子表 / 来源脚本
+├── kb_fields        字段：表.字段 / 中文业务名 / 名来源 / 置信度 / 单位 / 角色(source|target|both)
+├── kb_metrics       指标口径：指标名 / 中文名 / 分层 / 口径类型 / 聚合函数 / 函数清单
+│                        / expression_raw / expression_normalized / formula / formula_full
+│                        / depends_on(JSON) / source_file / source_stmt / owner / version / confidence / notes
+├── kb_rules         业务规则：类型 / 说明 / 表达式 / 作用表 / 来源脚本与语句 / 注释
+├── kb_terms         业务术语：术语 / 中文名 / 类别(field|table) / 来源 / 置信度 / 出现的表 / 出现次数
+├── kb_table_lineage 表级血缘：source_table → target_table / 来源脚本 / 字段映射条数
+└── kb_meta          元信息：schema_version / built_at / dialect / dirs / 词典版本 / 文件数 / 语句数
+```
+
+`depends_on` 里存的是结构化依赖，`kb show` / Markdown 里的「依赖字段」就是它：
+
+```json
+[{"table": "ods.ods_卷烟码段流水", "column": "dama_qty", "chinese_name": "打码量"},
+ {"table": "ods.ods_卷烟码段流水", "column": "tiaoma_qty", "chinese_name": "跳码量"},
+ {"table": "ods.ods_卷烟码段流水", "column": "chongma_qty", "chinese_name": "重码量"}]
+```
+
+`owner`（责任人）与 `version`（口径版本）当前是**占位字段**，留给后续人工在库里补 / 与审批流对接
+（文档里显示「待指定」「v1」）。整库可 `kb export --json data/knowledge_export.json` 导出给外部系统。
+
+---
+
+### 6.11 幂等 rebuild / 增量 upsert / 内容指纹
+
+* `kb build` 默认走 **rebuild**：先清空业务表再全量写入 —— 同一份输入跑 N 次，库内容完全一致；
+* `kb build --incremental`：按**脚本粒度**替换（删掉本次扫描脚本的旧口径再写入），
+  并清理「只由被替换脚本贡献、本次不再产出」的孤立记录，未扫描到的脚本不受影响；
+* `KnowledgeStore.knowledge_hash()` 给出**内容指纹**（对全部业务行做规范化排序后哈希，
+  不含时间戳 / 库路径 / 物理行序），幂等性可以被断言、可以进 CI：
+
+```bash
+$ .venv/bin/python - <<'PY'
+from lineage.knowledge import build_knowledge_base
+dirs = ["examples/warehouse", "examples/knowledge_demo"]
+a = build_knowledge_base(dirs, db_path="/tmp/kb_idem.db")                            # rebuild
+b = build_knowledge_base(dirs, db_path="/tmp/kb_idem.db")                            # rebuild 再来一次
+c = build_knowledge_base(dirs, db_path="/tmp/kb_idem.db", mode="incremental")        # 增量
+print("rebuild #1 :", a.knowledge_hash, a.counts)
+print("rebuild #2 :", b.knowledge_hash)
+print("incremental:", c.knowledge_hash)
+print("三者内容指纹一致 =", a.knowledge_hash == b.knowledge_hash == c.knowledge_hash)
+PY
+```
+
+```text
+rebuild #1 : f230aebe5750676b {'kb_scripts': 24, 'kb_tables': 38, 'kb_fields': 298, 'kb_metrics': 75, 'kb_rules': 76, 'kb_terms': 139, 'kb_table_lineage': 44, 'pending_terms': 1, 'fields_with_chinese': 296}
+rebuild #2 : f230aebe5750676b
+incremental: f230aebe5750676b
+三者内容指纹一致 = True
+```
+
+---
+
+### 6.12 词典维护与可插拔 LLM
+
+**词典**（`lineage/knowledge/glossary.json`）是人工可维护的「字段名 → 中文业务名」字典，
+分 6 块：`columns`（字段，208 条）、`tables`（表）、`tokens`（词根，用于命名规则组合）、
+`prefixes` / `suffixes`（前后缀）、`metric_keywords`。加一条就全局生效：
+
+```json
+{
+  "columns": { "dama_qty": "打码量", "chanliang_qty": "产量", "defect_rate": "不良品率" },
+  "tokens":  { "output": "产量", "defect": "不良品", "sale": "销量", "stock": "库存" },
+  "suffixes": { "qty": "量", "amt": "金额", "rate": "率", "cnt": "数" }
+}
+```
+
+叠加自定义词典：`kb build --glossary my_glossary.json`（与内置词典合并，后者优先），
+或用环境变量 `KB_GLOSSARY` 指向它。字段行内注释的优先级高于词典，所以**最快的纠错方式
+是直接在 SQL 里给字段加一行注释**。
+
+看不懂的字段不会硬编一个名字，而是进「待确认」清单：
+
+```bash
+$ .venv/bin/python -m lineage.cli kb terms --pending
+========================================================================
+业务术语词典（1 条）
+========================================================================
+术语                        中文业务名             来源            置信度     出现次数
+------------------------------------------------------------------------
+bz                        (待确认)             pending       0.0     2
+========================================================================
+```
+
+**LLM（可选）**：
+
+```bash
+export LLM_API_KEY=sk-xxx                 # 不配就走规则模式（离线可用）
+export LLM_BASE_URL=https://api.openai.com/v1   # 也可指向任何 OpenAI 兼容服务（vLLM / Ollama / 内网网关）
+export LLM_MODEL=gpt-4o-mini
+.venv/bin/python -m lineage.cli kb ask "产量怎么算的"        # 有 key 时自动用 LLM 润色
+.venv/bin/python -m lineage.cli kb ask "产量怎么算的" --use-llm off   # 强制规则模式
+```
+
+密钥只从环境变量读，代码里没有任何硬编码；LLM 挂了/没配/返回格式不对 → 一律降级为规则模式。
+
+---
+
+### 6.13 本阶段限制（如实说明）
+
+1. **口径是「语法级」提炼，不是「语义级」理解**：不做同义口径聚类（`产量` 与 `总产量` 是两条口径）、
+   不做跨层口径一致性校验（dws 汇总口径 vs dwd 明细口径是否矛盾，目前不查）。
+2. **公式会保留函数细节**：`ROUND(x, 4)` 的精度、`NULLIF(x, 0)` 的防除零都在「忠实表达式」里，
+   不会替业务「猜」意图；`CASE WHEN` 类口径的人话表达仍偏长（如 `不良品率 = CASE WHEN 产量 > 0 THEN ROUND(不良品量 / 产量, 6) ELSE 0 END`）。
+3. **中文化不是 100%**：命名规则拼出来的名字（`rule` / `rule_partial`）可能有歧义；看不懂的
+   字段进「待确认」清单（当前示例里 `bz` 就是特意保留的 pending 样例）。中文名依赖词典与注释，
+   **没有元数据（DDL / HMS）就打不开口径的最后一公里**（这正是 P4.0 的活）。
+4. **血缘链路的「其余路径」不展开**：Markdown 里每张表只给一条最短链路（标注为「示例」），
+   完整上下游请用 P2 的 `upstream` / `impact` / `path`。
+5. **规则提炼以文本模式为准**：WHERE 条件被翻译成「空值过滤 / 时点过滤 / 枚举过滤」等模板化描述，
+   复杂的嵌套布尔条件只能整体照抄表达式。
+6. **增量 upsert 的边界**：以「脚本」为最小粒度，跨脚本聚合出来的字段 / 表 / 术语做并集合并；
+   **改完脚本建议跑一次全量 rebuild**，保证库与脚本完全一致（rebuild 幂等，跑多少次都一样）。
+7. **责任人 / 版本是占位**：`owner` 为空、`version` 固定 `v1`，等接入审批流 / 元数据后再填。
+
+---
+
+## 7. 支持的 SQL 形态
 
 | # | 形态 | 示例片段 | 解析结果 |
 | --- | --- | --- | --- |
@@ -1143,7 +1797,7 @@ $ .venv/bin/python -m lineage.cli ds sync --base-url http://127.0.0.1:1/dolphins
 
 ---
 
-## 7. 输出 JSON 结构
+## 8. 输出 JSON 结构
 
 **顶层（一次解析的聚合报告）**
 
@@ -1180,9 +1834,9 @@ $ .venv/bin/python -m lineage.cli ds sync --base-url http://127.0.0.1:1/dolphins
 
 ---
 
-## 8. 架构说明
+## 9. 架构说明
 
-### 8.1 代码结构
+### 9.1 代码结构
 
 ```
 sql-lineage-mvp/
@@ -1227,7 +1881,7 @@ sql-lineage-mvp/
 └── README.md
 ```
 
-### 8.2 P2 数据流
+### 9.2 P2 数据流
 
 ```
 SQL 脚本目录
@@ -1251,7 +1905,7 @@ warehouse_graph.json ──► CLI 子命令（upstream/impact/path/cycle/stats�
                         viz.to_html()     ──► docs/lineage.html（内联 JS 力导向交互图）
 ```
 
-### 8.3 P1 解析流程（`SqlLineageParser.analyze_statement`）
+### 9.3 P1 解析流程（`SqlLineageParser.analyze_statement`）
 
 ```
 SQL 文本
@@ -1287,7 +1941,7 @@ AST 语句列表 ──► ① 语句分类 _classify()
 * **递归深度保护**：`MAX_DEPTH=8`，防止自引用 CTE / 异常 SQL 造成死循环。
 * **纯函数式解析**：`SqlLineageParser` 无状态（除 dialect 配置），可安全复用、并发放大。
 
-### 8.4 P3 数据流（调度侧血缘）
+### 9.4 P3 数据流（调度侧血缘）
 
 ```
 DolphinScheduler（只读 OpenAPI）
@@ -1315,9 +1969,9 @@ DsLineage（工程 → 工作流 → 任务 → 表 + 依赖边 + 表级图）
 
 ---
 
-## 9. 示例文件（烟草行业数仓场景）
+## 10. 示例文件（烟草行业数仓场景）
 
-### 9.1 单文件示例（P1）
+### 10.1 单文件示例（P1）
 
 | 文件 | 场景 | 覆盖形态 |
 | --- | --- | --- |
@@ -1328,7 +1982,7 @@ DsLineage（工程 → 工作流 → 任务 → 表 + 依赖边 + 表级图）
 | `examples/05_pipeline_multi_statement.sql` | ODS 烟叶采购 → DWD → DWS → ADS 供应链 | 一个文件 3 条语句、窗口函数、完整链路 |
 | `examples/06_adhoc_select.sql` | 临时取数查询 | 纯 SELECT（无输出表） |
 
-### 9.2 目录示例（P2：`examples/warehouse/`，21 个 SQL 文件 / 24 条语句）
+### 10.2 目录示例（P2：`examples/warehouse/`，21 个 SQL 文件 / 24 条语句）
 
 模拟一个真实烟草数仓的三层目录（`ods/` `cdw/` `ads/`），覆盖产量、销量、库存、税利、烟叶采购、设备六大主题：
 
@@ -1351,7 +2005,7 @@ src.erp_生产工单明细        (源系统接口表)
   → ads.ads_经营指标驾驶舱    (ads/ads_经营指标驾驶舱.sql 第 2 条语句)
 ```
 
-### 9.3 问题样例（P2：`examples/warehouse_issues/`）
+### 10.3 问题样例（P2：`examples/warehouse_issues/`）
 
 | 文件 | 用途 |
 | --- | --- |
@@ -1384,7 +2038,7 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 
 ---
 
-## 10. 测试
+## 11. 测试
 
 ```bash
 .venv/bin/python -m pytest -q
@@ -1432,9 +2086,9 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 
 ---
 
-## 11. 已知限制（如实说明）
+## 12. 已知限制（如实说明）
 
-### 11.1 字段级血缘（P1 继承）
+### 12.1 字段级血缘（P1 继承）
 
 字段级血缘是 **语法级推导**，不依赖元数据，因此以下情况无法 100% 准确：
 
@@ -1448,7 +2102,7 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 8. **不做语义校验**：不校验表是否存在、字段是否存在、类型是否匹配；不做函数语义展开（`SUM(a.qty)` 只记到 `a.qty`，不下推更细粒度）。
 9. **方言差异**：以 `hive` / `spark` 为主；`doris` / `postgres` 等已验证可跑通示例，但个别方言特性（如 Doris 的 `INSERT INTO ... WITH LABEL`）未必覆盖。
 
-### 11.2 图引擎与扫描（P2）
+### 12.2 图引擎与扫描（P2）
 
 1. **环路只报强连通分量级**：`detect_cycles()` 用 Tarjan SCC 找"哪里成环"，每个 SCC 再给一条示例环路；
    **不枚举一个 SCC 内所有简单环**（那是指数级问题，实践中也不需要）。
@@ -1471,7 +2125,7 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 9. **HTML 未做浏览器端自动化测试**：开发环境是无图形界面的 WSL，用 QuickJS + DOM 桩执行内联 JS 做等价验证
    （算法与渲染调用是真跑的），但**没有**真浏览器端到端测试（如 Playwright）。
 
-### 11.3 DolphinScheduler 集成（P3）
+### 12.3 DolphinScheduler 集成（P3）
 
 1. **只覆盖任务参数里的脚本**：血缘来源是 `taskParams.sql` / `taskParams.rawScript` 里的文本。
    如果 SQL 是「从资源中心引用的 `.sql` 文件」「写在存储过程里」「由 Python 任务动态拼出来的」，
@@ -1496,7 +2150,7 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 
 ---
 
-## 12. 后续规划
+## 13. 后续规划
 
 | 阶段 | 能力 | 说明 |
 | --- | --- | --- |
@@ -1504,7 +2158,7 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 | P2（已完成） | 目录批量扫描 → 内存血缘图 → 上游溯源 / 下游影响 / 路径 / 环路 / 统计 → Mermaid + 自包含交互式 HTML | 面向「整个数仓脚本目录」的图谱与分析；demo 现场可直接演示：`scan → upstream/impact → viz` |
 | P3 已完成 **接 DolphinScheduler OpenAPI（旁路集成）** | 只读 `/login`、`/projects`、`/process-definition`、`/process-definition/{code}` 等接口；解析 SQL 任务与 SHELL 任务里的脚本；构建「工程 → 工作流 → 任务节点 → 表」多层血缘；推导工作流依赖（表血缘 + `DEPENDENT`/`SUB_PROCESS` 原生依赖）；`ds sync / workflows / tables / task / upstream` 子命令；mock + 真实集成双层测试 | 从「我喂 SQL 给它」变成「它自己从调度平台采集」；demo 现场：`ds sync` 一条命令出四层血缘与依赖拓扑 | 
 | P4.0 **DDL / Hive Metastore 元数据接入** | 解析建表 DDL（或直接调 Hive Metastore / HMS Thrift 接口）拿到表结构 → 展开 `SELECT *`、按列位置对齐 `INSERT INTO`、多表同名字段消歧、补字段类型与注释 | 把 `resolved=false` 的比例压下来，让字段级血缘从「语法级」升级到「结构级」；与 P3 叠加后，调度侧也能出列级资产地图 |
-| P4.1 **口径提炼与知识层** | 对字段的 `expression` 做语义归纳（同义表达式聚类、指标口径模板化），自动生成口径文档、字段级变更 diff 与告警；血缘图 + 口径文档向量化入库，支持自然语言检索（「卷烟产销率怎么算出来的」） | 从「血缘关系」升级到「口径知识」；P3 已经把调度侧的字段级 `expression` 收齐（`--full-statements`），是这一步的输入 |
+| P4.1 **口径提炼与知识层（已完成）** | 对字段的 `expression` 做语义归纳（同类表达式识别：聚合 / 算术 / 比率 / 条件 / 窗口），自动生成口径公式（中文可读）+ 字段中文业务名 + 业务规则，落进 SQLite 知识库（`kb build`）；提供关键词检索、口径溯源、自然语言问数（规则模式 + 可插拔 LLM）、Markdown 知识文档导出（`docs/业务口径知识库.md`）与 HTTP 端点 | 从「血缘关系」升级到「口径知识」；P1 的字段级 `expression` + P2 的血缘图 + P3 的调度侧字段级血缘都是这一步的输入。实现见第 6 章 |
 | P4.2 **智能问数** | NL → SQL 生成 → 用血缘/口径做**口径合规校验** → 结果解释与溯源（这条数来自哪几张表、什么口径、哪个调度任务产出的） | 最终形态：数据资产智能运营平台；P3 提供的「表 → 工作流 / 任务」映射可以做到「数不对时直接定位到调度节点」 |
 | 可选工程化 | 图数据库替换内存图（Neo4j / NebulaGraph）、增量扫描（按文件 mtime 差分更新图）、**调度侧血缘 diff 与 CI 巡检**（`cycle`、`ds sync` 退出码已可直接接流水线）、调度变量替换后再解析 | 规模与稳定性工程 |
 
@@ -1514,7 +2168,7 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 
 ---
 
-## 13. 环境说明
+## 14. 环境说明
 
 * 开发/验证环境：WSL2 Ubuntu 22.04，Python 3.11.15（venv），sqlglot 30.18.0，pytest 9.1.1，quickjs 1.19.4（可选，用于真跑 HTML 内联 JS）
 * **P3 调度侧环境**：Docker 里的 `apache/dolphinscheduler-standalone-server:3.2.2`

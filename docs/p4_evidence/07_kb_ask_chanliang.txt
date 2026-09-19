@@ -1,0 +1,41 @@
+========================================================================
+问题：产量怎么算的
+意图：指标口径查询（metric_formula）    实体：产量    模式：rule
+========================================================================
+【产量】计算口径（共 6 条相关口径，列前 3 条）
+
+[1] 口径：产量 = 打码量 + 跳码量 - 重码量
+     忠实表达式：产量 = SUM(打码量) + SUM(跳码量) - SUM(重码量)
+指标名：产量 / chanliang_qty
+所属表：cdw.dwd_卷烟产量码段明细（dwd 层）
+口径类型：聚合（聚合函数 SUM）
+依赖字段：ods.ods_卷烟码段流水.chongma_qty(重码量)、ods.ods_卷烟码段流水.dama_qty(打码量)、ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+来源脚本：examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句（INSERT_SELECT）；责任人：待指定；版本：v1
+置信度：0.9
+备注：脚本注释：产量口径：打码量+跳码量-重码量（箱）；口径本体已剥离一致的聚合函数 SUM()（共 3 个依赖字段）
+实现 SQL 片段：SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty
+血缘链路（上游 → 本表）：
+    cdw.dwd_卷烟产量码段明细  →  ods.ods_卷烟码段流水  →  src.mes_码段采集接口
+
+[2] 口径：产量 = SUM(产量)
+     忠实表达式：产量 = SUM(产量)
+指标名：产量 / output_qty
+所属表：ads.ads_码段产量日报（ads 层）
+口径类型：聚合（聚合函数 SUM）
+依赖字段：cdw.dwd_卷烟产量码段明细.chanliang_qty(产量)
+来源脚本：examples/knowledge_demo/ads/ads_码段产量日报.sql 第 1 条语句（INSERT_SELECT）；责任人：待指定；版本：v1
+置信度：0.9
+备注：脚本注释：产量（箱）
+实现 SQL 片段：SUM(d.chanliang_qty) AS output_qty
+
+[3] 口径：产量 = SUM(产量)
+     忠实表达式：产量 = SUM(产量)
+指标名：产量 / output_qty
+所属表：ads.ads_经营指标驾驶舱（ads 层）
+口径类型：聚合（聚合函数 SUM）
+依赖字段：ads.ads_经营指标明细.output_qty(产量)
+来源脚本：examples/warehouse/ads/ads_经营指标驾驶舱.sql 第 2 条语句（INSERT_SELECT）；责任人：待指定；版本：v1
+置信度：0.9
+实现 SQL 片段：SUM(i.output_qty) AS output_qty
+========================================================================
+提示：未配置 LLM_API_KEY，当前为规则模式（离线可用）；配置 LLM_API_KEY/LLM_BASE_URL/LLM_MODEL 可启用智能润色。

@@ -1,0 +1,4 @@
+rebuild #1 : f230aebe5750676b {'kb_scripts': 24, 'kb_tables': 38, 'kb_fields': 298, 'kb_metrics': 75, 'kb_rules': 76, 'kb_terms': 139, 'kb_table_lineage': 44, 'pending_terms': 1, 'fields_with_chinese': 296}
+rebuild #2 : f230aebe5750676b
+incremental: f230aebe5750676b
+三者内容指纹一致 = True
