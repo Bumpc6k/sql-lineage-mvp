@@ -1,0 +1,3892 @@
+{
+  "schema_version": 1,
+  "kind": "dolphinscheduler_lineage",
+  "dialect": "hive",
+  "generated_at": "2026-09-19 21:12:14",
+  "fetched_at": "2026-09-19 21:12:14",
+  "source": {
+    "base_url": "http://localhost:12345/dolphinscheduler",
+    "user": "admin"
+  },
+  "stats": {
+    "project_count": 1,
+    "workflow_count": 4,
+    "task_count": 16,
+    "task_with_sql_count": 15,
+    "task_without_sql_count": 1,
+    "workflow_with_sql_count": 4,
+    "workflow_without_sql_count": 0,
+    "script_count": 15,
+    "statement_count": 17,
+    "column_mapping_count": 144,
+    "table_count": 23,
+    "source_table_count": 6,
+    "leaf_table_count": 2,
+    "tables_by_layer": {
+      "src": 4,
+      "dim": 2,
+      "ods": 5,
+      "dwd": 4,
+      "dws": 4,
+      "ads": 4
+    },
+    "workflow_dependency_count": 4,
+    "table_dependency_count": 3,
+    "native_dependency_count": 1,
+    "workflow_level_count": 4,
+    "producer_workflow_count": 4,
+    "consumer_workflow_count": 4,
+    "failed_task_count": 0,
+    "error_count": 0
+  },
+  "projects": [
+    {
+      "code": "184722470975040",
+      "name": "烟草数仓演示",
+      "description": "P3 血缘演示项目：ODS->DWD->DWS->ADS 四层调度链路（旁路集成，不改海豚源码）",
+      "workflow_count": 4,
+      "workflow_names": [
+        "wf_ads_报表",
+        "wf_dwd_清洗",
+        "wf_dws_汇总",
+        "wf_ods_采集"
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "code": "184722471002688",
+      "name": "wf_ads_报表",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "description": "ADS 应用层：汇总表 -> 报表宽表（含一个 DEPENDENT 任务，声明对 wf_dws_汇总 的原生依赖）",
+      "version": 1,
+      "release_state": "OFFLINE",
+      "execution_type": "PARALLEL",
+      "task_keys": [
+        "wf_ads_报表/t_ads_产销存月报",
+        "wf_ads_报表/t_ads_税利分析",
+        "wf_ads_报表/t_ads_经营指标驾驶舱",
+        "wf_ads_报表/t_check_上游就绪"
+      ],
+      "task_count": 4,
+      "reads": [
+        "ads.ads_产销存月报",
+        "ads.ads_税利分析",
+        "ads.ads_经营指标明细",
+        "cdw.dws_产销存汇总",
+        "cdw.dws_税利汇总",
+        "dim.dim_brand",
+        "dim.dim_plant"
+      ],
+      "writes": [
+        "ads.ads_产销存月报",
+        "ads.ads_税利分析",
+        "ads.ads_经营指标明细",
+        "ads.ads_经营指标驾驶舱"
+      ],
+      "internal_tables": [
+        "ads.ads_产销存月报",
+        "ads.ads_税利分析",
+        "ads.ads_经营指标明细"
+      ],
+      "upstream_workflows": [
+        {
+          "workflow": "wf_dws_汇总",
+          "kind": "native",
+          "via_tables": [],
+          "via_task": "t_check_上游就绪"
+        },
+        {
+          "workflow": "wf_dws_汇总",
+          "kind": "table",
+          "via_tables": [
+            "cdw.dws_产销存汇总",
+            "cdw.dws_税利汇总"
+          ],
+          "via_task": ""
+        }
+      ],
+      "downstream_workflows": [],
+      "native_dependencies": [
+        {
+          "workflow": "wf_dws_汇总",
+          "workflow_code": "184722470994496",
+          "via_task": "t_check_上游就绪",
+          "kind": "dependent",
+          "key": "dependence.dependTaskList[0].dependItemList[0].definitionCode"
+        }
+      ]
+    },
+    {
+      "code": "184722470987328",
+      "name": "wf_dwd_清洗",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "description": "DWD 明细清洗：贴源表 + 维表 -> 明细事实表（4 个任务，并行执行）",
+      "version": 1,
+      "release_state": "OFFLINE",
+      "execution_type": "PARALLEL",
+      "task_keys": [
+        "wf_dwd_清洗/t_dwd_产量明细",
+        "wf_dwd_清洗/t_dwd_库存明细",
+        "wf_dwd_清洗/t_dwd_税利明细",
+        "wf_dwd_清洗/t_dwd_销量明细"
+      ],
+      "task_count": 4,
+      "reads": [
+        "dim.dim_brand",
+        "dim.dim_plant",
+        "ods.ods_卷烟产量流水",
+        "ods.ods_卷烟销量流水",
+        "ods.ods_成品库存快照",
+        "ods.ods_税利上缴流水"
+      ],
+      "writes": [
+        "cdw.dwd_卷烟产量明细",
+        "cdw.dwd_卷烟销量明细",
+        "cdw.dwd_成品库存明细",
+        "cdw.dwd_税利明细"
+      ],
+      "internal_tables": [],
+      "upstream_workflows": [
+        {
+          "workflow": "wf_ods_采集",
+          "kind": "table",
+          "via_tables": [
+            "ods.ods_卷烟产量流水",
+            "ods.ods_卷烟销量流水",
+            "ods.ods_成品库存快照",
+            "ods.ods_税利上缴流水"
+          ],
+          "via_task": ""
+        }
+      ],
+      "downstream_workflows": [
+        {
+          "workflow": "wf_dws_汇总",
+          "kind": "table",
+          "via_tables": [
+            "cdw.dwd_卷烟产量明细",
+            "cdw.dwd_卷烟销量明细",
+            "cdw.dwd_成品库存明细",
+            "cdw.dwd_税利明细"
+          ],
+          "via_task": ""
+        }
+      ],
+      "native_dependencies": []
+    },
+    {
+      "code": "184722470994496",
+      "name": "wf_dws_汇总",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "description": "DWS 汇总：明细 -> 汇总表（任务间有真实调度依赖：汇总任务等产量/库存汇总先跑完）",
+      "version": 1,
+      "release_state": "OFFLINE",
+      "execution_type": "PARALLEL",
+      "task_keys": [
+        "wf_dws_汇总/t_dws_产量汇总",
+        "wf_dws_汇总/t_dws_产销存汇总",
+        "wf_dws_汇总/t_dws_库存汇总",
+        "wf_dws_汇总/t_dws_税利汇总"
+      ],
+      "task_count": 4,
+      "reads": [
+        "cdw.dwd_卷烟产量明细",
+        "cdw.dwd_卷烟销量明细",
+        "cdw.dwd_成品库存明细",
+        "cdw.dwd_税利明细",
+        "cdw.dws_产量汇总",
+        "cdw.dws_库存汇总"
+      ],
+      "writes": [
+        "cdw.dws_产量汇总",
+        "cdw.dws_产销存汇总",
+        "cdw.dws_库存汇总",
+        "cdw.dws_税利汇总"
+      ],
+      "internal_tables": [
+        "cdw.dws_产量汇总",
+        "cdw.dws_库存汇总"
+      ],
+      "upstream_workflows": [
+        {
+          "workflow": "wf_dwd_清洗",
+          "kind": "table",
+          "via_tables": [
+            "cdw.dwd_卷烟产量明细",
+            "cdw.dwd_卷烟销量明细",
+            "cdw.dwd_成品库存明细",
+            "cdw.dwd_税利明细"
+          ],
+          "via_task": ""
+        }
+      ],
+      "downstream_workflows": [
+        {
+          "workflow": "wf_ads_报表",
+          "kind": "native",
+          "via_tables": [],
+          "via_task": "t_check_上游就绪"
+        },
+        {
+          "workflow": "wf_ads_报表",
+          "kind": "table",
+          "via_tables": [
+            "cdw.dws_产销存汇总",
+            "cdw.dws_税利汇总"
+          ],
+          "via_task": ""
+        }
+      ],
+      "native_dependencies": []
+    },
+    {
+      "code": "184722470980160",
+      "name": "wf_ods_采集",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "description": "ODS 贴源采集：ERP/MES/WMS/FIN 源系统 -> 贴源表（4 个任务，并行执行）",
+      "version": 1,
+      "release_state": "OFFLINE",
+      "execution_type": "PARALLEL",
+      "task_keys": [
+        "wf_ods_采集/t_ods_产量流水",
+        "wf_ods_采集/t_ods_库存快照",
+        "wf_ods_采集/t_ods_税利流水",
+        "wf_ods_采集/t_ods_销量流水"
+      ],
+      "task_count": 4,
+      "reads": [
+        "src.erp_生产工单明细",
+        "src.fin_税金凭证",
+        "src.mes_销售出库明细",
+        "src.wms_库存快照"
+      ],
+      "writes": [
+        "ods.ods_卷烟产量流水",
+        "ods.ods_卷烟销量流水",
+        "ods.ods_库存快照基线",
+        "ods.ods_成品库存快照",
+        "ods.ods_税利上缴流水"
+      ],
+      "internal_tables": [],
+      "upstream_workflows": [],
+      "downstream_workflows": [
+        {
+          "workflow": "wf_dwd_清洗",
+          "kind": "table",
+          "via_tables": [
+            "ods.ods_卷烟产量流水",
+            "ods.ods_卷烟销量流水",
+            "ods.ods_成品库存快照",
+            "ods.ods_税利上缴流水"
+          ],
+          "via_task": ""
+        }
+      ],
+      "native_dependencies": []
+    }
+  ],
+  "tasks": [
+    {
+      "code": "184722470999617",
+      "name": "t_ads_产销存月报",
+      "task_type": "SQL",
+      "workflow": "wf_ads_报表",
+      "workflow_code": "184722471002688",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "产销存月报",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- ADS 报表：产销存月报（产销存汇总 + 工厂 / 牌号维表）\nINSERT OVERWRITE TABLE ads.ads_产销存月报 PARTITION (dt = '2026-01-01')\nSELECT\n    s.plant_code                           AS plant_code,\n    pl.plant_name                          AS plant_name,\n    s.brand_code                           AS brand_code,\n    bd.brand_name                          AS brand_name,\n    bd.price_band                          AS price_band,\n    s.output_qty                           AS output_qty,\n    s.sale_qty                             AS sale_qty,\n    s.stock_qty                            AS stock_qty,\n    s.sale_amt                             AS sale_amt,\n    ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio,\n    s.output_qty - s.sale_qty              AS stock_increase\nFROM cdw.dws_产销存汇总 s\nLEFT JOIN dim.dim_plant pl\n       ON s.plant_code = pl.plant_code\nLEFT JOIN dim.dim_brand bd\n       ON s.brand_code = bd.brand_code\nWHERE s.dt = '2026-01-01';",
+          "statement_count": 1,
+          "table_count": 4
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "ads.ads_产销存月报"
+          ],
+          "input_table_names": [
+            "cdw.dws_产销存汇总",
+            "dim.dim_brand",
+            "dim.dim_plant"
+          ],
+          "table_lineage": [
+            {
+              "source": "cdw.dws_产销存汇总",
+              "target": "ads.ads_产销存月报"
+            },
+            {
+              "source": "dim.dim_brand",
+              "target": "ads.ads_产销存月报"
+            },
+            {
+              "source": "dim.dim_plant",
+              "target": "ads.ads_产销存月报"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 2,
+          "column_mapping_count": 13,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "cdw.dws_产销存汇总",
+        "dim.dim_brand",
+        "dim.dim_plant"
+      ],
+      "write_tables": [
+        "ads.ads_产销存月报"
+      ],
+      "upstream_tasks": [
+        "t_check_上游就绪"
+      ],
+      "downstream_tasks": [
+        "t_ads_经营指标驾驶舱"
+      ],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470999618",
+      "name": "t_ads_税利分析",
+      "task_type": "SQL",
+      "workflow": "wf_ads_报表",
+      "workflow_code": "184722471002688",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "税利分析",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- ADS 报表：税利分析（税利汇总 + 产销存汇总 + 牌号维表）\nINSERT OVERWRITE TABLE ads.ads_税利分析 PARTITION (dt = '2026-01-01')\nSELECT\n    t.plant_code                           AS plant_code,\n    t.brand_code                           AS brand_code,\n    bd.brand_name                          AS brand_name,\n    t.stat_month                           AS stat_month,\n    t.total_tax_amt                        AS tax_amt,\n    t.total_profit_amt                     AS profit_amt,\n    t.total_tax_profit                     AS tax_profit,\n    t.tax_profit_per_box                   AS tax_profit_per_box,\n    COALESCE(p.sale_qty, 0)                AS sale_qty,\n    CASE WHEN COALESCE(p.sale_qty, 0) > 0\n         THEN ROUND(t.total_tax_profit / p.sale_qty, 2)\n         ELSE 0 END                        AS tax_profit_per_sale_box\nFROM cdw.dws_税利汇总 t\nLEFT JOIN cdw.dws_产销存汇总 p\n       ON t.plant_code = p.plant_code AND t.brand_code = p.brand_code\nLEFT JOIN dim.dim_brand bd\n       ON t.brand_code = bd.brand_code\nWHERE t.dt = '2026-01-01';",
+          "statement_count": 1,
+          "table_count": 4
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "ads.ads_税利分析"
+          ],
+          "input_table_names": [
+            "cdw.dws_产销存汇总",
+            "cdw.dws_税利汇总",
+            "dim.dim_brand"
+          ],
+          "table_lineage": [
+            {
+              "source": "cdw.dws_产销存汇总",
+              "target": "ads.ads_税利分析"
+            },
+            {
+              "source": "cdw.dws_税利汇总",
+              "target": "ads.ads_税利分析"
+            },
+            {
+              "source": "dim.dim_brand",
+              "target": "ads.ads_税利分析"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 2,
+          "column_mapping_count": 11,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "cdw.dws_产销存汇总",
+        "cdw.dws_税利汇总",
+        "dim.dim_brand"
+      ],
+      "write_tables": [
+        "ads.ads_税利分析"
+      ],
+      "upstream_tasks": [
+        "t_check_上游就绪"
+      ],
+      "downstream_tasks": [
+        "t_ads_经营指标驾驶舱"
+      ],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470999619",
+      "name": "t_ads_经营指标驾驶舱",
+      "task_type": "SQL",
+      "workflow": "wf_ads_报表",
+      "workflow_code": "184722471002688",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "经营指标驾驶舱（两段 SQL：明细 + 宽表）",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- ADS 报表：经营指标驾驶舱（同一节点两条语句：明细 + 宽表）\nCREATE TABLE ads.ads_经营指标明细 AS\nSELECT\n    m.plant_code                           AS plant_code,\n    m.plant_name                           AS plant_name,\n    m.brand_code                           AS brand_code,\n    m.brand_name                           AS brand_name,\n    m.output_qty                           AS output_qty,\n    m.sale_qty                             AS sale_qty,\n    m.sale_amt                             AS sale_amt,\n    m.sale_output_ratio                    AS sale_output_ratio,\n    t.tax_profit                           AS tax_profit,\n    t.tax_profit_per_box                   AS tax_profit_per_box\nFROM ads.ads_产销存月报 m\nLEFT JOIN ads.ads_税利分析 t\n       ON m.plant_code = t.plant_code AND m.brand_code = t.brand_code\nWHERE m.dt = '2026-01-01';\n\nINSERT OVERWRITE TABLE ads.ads_经营指标驾驶舱 PARTITION (dt = '2026-01-01')\nSELECT\n    i.plant_code                           AS plant_code,\n    i.plant_name                           AS plant_name,\n    SUM(i.output_qty)                      AS output_qty,\n    SUM(i.sale_qty)                        AS sale_qty,\n    SUM(i.sale_amt)                        AS sale_amt,\n    SUM(i.tax_profit)                      AS tax_profit,\n    ROUND(AVG(i.sale_output_ratio), 4)     AS avg_sale_output_ratio\nFROM ads.ads_经营指标明细 i\nWHERE i.dt = '2026-01-01'\nGROUP BY i.plant_code, i.plant_name;",
+          "statement_count": 2,
+          "table_count": 4
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "CTAS",
+          "output_table_names": [
+            "ads.ads_经营指标明细"
+          ],
+          "input_table_names": [
+            "ads.ads_产销存月报",
+            "ads.ads_税利分析"
+          ],
+          "table_lineage": [
+            {
+              "source": "ads.ads_产销存月报",
+              "target": "ads.ads_经营指标明细"
+            },
+            {
+              "source": "ads.ads_税利分析",
+              "target": "ads.ads_经营指标明细"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 1,
+          "column_mapping_count": 10,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        },
+        {
+          "statement_index": 2,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "ads.ads_经营指标驾驶舱"
+          ],
+          "input_table_names": [
+            "ads.ads_经营指标明细"
+          ],
+          "table_lineage": [
+            {
+              "source": "ads.ads_经营指标明细",
+              "target": "ads.ads_经营指标驾驶舱"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 0,
+          "column_mapping_count": 7,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "ads.ads_产销存月报",
+        "ads.ads_税利分析",
+        "ads.ads_经营指标明细"
+      ],
+      "write_tables": [
+        "ads.ads_经营指标明细",
+        "ads.ads_经营指标驾驶舱"
+      ],
+      "upstream_tasks": [
+        "t_ads_产销存月报",
+        "t_ads_税利分析"
+      ],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470999616",
+      "name": "t_check_上游就绪",
+      "task_type": "DEPENDENT",
+      "workflow": "wf_ads_报表",
+      "workflow_code": "184722471002688",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "依赖检测：wf_dws_汇总 当天实例成功后才往下跑",
+      "scripts": [],
+      "statements": [],
+      "read_tables": [],
+      "write_tables": [],
+      "upstream_tasks": [],
+      "downstream_tasks": [
+        "t_ads_产销存月报",
+        "t_ads_税利分析"
+      ],
+      "native_refs": [
+        {
+          "target_workflow": "wf_dws_汇总",
+          "target_code": "184722470994496",
+          "kind": "dependent",
+          "key": "dependence.dependTaskList[0].dependItemList[0].definitionCode"
+        }
+      ],
+      "datasource_id": null,
+      "errors": [],
+      "has_sql": false
+    },
+    {
+      "code": "184722470984256",
+      "name": "t_dwd_产量明细",
+      "task_type": "SQL",
+      "workflow": "wf_dwd_清洗",
+      "workflow_code": "184722470987328",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "产量明细事实表",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- DWD 明细：产量贴源 + 工厂 / 牌号维表 -> cdw.dwd_卷烟产量明细\nINSERT OVERWRITE TABLE cdw.dwd_卷烟产量明细 PARTITION (dt = '2026-01-01')\nSELECT\n    p.work_order_no                        AS work_order_no,\n    p.work_date                            AS work_date,\n    p.plant_code                           AS plant_code,\n    pl.plant_name                          AS plant_name,\n    p.brand_code                           AS brand_code,\n    bd.brand_name                          AS brand_name,\n    bd.price_band                          AS price_band,\n    p.output_qty                           AS output_qty,\n    p.output_qty * 250                     AS output_qty_cig,\n    p.defect_qty                           AS defect_qty,\n    CASE WHEN p.output_qty > 0\n         THEN ROUND(p.defect_qty / p.output_qty, 6)\n         ELSE 0 END                        AS defect_rate,\n    p.shift_code                           AS shift_code\nFROM ods.ods_卷烟产量流水 p\nLEFT JOIN dim.dim_plant pl\n       ON p.plant_code = pl.plant_code\nLEFT JOIN dim.dim_brand bd\n       ON p.brand_code = bd.brand_code\nWHERE p.dt = '2026-01-01';",
+          "statement_count": 1,
+          "table_count": 4
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "cdw.dwd_卷烟产量明细"
+          ],
+          "input_table_names": [
+            "dim.dim_brand",
+            "dim.dim_plant",
+            "ods.ods_卷烟产量流水"
+          ],
+          "table_lineage": [
+            {
+              "source": "dim.dim_brand",
+              "target": "cdw.dwd_卷烟产量明细"
+            },
+            {
+              "source": "dim.dim_plant",
+              "target": "cdw.dwd_卷烟产量明细"
+            },
+            {
+              "source": "ods.ods_卷烟产量流水",
+              "target": "cdw.dwd_卷烟产量明细"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 2,
+          "column_mapping_count": 13,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "dim.dim_brand",
+        "dim.dim_plant",
+        "ods.ods_卷烟产量流水"
+      ],
+      "write_tables": [
+        "cdw.dwd_卷烟产量明细"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470984258",
+      "name": "t_dwd_库存明细",
+      "task_type": "SQL",
+      "workflow": "wf_dwd_清洗",
+      "workflow_code": "184722470987328",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "成品库存明细事实表",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- DWD 明细：库存快照 + 工厂维表 -> cdw.dwd_成品库存明细\nINSERT OVERWRITE TABLE cdw.dwd_成品库存明细 PARTITION (dt = '2026-01-01')\nSELECT\n    k.warehouse_code                       AS warehouse_code,\n    k.stock_date                           AS stock_date,\n    k.plant_code                           AS plant_code,\n    pl.plant_name                          AS plant_name,\n    k.brand_code                           AS brand_code,\n    k.batch_no                             AS batch_no,\n    k.stock_qty                            AS stock_qty,\n    k.stock_amt                            AS stock_amt,\n    ROUND(k.stock_amt / NULLIF(k.stock_qty, 0), 2) AS stock_unit_cost\nFROM ods.ods_成品库存快照 k\nLEFT JOIN dim.dim_plant pl\n       ON k.plant_code = pl.plant_code\nWHERE k.dt = '2026-01-01';",
+          "statement_count": 1,
+          "table_count": 3
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "cdw.dwd_成品库存明细"
+          ],
+          "input_table_names": [
+            "dim.dim_plant",
+            "ods.ods_成品库存快照"
+          ],
+          "table_lineage": [
+            {
+              "source": "dim.dim_plant",
+              "target": "cdw.dwd_成品库存明细"
+            },
+            {
+              "source": "ods.ods_成品库存快照",
+              "target": "cdw.dwd_成品库存明细"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 1,
+          "column_mapping_count": 10,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "dim.dim_plant",
+        "ods.ods_成品库存快照"
+      ],
+      "write_tables": [
+        "cdw.dwd_成品库存明细"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470984259",
+      "name": "t_dwd_税利明细",
+      "task_type": "SQL",
+      "workflow": "wf_dwd_清洗",
+      "workflow_code": "184722470987328",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "税利明细事实表",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- DWD 明细：税利贴源 + 牌号维表 -> cdw.dwd_税利明细\nINSERT OVERWRITE TABLE cdw.dwd_税利明细 PARTITION (dt = '2026-01-01')\nSELECT\n    t.voucher_no                           AS voucher_no,\n    t.stat_month                           AS stat_month,\n    t.plant_code                           AS plant_code,\n    t.brand_code                           AS brand_code,\n    bd.brand_name                          AS brand_name,\n    t.tax_type                             AS tax_type,\n    t.tax_amt                              AS tax_amt,\n    t.profit_amt                           AS profit_amt,\n    t.tax_amt + t.profit_amt               AS total_tax_profit\nFROM ods.ods_税利上缴流水 t\nLEFT JOIN dim.dim_brand bd\n       ON t.brand_code = bd.brand_code\nWHERE t.dt = '2026-01-01';",
+          "statement_count": 1,
+          "table_count": 3
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "cdw.dwd_税利明细"
+          ],
+          "input_table_names": [
+            "dim.dim_brand",
+            "ods.ods_税利上缴流水"
+          ],
+          "table_lineage": [
+            {
+              "source": "dim.dim_brand",
+              "target": "cdw.dwd_税利明细"
+            },
+            {
+              "source": "ods.ods_税利上缴流水",
+              "target": "cdw.dwd_税利明细"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 1,
+          "column_mapping_count": 10,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "dim.dim_brand",
+        "ods.ods_税利上缴流水"
+      ],
+      "write_tables": [
+        "cdw.dwd_税利明细"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470984257",
+      "name": "t_dwd_销量明细",
+      "task_type": "SQL",
+      "workflow": "wf_dwd_清洗",
+      "workflow_code": "184722470987328",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "销量明细事实表",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- DWD 明细：销量贴源 + 牌号维表 -> cdw.dwd_卷烟销量明细\nINSERT OVERWRITE TABLE cdw.dwd_卷烟销量明细 PARTITION (dt = '2026-01-01')\nSELECT\n    s.outbound_no                          AS outbound_no,\n    s.sale_date                            AS sale_date,\n    s.customer_code                        AS customer_code,\n    s.brand_code                           AS brand_code,\n    bd.brand_name                          AS brand_name,\n    s.channel_code                         AS channel_code,\n    s.sale_qty                             AS sale_qty,\n    s.sale_amt                             AS sale_amt,\n    CASE WHEN s.sale_qty > 0\n         THEN ROUND(s.sale_amt / s.sale_qty, 2)\n         ELSE 0 END                        AS unit_price\nFROM ods.ods_卷烟销量流水 s\nLEFT JOIN dim.dim_brand bd\n       ON s.brand_code = bd.brand_code\nWHERE s.dt = '2026-01-01';",
+          "statement_count": 1,
+          "table_count": 3
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "cdw.dwd_卷烟销量明细"
+          ],
+          "input_table_names": [
+            "dim.dim_brand",
+            "ods.ods_卷烟销量流水"
+          ],
+          "table_lineage": [
+            {
+              "source": "dim.dim_brand",
+              "target": "cdw.dwd_卷烟销量明细"
+            },
+            {
+              "source": "ods.ods_卷烟销量流水",
+              "target": "cdw.dwd_卷烟销量明细"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 1,
+          "column_mapping_count": 10,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "dim.dim_brand",
+        "ods.ods_卷烟销量流水"
+      ],
+      "write_tables": [
+        "cdw.dwd_卷烟销量明细"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470991424",
+      "name": "t_dws_产量汇总",
+      "task_type": "SQL",
+      "workflow": "wf_dws_汇总",
+      "workflow_code": "184722470994496",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "产量汇总",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- DWS 汇总：按厂 / 牌号聚合产量\nINSERT OVERWRITE TABLE cdw.dws_产量汇总 PARTITION (dt = '2026-01-01')\nSELECT\n    d.plant_code                           AS plant_code,\n    d.brand_code                           AS brand_code,\n    SUM(d.output_qty)                      AS total_output_qty,\n    SUM(d.defect_qty)                      AS total_defect_qty,\n    COUNT(1)                               AS work_order_cnt\nFROM cdw.dwd_卷烟产量明细 d\nWHERE d.dt = '2026-01-01'\nGROUP BY d.plant_code, d.brand_code;",
+          "statement_count": 1,
+          "table_count": 2
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "cdw.dws_产量汇总"
+          ],
+          "input_table_names": [
+            "cdw.dwd_卷烟产量明细"
+          ],
+          "table_lineage": [
+            {
+              "source": "cdw.dwd_卷烟产量明细",
+              "target": "cdw.dws_产量汇总"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 0,
+          "column_mapping_count": 5,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "cdw.dwd_卷烟产量明细"
+      ],
+      "write_tables": [
+        "cdw.dws_产量汇总"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [
+        "t_dws_产销存汇总"
+      ],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470991427",
+      "name": "t_dws_产销存汇总",
+      "task_type": "SQL",
+      "workflow": "wf_dws_汇总",
+      "workflow_code": "184722470994496",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "产销存汇总（依赖产量汇总 / 库存汇总）",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- DWS 汇总：产量汇总 + 库存汇总 + 销量明细 -> 产销存汇总\nINSERT OVERWRITE TABLE cdw.dws_产销存汇总 PARTITION (dt = '2026-01-01')\nSELECT\n    a.plant_code                           AS plant_code,\n    a.brand_code                           AS brand_code,\n    a.total_output_qty                     AS output_qty,\n    COALESCE(s.total_sale_qty, 0)          AS sale_qty,\n    COALESCE(k.total_stock_qty, 0)         AS stock_qty,\n    COALESCE(s.total_sale_amt, 0)          AS sale_amt\nFROM cdw.dws_产量汇总 a\nLEFT JOIN (\n    SELECT\n        d.plant_code                       AS plant_code,\n        d.brand_code                       AS brand_code,\n        SUM(d.sale_qty)                    AS total_sale_qty,\n        SUM(d.sale_amt)                    AS total_sale_amt\n    FROM cdw.dwd_卷烟销量明细 d\n    WHERE d.dt = '2026-01-01'\n    GROUP BY d.plant_code, d.brand_code\n) s\n  ON a.plant_code = s.plant_code AND a.brand_code = s.brand_code\nLEFT JOIN cdw.dws_库存汇总 k\n  ON a.plant_code = k.plant_code AND a.brand_code = k.brand_code\nWHERE a.dt = '2026-01-01';",
+          "statement_count": 1,
+          "table_count": 4
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "cdw.dws_产销存汇总"
+          ],
+          "input_table_names": [
+            "cdw.dwd_卷烟销量明细",
+            "cdw.dws_产量汇总",
+            "cdw.dws_库存汇总"
+          ],
+          "table_lineage": [
+            {
+              "source": "cdw.dwd_卷烟销量明细",
+              "target": "cdw.dws_产销存汇总"
+            },
+            {
+              "source": "cdw.dws_产量汇总",
+              "target": "cdw.dws_产销存汇总"
+            },
+            {
+              "source": "cdw.dws_库存汇总",
+              "target": "cdw.dws_产销存汇总"
+            }
+          ],
+          "filter_count": 2,
+          "join_count": 2,
+          "column_mapping_count": 6,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "cdw.dwd_卷烟销量明细",
+        "cdw.dws_产量汇总",
+        "cdw.dws_库存汇总"
+      ],
+      "write_tables": [
+        "cdw.dws_产销存汇总"
+      ],
+      "upstream_tasks": [
+        "t_dws_产量汇总",
+        "t_dws_库存汇总"
+      ],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470991425",
+      "name": "t_dws_库存汇总",
+      "task_type": "SQL",
+      "workflow": "wf_dws_汇总",
+      "workflow_code": "184722470994496",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "库存汇总",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- DWS 汇总：按厂 / 牌号聚合库存\nINSERT OVERWRITE TABLE cdw.dws_库存汇总 PARTITION (dt = '2026-01-01')\nSELECT\n    k.plant_code                           AS plant_code,\n    k.brand_code                           AS brand_code,\n    SUM(k.stock_qty)                       AS total_stock_qty,\n    SUM(k.stock_amt)                       AS total_stock_amt,\n    COUNT(DISTINCT k.batch_no)             AS batch_cnt\nFROM cdw.dwd_成品库存明细 k\nWHERE k.dt = '2026-01-01'\nGROUP BY k.plant_code, k.brand_code;",
+          "statement_count": 1,
+          "table_count": 2
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "cdw.dws_库存汇总"
+          ],
+          "input_table_names": [
+            "cdw.dwd_成品库存明细"
+          ],
+          "table_lineage": [
+            {
+              "source": "cdw.dwd_成品库存明细",
+              "target": "cdw.dws_库存汇总"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 0,
+          "column_mapping_count": 5,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "cdw.dwd_成品库存明细"
+      ],
+      "write_tables": [
+        "cdw.dws_库存汇总"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [
+        "t_dws_产销存汇总"
+      ],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470991426",
+      "name": "t_dws_税利汇总",
+      "task_type": "SQL",
+      "workflow": "wf_dws_汇总",
+      "workflow_code": "184722470994496",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "税利汇总",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- DWS 汇总：按厂 / 牌号 / 月份聚合税利，并算单箱税利\nINSERT OVERWRITE TABLE cdw.dws_税利汇总 PARTITION (dt = '2026-01-01')\nSELECT\n    t.plant_code                           AS plant_code,\n    t.brand_code                           AS brand_code,\n    t.stat_month                           AS stat_month,\n    SUM(t.tax_amt)                         AS total_tax_amt,\n    SUM(t.profit_amt)                      AS total_profit_amt,\n    SUM(t.total_tax_profit)                AS total_tax_profit,\n    MAX(p.total_output_qty)                AS total_output_qty,\n    CASE WHEN MAX(p.total_output_qty) > 0\n         THEN ROUND(SUM(t.total_tax_profit) / MAX(p.total_output_qty), 2)\n         ELSE 0 END                        AS tax_profit_per_box\nFROM cdw.dwd_税利明细 t\nLEFT JOIN cdw.dws_产量汇总 p\n       ON t.plant_code = p.plant_code AND t.brand_code = p.brand_code\nWHERE t.dt = '2026-01-01'\nGROUP BY t.plant_code, t.brand_code, t.stat_month;",
+          "statement_count": 1,
+          "table_count": 3
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "cdw.dws_税利汇总"
+          ],
+          "input_table_names": [
+            "cdw.dwd_税利明细",
+            "cdw.dws_产量汇总"
+          ],
+          "table_lineage": [
+            {
+              "source": "cdw.dwd_税利明细",
+              "target": "cdw.dws_税利汇总"
+            },
+            {
+              "source": "cdw.dws_产量汇总",
+              "target": "cdw.dws_税利汇总"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 1,
+          "column_mapping_count": 9,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "cdw.dwd_税利明细",
+        "cdw.dws_产量汇总"
+      ],
+      "write_tables": [
+        "cdw.dws_税利汇总"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470977088",
+      "name": "t_ods_产量流水",
+      "task_type": "SQL",
+      "workflow": "wf_ods_采集",
+      "workflow_code": "184722470980160",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "ERP 生产工单 -> ods.ods_卷烟产量流水",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- ODS 贴源：ERP 生产工单 -> ods.ods_卷烟产量流水\nINSERT OVERWRITE TABLE ods.ods_卷烟产量流水 PARTITION (dt = '2026-01-01')\nSELECT\n    a.work_order_no                        AS work_order_no,\n    a.plant_code                           AS plant_code,\n    a.brand_code                           AS brand_code,\n    a.work_date                            AS work_date,\n    CAST(a.output_qty AS DECIMAL(18, 4))   AS output_qty,\n    CAST(a.defect_qty AS DECIMAL(18, 4))   AS defect_qty,\n    a.shift_code                           AS shift_code,\n    a.update_time                          AS update_time\nFROM src.erp_生产工单明细 a\nWHERE a.dt = '2026-01-01'\n  AND a.output_qty IS NOT NULL;",
+          "statement_count": 1,
+          "table_count": 2
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "ods.ods_卷烟产量流水"
+          ],
+          "input_table_names": [
+            "src.erp_生产工单明细"
+          ],
+          "table_lineage": [
+            {
+              "source": "src.erp_生产工单明细",
+              "target": "ods.ods_卷烟产量流水"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 0,
+          "column_mapping_count": 8,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "src.erp_生产工单明细"
+      ],
+      "write_tables": [
+        "ods.ods_卷烟产量流水"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470977091",
+      "name": "t_ods_库存快照",
+      "task_type": "SHELL",
+      "workflow": "wf_ods_采集",
+      "workflow_code": "184722470980160",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "WMS 库存快照 -> ods.ods_成品库存快照 + 库存基线（SHELL 任务，hive -e 多语句）",
+      "scripts": [
+        {
+          "key": "taskParams.rawScript",
+          "text": "INSERT OVERWRITE TABLE ods.ods_成品库存快照 PARTITION (dt = '2026-01-01')\nSELECT\n    c.warehouse_code                       AS warehouse_code,\n    c.plant_code                           AS plant_code,\n    c.brand_code                           AS brand_code,\n    c.stock_date                           AS stock_date,\n    CAST(c.stock_qty AS DECIMAL(18, 4))    AS stock_qty,\n    CAST(c.stock_amt AS DECIMAL(18, 2))    AS stock_amt,\n    c.batch_no                             AS batch_no,\n    c.update_time                          AS update_time\nFROM src.wms_库存快照 c\nWHERE c.dt = '2026-01-01'\n  AND c.warehouse_code IS NOT NULL;\nINSERT OVERWRITE TABLE ods.ods_库存快照基线 PARTITION (dt = '2026-01-01')\nSELECT\n    c.plant_code                           AS plant_code,\n    c.brand_code                           AS brand_code,\n    SUM(CAST(c.stock_qty AS DECIMAL(18, 4))) AS base_stock_qty\nFROM src.wms_库存快照 c\nWHERE c.dt = '2026-01-01'\n  AND c.batch_no IS NOT NULL\nGROUP BY c.plant_code, c.brand_code;",
+          "statement_count": 2,
+          "table_count": 3
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "ods.ods_成品库存快照"
+          ],
+          "input_table_names": [
+            "src.wms_库存快照"
+          ],
+          "table_lineage": [
+            {
+              "source": "src.wms_库存快照",
+              "target": "ods.ods_成品库存快照"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 0,
+          "column_mapping_count": 8,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        },
+        {
+          "statement_index": 2,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "ods.ods_库存快照基线"
+          ],
+          "input_table_names": [
+            "src.wms_库存快照"
+          ],
+          "table_lineage": [
+            {
+              "source": "src.wms_库存快照",
+              "target": "ods.ods_库存快照基线"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 0,
+          "column_mapping_count": 3,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "src.wms_库存快照"
+      ],
+      "write_tables": [
+        "ods.ods_库存快照基线",
+        "ods.ods_成品库存快照"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": null,
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470977090",
+      "name": "t_ods_税利流水",
+      "task_type": "SQL",
+      "workflow": "wf_ods_采集",
+      "workflow_code": "184722470980160",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "FIN 税金凭证 -> ods.ods_税利上缴流水",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- ODS 贴源：财务税金凭证 -> ods.ods_税利上缴流水\nINSERT OVERWRITE TABLE ods.ods_税利上缴流水 PARTITION (dt = '2026-01-01')\nSELECT\n    d.voucher_no                           AS voucher_no,\n    d.plant_code                           AS plant_code,\n    d.brand_code                           AS brand_code,\n    d.tax_type                             AS tax_type,\n    d.stat_month                           AS stat_month,\n    CAST(d.tax_amt AS DECIMAL(18, 2))      AS tax_amt,\n    CAST(d.profit_amt AS DECIMAL(18, 2))   AS profit_amt,\n    d.update_time                          AS update_time\nFROM src.fin_税金凭证 d\nWHERE d.dt = '2026-01-01'\n  AND d.stat_month >= '2026-01'\n  AND d.plant_code IS NOT NULL;",
+          "statement_count": 1,
+          "table_count": 2
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "ods.ods_税利上缴流水"
+          ],
+          "input_table_names": [
+            "src.fin_税金凭证"
+          ],
+          "table_lineage": [
+            {
+              "source": "src.fin_税金凭证",
+              "target": "ods.ods_税利上缴流水"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 0,
+          "column_mapping_count": 8,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "src.fin_税金凭证"
+      ],
+      "write_tables": [
+        "ods.ods_税利上缴流水"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    },
+    {
+      "code": "184722470977089",
+      "name": "t_ods_销量流水",
+      "task_type": "SQL",
+      "workflow": "wf_ods_采集",
+      "workflow_code": "184722470980160",
+      "project": "烟草数仓演示",
+      "project_code": "184722470975040",
+      "version": 1,
+      "description": "MES 销售出库 -> ods.ods_卷烟销量流水",
+      "scripts": [
+        {
+          "key": "taskParams.sql",
+          "text": "-- ODS 贴源：MES 销售出库 -> ods.ods_卷烟销量流水\nINSERT OVERWRITE TABLE ods.ods_卷烟销量流水 PARTITION (dt = '2026-01-01')\nSELECT\n    b.outbound_no                          AS outbound_no,\n    b.customer_code                        AS customer_code,\n    b.brand_code                           AS brand_code,\n    b.sale_date                            AS sale_date,\n    CAST(b.sale_qty AS DECIMAL(18, 4))     AS sale_qty,\n    CAST(b.sale_amt AS DECIMAL(18, 2))     AS sale_amt,\n    b.channel_code                         AS channel_code,\n    b.update_time                          AS update_time\nFROM src.mes_销售出库明细 b\nWHERE b.dt = '2026-01-01'\n  AND b.sale_qty > 0;",
+          "statement_count": 1,
+          "table_count": 2
+        }
+      ],
+      "statements": [
+        {
+          "statement_index": 1,
+          "task_type": "INSERT_SELECT",
+          "output_table_names": [
+            "ods.ods_卷烟销量流水"
+          ],
+          "input_table_names": [
+            "src.mes_销售出库明细"
+          ],
+          "table_lineage": [
+            {
+              "source": "src.mes_销售出库明细",
+              "target": "ods.ods_卷烟销量流水"
+            }
+          ],
+          "filter_count": 1,
+          "join_count": 0,
+          "column_mapping_count": 8,
+          "partition_filters": {
+            "dt": "2026-01-01"
+          }
+        }
+      ],
+      "read_tables": [
+        "src.mes_销售出库明细"
+      ],
+      "write_tables": [
+        "ods.ods_卷烟销量流水"
+      ],
+      "upstream_tasks": [],
+      "downstream_tasks": [],
+      "native_refs": [],
+      "datasource_id": "1",
+      "errors": [],
+      "has_sql": true
+    }
+  ],
+  "tables": [
+    {
+      "name": "ads.ads_产销存月报",
+      "layer": "ads",
+      "produced_by_tasks": [
+        "wf_ads_报表/t_ads_产销存月报"
+      ],
+      "consumed_by_tasks": [
+        "wf_ads_报表/t_ads_经营指标驾驶舱"
+      ],
+      "producer_workflows": [
+        "wf_ads_报表"
+      ],
+      "consumer_workflows": [
+        "wf_ads_报表"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "ads.ads_税利分析",
+      "layer": "ads",
+      "produced_by_tasks": [
+        "wf_ads_报表/t_ads_税利分析"
+      ],
+      "consumed_by_tasks": [
+        "wf_ads_报表/t_ads_经营指标驾驶舱"
+      ],
+      "producer_workflows": [
+        "wf_ads_报表"
+      ],
+      "consumer_workflows": [
+        "wf_ads_报表"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "ads.ads_经营指标明细",
+      "layer": "ads",
+      "produced_by_tasks": [
+        "wf_ads_报表/t_ads_经营指标驾驶舱"
+      ],
+      "consumed_by_tasks": [
+        "wf_ads_报表/t_ads_经营指标驾驶舱"
+      ],
+      "producer_workflows": [
+        "wf_ads_报表"
+      ],
+      "consumer_workflows": [
+        "wf_ads_报表"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "ads.ads_经营指标驾驶舱",
+      "layer": "ads",
+      "produced_by_tasks": [
+        "wf_ads_报表/t_ads_经营指标驾驶舱"
+      ],
+      "consumed_by_tasks": [],
+      "producer_workflows": [
+        "wf_ads_报表"
+      ],
+      "consumer_workflows": [],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_source": false,
+      "is_leaf": true
+    },
+    {
+      "name": "cdw.dwd_卷烟产量明细",
+      "layer": "dwd",
+      "produced_by_tasks": [
+        "wf_dwd_清洗/t_dwd_产量明细"
+      ],
+      "consumed_by_tasks": [
+        "wf_dws_汇总/t_dws_产量汇总"
+      ],
+      "producer_workflows": [
+        "wf_dwd_清洗"
+      ],
+      "consumer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "cdw.dwd_卷烟销量明细",
+      "layer": "dwd",
+      "produced_by_tasks": [
+        "wf_dwd_清洗/t_dwd_销量明细"
+      ],
+      "consumed_by_tasks": [
+        "wf_dws_汇总/t_dws_产销存汇总"
+      ],
+      "producer_workflows": [
+        "wf_dwd_清洗"
+      ],
+      "consumer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "cdw.dwd_成品库存明细",
+      "layer": "dwd",
+      "produced_by_tasks": [
+        "wf_dwd_清洗/t_dwd_库存明细"
+      ],
+      "consumed_by_tasks": [
+        "wf_dws_汇总/t_dws_库存汇总"
+      ],
+      "producer_workflows": [
+        "wf_dwd_清洗"
+      ],
+      "consumer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "cdw.dwd_税利明细",
+      "layer": "dwd",
+      "produced_by_tasks": [
+        "wf_dwd_清洗/t_dwd_税利明细"
+      ],
+      "consumed_by_tasks": [
+        "wf_dws_汇总/t_dws_税利汇总"
+      ],
+      "producer_workflows": [
+        "wf_dwd_清洗"
+      ],
+      "consumer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "cdw.dws_产量汇总",
+      "layer": "dws",
+      "produced_by_tasks": [
+        "wf_dws_汇总/t_dws_产量汇总"
+      ],
+      "consumed_by_tasks": [
+        "wf_dws_汇总/t_dws_产销存汇总",
+        "wf_dws_汇总/t_dws_税利汇总"
+      ],
+      "producer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "consumer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 2,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "cdw.dws_产销存汇总",
+      "layer": "dws",
+      "produced_by_tasks": [
+        "wf_dws_汇总/t_dws_产销存汇总"
+      ],
+      "consumed_by_tasks": [
+        "wf_ads_报表/t_ads_产销存月报",
+        "wf_ads_报表/t_ads_税利分析"
+      ],
+      "producer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "consumer_workflows": [
+        "wf_ads_报表"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 2,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "cdw.dws_库存汇总",
+      "layer": "dws",
+      "produced_by_tasks": [
+        "wf_dws_汇总/t_dws_库存汇总"
+      ],
+      "consumed_by_tasks": [
+        "wf_dws_汇总/t_dws_产销存汇总"
+      ],
+      "producer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "consumer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "cdw.dws_税利汇总",
+      "layer": "dws",
+      "produced_by_tasks": [
+        "wf_dws_汇总/t_dws_税利汇总"
+      ],
+      "consumed_by_tasks": [
+        "wf_ads_报表/t_ads_税利分析"
+      ],
+      "producer_workflows": [
+        "wf_dws_汇总"
+      ],
+      "consumer_workflows": [
+        "wf_ads_报表"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "dim.dim_brand",
+      "layer": "dim",
+      "produced_by_tasks": [],
+      "consumed_by_tasks": [
+        "wf_ads_报表/t_ads_产销存月报",
+        "wf_ads_报表/t_ads_税利分析",
+        "wf_dwd_清洗/t_dwd_产量明细",
+        "wf_dwd_清洗/t_dwd_税利明细",
+        "wf_dwd_清洗/t_dwd_销量明细"
+      ],
+      "producer_workflows": [],
+      "consumer_workflows": [
+        "wf_ads_报表",
+        "wf_dwd_清洗"
+      ],
+      "producer_projects": [],
+      "in_degree": 0,
+      "out_degree": 5,
+      "is_source": true,
+      "is_leaf": false
+    },
+    {
+      "name": "dim.dim_plant",
+      "layer": "dim",
+      "produced_by_tasks": [],
+      "consumed_by_tasks": [
+        "wf_ads_报表/t_ads_产销存月报",
+        "wf_dwd_清洗/t_dwd_产量明细",
+        "wf_dwd_清洗/t_dwd_库存明细"
+      ],
+      "producer_workflows": [],
+      "consumer_workflows": [
+        "wf_ads_报表",
+        "wf_dwd_清洗"
+      ],
+      "producer_projects": [],
+      "in_degree": 0,
+      "out_degree": 3,
+      "is_source": true,
+      "is_leaf": false
+    },
+    {
+      "name": "ods.ods_卷烟产量流水",
+      "layer": "ods",
+      "produced_by_tasks": [
+        "wf_ods_采集/t_ods_产量流水"
+      ],
+      "consumed_by_tasks": [
+        "wf_dwd_清洗/t_dwd_产量明细"
+      ],
+      "producer_workflows": [
+        "wf_ods_采集"
+      ],
+      "consumer_workflows": [
+        "wf_dwd_清洗"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "ods.ods_卷烟销量流水",
+      "layer": "ods",
+      "produced_by_tasks": [
+        "wf_ods_采集/t_ods_销量流水"
+      ],
+      "consumed_by_tasks": [
+        "wf_dwd_清洗/t_dwd_销量明细"
+      ],
+      "producer_workflows": [
+        "wf_ods_采集"
+      ],
+      "consumer_workflows": [
+        "wf_dwd_清洗"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "ods.ods_库存快照基线",
+      "layer": "ods",
+      "produced_by_tasks": [
+        "wf_ods_采集/t_ods_库存快照"
+      ],
+      "consumed_by_tasks": [],
+      "producer_workflows": [
+        "wf_ods_采集"
+      ],
+      "consumer_workflows": [],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 0,
+      "is_source": false,
+      "is_leaf": true
+    },
+    {
+      "name": "ods.ods_成品库存快照",
+      "layer": "ods",
+      "produced_by_tasks": [
+        "wf_ods_采集/t_ods_库存快照"
+      ],
+      "consumed_by_tasks": [
+        "wf_dwd_清洗/t_dwd_库存明细"
+      ],
+      "producer_workflows": [
+        "wf_ods_采集"
+      ],
+      "consumer_workflows": [
+        "wf_dwd_清洗"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "ods.ods_税利上缴流水",
+      "layer": "ods",
+      "produced_by_tasks": [
+        "wf_ods_采集/t_ods_税利流水"
+      ],
+      "consumed_by_tasks": [
+        "wf_dwd_清洗/t_dwd_税利明细"
+      ],
+      "producer_workflows": [
+        "wf_ods_采集"
+      ],
+      "consumer_workflows": [
+        "wf_dwd_清洗"
+      ],
+      "producer_projects": [
+        "烟草数仓演示"
+      ],
+      "in_degree": 1,
+      "out_degree": 1,
+      "is_source": false,
+      "is_leaf": false
+    },
+    {
+      "name": "src.erp_生产工单明细",
+      "layer": "src",
+      "produced_by_tasks": [],
+      "consumed_by_tasks": [
+        "wf_ods_采集/t_ods_产量流水"
+      ],
+      "producer_workflows": [],
+      "consumer_workflows": [
+        "wf_ods_采集"
+      ],
+      "producer_projects": [],
+      "in_degree": 0,
+      "out_degree": 1,
+      "is_source": true,
+      "is_leaf": false
+    },
+    {
+      "name": "src.fin_税金凭证",
+      "layer": "src",
+      "produced_by_tasks": [],
+      "consumed_by_tasks": [
+        "wf_ods_采集/t_ods_税利流水"
+      ],
+      "producer_workflows": [],
+      "consumer_workflows": [
+        "wf_ods_采集"
+      ],
+      "producer_projects": [],
+      "in_degree": 0,
+      "out_degree": 1,
+      "is_source": true,
+      "is_leaf": false
+    },
+    {
+      "name": "src.mes_销售出库明细",
+      "layer": "src",
+      "produced_by_tasks": [],
+      "consumed_by_tasks": [
+        "wf_ods_采集/t_ods_销量流水"
+      ],
+      "producer_workflows": [],
+      "consumer_workflows": [
+        "wf_ods_采集"
+      ],
+      "producer_projects": [],
+      "in_degree": 0,
+      "out_degree": 1,
+      "is_source": true,
+      "is_leaf": false
+    },
+    {
+      "name": "src.wms_库存快照",
+      "layer": "src",
+      "produced_by_tasks": [],
+      "consumed_by_tasks": [
+        "wf_ods_采集/t_ods_库存快照"
+      ],
+      "producer_workflows": [],
+      "consumer_workflows": [
+        "wf_ods_采集"
+      ],
+      "producer_projects": [],
+      "in_degree": 0,
+      "out_degree": 1,
+      "is_source": true,
+      "is_leaf": false
+    }
+  ],
+  "workflow_dependencies": [
+    {
+      "source": "wf_dwd_清洗",
+      "target": "wf_dws_汇总",
+      "kind": "table",
+      "via_tables": [
+        "cdw.dwd_卷烟产量明细",
+        "cdw.dwd_卷烟销量明细",
+        "cdw.dwd_成品库存明细",
+        "cdw.dwd_税利明细"
+      ],
+      "via_task": "",
+      "relation": "",
+      "via_table_count": 4,
+      "via_tables_truncated": false
+    },
+    {
+      "source": "wf_dws_汇总",
+      "target": "wf_ads_报表",
+      "kind": "native",
+      "via_tables": [],
+      "via_task": "t_check_上游就绪",
+      "relation": "dependent",
+      "via_table_count": 0,
+      "via_tables_truncated": false
+    },
+    {
+      "source": "wf_dws_汇总",
+      "target": "wf_ads_报表",
+      "kind": "table",
+      "via_tables": [
+        "cdw.dws_产销存汇总",
+        "cdw.dws_税利汇总"
+      ],
+      "via_task": "",
+      "relation": "",
+      "via_table_count": 2,
+      "via_tables_truncated": false
+    },
+    {
+      "source": "wf_ods_采集",
+      "target": "wf_dwd_清洗",
+      "kind": "table",
+      "via_tables": [
+        "ods.ods_卷烟产量流水",
+        "ods.ods_卷烟销量流水",
+        "ods.ods_成品库存快照",
+        "ods.ods_税利上缴流水"
+      ],
+      "via_task": "",
+      "relation": "",
+      "via_table_count": 4,
+      "via_tables_truncated": false
+    }
+  ],
+  "failures": [],
+  "table_graph": {
+    "schema_version": 1,
+    "dialect": "hive",
+    "root": "dolphinscheduler:http://localhost:12345/dolphinscheduler",
+    "nodes": [
+      {
+        "name": "ads.ads_产销存月报",
+        "schema": "ads",
+        "table": "ads_产销存月报",
+        "layer": "ads",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "CTAS"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "ads.ads_税利分析",
+        "schema": "ads",
+        "table": "ads_税利分析",
+        "layer": "ads",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "CTAS"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "ads.ads_经营指标明细",
+        "schema": "ads",
+        "table": "ads_经营指标明细",
+        "layer": "ads",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "CTAS"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)",
+            "statement_index": 2,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "ads.ads_经营指标驾驶舱",
+        "schema": "ads",
+        "table": "ads_经营指标驾驶舱",
+        "layer": "ads",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)",
+            "statement_index": 2,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [],
+        "ref_count": 0
+      },
+      {
+        "name": "cdw.dwd_卷烟产量明细",
+        "schema": "cdw",
+        "table": "dwd_卷烟产量明细",
+        "layer": "dwd",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产量汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "cdw.dwd_卷烟销量明细",
+        "schema": "cdw",
+        "table": "dwd_卷烟销量明细",
+        "layer": "dwd",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_销量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "cdw.dwd_成品库存明细",
+        "schema": "cdw",
+        "table": "dwd_成品库存明细",
+        "layer": "dwd",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_库存明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_库存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "cdw.dwd_税利明细",
+        "schema": "cdw",
+        "table": "dwd_税利明细",
+        "layer": "dwd",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_税利明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_税利汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "cdw.dws_产量汇总",
+        "schema": "cdw",
+        "table": "dws_产量汇总",
+        "layer": "dws",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产量汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_税利汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          },
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 2
+      },
+      {
+        "name": "cdw.dws_产销存汇总",
+        "schema": "cdw",
+        "table": "dws_产销存汇总",
+        "layer": "dws",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          },
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 2
+      },
+      {
+        "name": "cdw.dws_库存汇总",
+        "schema": "cdw",
+        "table": "dws_库存汇总",
+        "layer": "dws",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_库存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "cdw.dws_税利汇总",
+        "schema": "cdw",
+        "table": "dws_税利汇总",
+        "layer": "dws",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_税利汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "dim.dim_brand",
+        "schema": "dim",
+        "table": "dim_brand",
+        "layer": "dim",
+        "produced_by": [],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          },
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          },
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          },
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_销量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          },
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_税利明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 5
+      },
+      {
+        "name": "dim.dim_plant",
+        "schema": "dim",
+        "table": "dim_plant",
+        "layer": "dim",
+        "produced_by": [],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          },
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          },
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_库存明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 3
+      },
+      {
+        "name": "ods.ods_卷烟产量流水",
+        "schema": "ods",
+        "table": "ods_卷烟产量流水",
+        "layer": "ods",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_产量流水 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "ods.ods_卷烟销量流水",
+        "schema": "ods",
+        "table": "ods_卷烟销量流水",
+        "layer": "ods",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_销量流水 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_销量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "ods.ods_库存快照基线",
+        "schema": "ods",
+        "table": "ods_库存快照基线",
+        "layer": "ods",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_库存快照 (taskParams.rawScript)",
+            "statement_index": 2,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [],
+        "ref_count": 0
+      },
+      {
+        "name": "ods.ods_成品库存快照",
+        "schema": "ods",
+        "table": "ods_成品库存快照",
+        "layer": "ods",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_库存快照 (taskParams.rawScript)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_库存明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "ods.ods_税利上缴流水",
+        "schema": "ods",
+        "table": "ods_税利上缴流水",
+        "layer": "ods",
+        "produced_by": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_税利流水 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_税利明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "src.erp_生产工单明细",
+        "schema": "src",
+        "table": "erp_生产工单明细",
+        "layer": "src",
+        "produced_by": [],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_产量流水 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "src.fin_税金凭证",
+        "schema": "src",
+        "table": "fin_税金凭证",
+        "layer": "src",
+        "produced_by": [],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_税利流水 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "src.mes_销售出库明细",
+        "schema": "src",
+        "table": "mes_销售出库明细",
+        "layer": "src",
+        "produced_by": [],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_销量流水 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 1
+      },
+      {
+        "name": "src.wms_库存快照",
+        "schema": "src",
+        "table": "wms_库存快照",
+        "layer": "src",
+        "produced_by": [],
+        "consumed_by": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_库存快照 (taskParams.rawScript)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          },
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_库存快照 (taskParams.rawScript)",
+            "statement_index": 2,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "ref_count": 2
+      }
+    ],
+    "edges": [
+      {
+        "source": "ads.ads_产销存月报",
+        "target": "ads.ads_经营指标明细",
+        "files": [
+          "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "CTAS"
+          }
+        ],
+        "column_mappings": 8,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "m.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "plant_name",
+            "source_column": "plant_name",
+            "expression": "m.plant_name AS plant_name",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "m.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_name",
+            "source_column": "brand_name",
+            "expression": "m.brand_name AS brand_name",
+            "resolved": true
+          },
+          {
+            "target_column": "output_qty",
+            "source_column": "output_qty",
+            "expression": "m.output_qty AS output_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_qty",
+            "source_column": "sale_qty",
+            "expression": "m.sale_qty AS sale_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_amt",
+            "source_column": "sale_amt",
+            "expression": "m.sale_amt AS sale_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_output_ratio",
+            "source_column": "sale_output_ratio",
+            "expression": "m.sale_output_ratio AS sale_output_ratio",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "ads.ads_税利分析",
+        "target": "ads.ads_经营指标明细",
+        "files": [
+          "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "CTAS"
+          }
+        ],
+        "column_mappings": 2,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "tax_profit",
+            "source_column": "tax_profit",
+            "expression": "t.tax_profit AS tax_profit",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_profit_per_box",
+            "source_column": "tax_profit_per_box",
+            "expression": "t.tax_profit_per_box AS tax_profit_per_box",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "ads.ads_经营指标明细",
+        "target": "ads.ads_经营指标驾驶舱",
+        "files": [
+          "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_经营指标驾驶舱 (taskParams.sql)",
+            "statement_index": 2,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 7,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "i.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "plant_name",
+            "source_column": "plant_name",
+            "expression": "i.plant_name AS plant_name",
+            "resolved": true
+          },
+          {
+            "target_column": "output_qty",
+            "source_column": "output_qty",
+            "expression": "SUM(i.output_qty) AS output_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_qty",
+            "source_column": "sale_qty",
+            "expression": "SUM(i.sale_qty) AS sale_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_amt",
+            "source_column": "sale_amt",
+            "expression": "SUM(i.sale_amt) AS sale_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_profit",
+            "source_column": "tax_profit",
+            "expression": "SUM(i.tax_profit) AS tax_profit",
+            "resolved": true
+          },
+          {
+            "target_column": "avg_sale_output_ratio",
+            "source_column": "sale_output_ratio",
+            "expression": "ROUND(AVG(i.sale_output_ratio), 4) AS avg_sale_output_ratio",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dwd_卷烟产量明细",
+        "target": "cdw.dws_产量汇总",
+        "files": [
+          "烟草数仓演示/wf_dws_汇总/t_dws_产量汇总 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产量汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 4,
+        "unresolved_mappings": 0,
+        "constant_mappings": 1,
+        "columns": [
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "d.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "d.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "total_output_qty",
+            "source_column": "output_qty",
+            "expression": "SUM(d.output_qty) AS total_output_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "total_defect_qty",
+            "source_column": "defect_qty",
+            "expression": "SUM(d.defect_qty) AS total_defect_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "work_order_cnt",
+            "source_column": "(常量)",
+            "expression": "COUNT(1) AS work_order_cnt",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dwd_卷烟销量明细",
+        "target": "cdw.dws_产销存汇总",
+        "files": [
+          "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 2,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "sale_qty",
+            "source_column": "sale_qty",
+            "expression": "COALESCE(s.total_sale_qty, 0) AS sale_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_amt",
+            "source_column": "sale_amt",
+            "expression": "COALESCE(s.total_sale_amt, 0) AS sale_amt",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dwd_成品库存明细",
+        "target": "cdw.dws_库存汇总",
+        "files": [
+          "烟草数仓演示/wf_dws_汇总/t_dws_库存汇总 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_库存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 5,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "k.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "k.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "total_stock_qty",
+            "source_column": "stock_qty",
+            "expression": "SUM(k.stock_qty) AS total_stock_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "total_stock_amt",
+            "source_column": "stock_amt",
+            "expression": "SUM(k.stock_amt) AS total_stock_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "batch_cnt",
+            "source_column": "batch_no",
+            "expression": "COUNT(DISTINCT k.batch_no) AS batch_cnt",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dwd_税利明细",
+        "target": "cdw.dws_税利汇总",
+        "files": [
+          "烟草数仓演示/wf_dws_汇总/t_dws_税利汇总 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_税利汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 7,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "t.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "t.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "stat_month",
+            "source_column": "stat_month",
+            "expression": "t.stat_month AS stat_month",
+            "resolved": true
+          },
+          {
+            "target_column": "total_tax_amt",
+            "source_column": "tax_amt",
+            "expression": "SUM(t.tax_amt) AS total_tax_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "total_profit_amt",
+            "source_column": "profit_amt",
+            "expression": "SUM(t.profit_amt) AS total_profit_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "total_tax_profit",
+            "source_column": "total_tax_profit",
+            "expression": "SUM(t.total_tax_profit) AS total_tax_profit",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_profit_per_box",
+            "source_column": "total_tax_profit",
+            "expression": "CASE WHEN MAX(p.total_output_qty) > 0 THEN ROUND(SUM(t.total_tax_profit) / MAX(p.total_output_qty), 2) ELSE 0 END AS tax_profit_per_box",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dws_产量汇总",
+        "target": "cdw.dws_产销存汇总",
+        "files": [
+          "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 3,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "a.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "a.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "output_qty",
+            "source_column": "total_output_qty",
+            "expression": "a.total_output_qty AS output_qty",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dws_产量汇总",
+        "target": "cdw.dws_税利汇总",
+        "files": [
+          "烟草数仓演示/wf_dws_汇总/t_dws_税利汇总 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_税利汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 2,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "total_output_qty",
+            "source_column": "total_output_qty",
+            "expression": "MAX(p.total_output_qty) AS total_output_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_profit_per_box",
+            "source_column": "total_output_qty",
+            "expression": "CASE WHEN MAX(p.total_output_qty) > 0 THEN ROUND(SUM(t.total_tax_profit) / MAX(p.total_output_qty), 2) ELSE 0 END AS tax_profit_per_box",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dws_产销存汇总",
+        "target": "ads.ads_产销存月报",
+        "files": [
+          "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 10,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "s.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "s.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "output_qty",
+            "source_column": "output_qty",
+            "expression": "s.output_qty AS output_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_qty",
+            "source_column": "sale_qty",
+            "expression": "s.sale_qty AS sale_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_qty",
+            "source_column": "stock_qty",
+            "expression": "s.stock_qty AS stock_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_amt",
+            "source_column": "sale_amt",
+            "expression": "s.sale_amt AS sale_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_output_ratio",
+            "source_column": "sale_qty",
+            "expression": "ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_output_ratio",
+            "source_column": "output_qty",
+            "expression": "ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_increase",
+            "source_column": "output_qty",
+            "expression": "s.output_qty - s.sale_qty AS stock_increase",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_increase",
+            "source_column": "sale_qty",
+            "expression": "s.output_qty - s.sale_qty AS stock_increase",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dws_产销存汇总",
+        "target": "ads.ads_税利分析",
+        "files": [
+          "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 2,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "sale_qty",
+            "source_column": "sale_qty",
+            "expression": "COALESCE(p.sale_qty, 0) AS sale_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_profit_per_sale_box",
+            "source_column": "sale_qty",
+            "expression": "CASE WHEN COALESCE(p.sale_qty, 0) > 0 THEN ROUND(t.total_tax_profit / p.sale_qty, 2) ELSE 0 END AS tax_profit_per_sale_box",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dws_库存汇总",
+        "target": "cdw.dws_产销存汇总",
+        "files": [
+          "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dws_汇总/t_dws_产销存汇总 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 1,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "stock_qty",
+            "source_column": "total_stock_qty",
+            "expression": "COALESCE(k.total_stock_qty, 0) AS stock_qty",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "cdw.dws_税利汇总",
+        "target": "ads.ads_税利分析",
+        "files": [
+          "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 8,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "t.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "t.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "stat_month",
+            "source_column": "stat_month",
+            "expression": "t.stat_month AS stat_month",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_amt",
+            "source_column": "total_tax_amt",
+            "expression": "t.total_tax_amt AS tax_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "profit_amt",
+            "source_column": "total_profit_amt",
+            "expression": "t.total_profit_amt AS profit_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_profit",
+            "source_column": "total_tax_profit",
+            "expression": "t.total_tax_profit AS tax_profit",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_profit_per_box",
+            "source_column": "tax_profit_per_box",
+            "expression": "t.tax_profit_per_box AS tax_profit_per_box",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_profit_per_sale_box",
+            "source_column": "total_tax_profit",
+            "expression": "CASE WHEN COALESCE(p.sale_qty, 0) > 0 THEN ROUND(t.total_tax_profit / p.sale_qty, 2) ELSE 0 END AS tax_profit_per_sale_box",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "dim.dim_brand",
+        "target": "ads.ads_产销存月报",
+        "files": [
+          "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 2,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "brand_name",
+            "source_column": "brand_name",
+            "expression": "bd.brand_name AS brand_name",
+            "resolved": true
+          },
+          {
+            "target_column": "price_band",
+            "source_column": "price_band",
+            "expression": "bd.price_band AS price_band",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "dim.dim_brand",
+        "target": "ads.ads_税利分析",
+        "files": [
+          "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_税利分析 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 1,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "brand_name",
+            "source_column": "brand_name",
+            "expression": "bd.brand_name AS brand_name",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "dim.dim_brand",
+        "target": "cdw.dwd_卷烟产量明细",
+        "files": [
+          "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 2,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "brand_name",
+            "source_column": "brand_name",
+            "expression": "bd.brand_name AS brand_name",
+            "resolved": true
+          },
+          {
+            "target_column": "price_band",
+            "source_column": "price_band",
+            "expression": "bd.price_band AS price_band",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "dim.dim_brand",
+        "target": "cdw.dwd_卷烟销量明细",
+        "files": [
+          "烟草数仓演示/wf_dwd_清洗/t_dwd_销量明细 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_销量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 1,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "brand_name",
+            "source_column": "brand_name",
+            "expression": "bd.brand_name AS brand_name",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "dim.dim_brand",
+        "target": "cdw.dwd_税利明细",
+        "files": [
+          "烟草数仓演示/wf_dwd_清洗/t_dwd_税利明细 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_税利明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 1,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "brand_name",
+            "source_column": "brand_name",
+            "expression": "bd.brand_name AS brand_name",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "dim.dim_plant",
+        "target": "ads.ads_产销存月报",
+        "files": [
+          "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ads_报表/t_ads_产销存月报 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 1,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_name",
+            "source_column": "plant_name",
+            "expression": "pl.plant_name AS plant_name",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "dim.dim_plant",
+        "target": "cdw.dwd_卷烟产量明细",
+        "files": [
+          "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 1,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_name",
+            "source_column": "plant_name",
+            "expression": "pl.plant_name AS plant_name",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "dim.dim_plant",
+        "target": "cdw.dwd_成品库存明细",
+        "files": [
+          "烟草数仓演示/wf_dwd_清洗/t_dwd_库存明细 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_库存明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 1,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_name",
+            "source_column": "plant_name",
+            "expression": "pl.plant_name AS plant_name",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "ods.ods_卷烟产量流水",
+        "target": "cdw.dwd_卷烟产量明细",
+        "files": [
+          "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_产量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 10,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "work_order_no",
+            "source_column": "work_order_no",
+            "expression": "p.work_order_no AS work_order_no",
+            "resolved": true
+          },
+          {
+            "target_column": "work_date",
+            "source_column": "work_date",
+            "expression": "p.work_date AS work_date",
+            "resolved": true
+          },
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "p.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "p.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "output_qty",
+            "source_column": "output_qty",
+            "expression": "p.output_qty AS output_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "output_qty_cig",
+            "source_column": "output_qty",
+            "expression": "p.output_qty * 250 AS output_qty_cig",
+            "resolved": true
+          },
+          {
+            "target_column": "defect_qty",
+            "source_column": "defect_qty",
+            "expression": "p.defect_qty AS defect_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "defect_rate",
+            "source_column": "output_qty",
+            "expression": "CASE WHEN p.output_qty > 0 THEN ROUND(p.defect_qty / p.output_qty, 6) ELSE 0 END AS defect_rate",
+            "resolved": true
+          },
+          {
+            "target_column": "defect_rate",
+            "source_column": "defect_qty",
+            "expression": "CASE WHEN p.output_qty > 0 THEN ROUND(p.defect_qty / p.output_qty, 6) ELSE 0 END AS defect_rate",
+            "resolved": true
+          },
+          {
+            "target_column": "shift_code",
+            "source_column": "shift_code",
+            "expression": "p.shift_code AS shift_code",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "ods.ods_卷烟销量流水",
+        "target": "cdw.dwd_卷烟销量明细",
+        "files": [
+          "烟草数仓演示/wf_dwd_清洗/t_dwd_销量明细 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_销量明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 9,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "outbound_no",
+            "source_column": "outbound_no",
+            "expression": "s.outbound_no AS outbound_no",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_date",
+            "source_column": "sale_date",
+            "expression": "s.sale_date AS sale_date",
+            "resolved": true
+          },
+          {
+            "target_column": "customer_code",
+            "source_column": "customer_code",
+            "expression": "s.customer_code AS customer_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "s.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "channel_code",
+            "source_column": "channel_code",
+            "expression": "s.channel_code AS channel_code",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_qty",
+            "source_column": "sale_qty",
+            "expression": "s.sale_qty AS sale_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_amt",
+            "source_column": "sale_amt",
+            "expression": "s.sale_amt AS sale_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "unit_price",
+            "source_column": "sale_qty",
+            "expression": "CASE WHEN s.sale_qty > 0 THEN ROUND(s.sale_amt / s.sale_qty, 2) ELSE 0 END AS unit_price",
+            "resolved": true
+          },
+          {
+            "target_column": "unit_price",
+            "source_column": "sale_amt",
+            "expression": "CASE WHEN s.sale_qty > 0 THEN ROUND(s.sale_amt / s.sale_qty, 2) ELSE 0 END AS unit_price",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "ods.ods_成品库存快照",
+        "target": "cdw.dwd_成品库存明细",
+        "files": [
+          "烟草数仓演示/wf_dwd_清洗/t_dwd_库存明细 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_库存明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 9,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "warehouse_code",
+            "source_column": "warehouse_code",
+            "expression": "k.warehouse_code AS warehouse_code",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_date",
+            "source_column": "stock_date",
+            "expression": "k.stock_date AS stock_date",
+            "resolved": true
+          },
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "k.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "k.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "batch_no",
+            "source_column": "batch_no",
+            "expression": "k.batch_no AS batch_no",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_qty",
+            "source_column": "stock_qty",
+            "expression": "k.stock_qty AS stock_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_amt",
+            "source_column": "stock_amt",
+            "expression": "k.stock_amt AS stock_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_unit_cost",
+            "source_column": "stock_amt",
+            "expression": "ROUND(k.stock_amt / NULLIF(k.stock_qty, 0), 2) AS stock_unit_cost",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_unit_cost",
+            "source_column": "stock_qty",
+            "expression": "ROUND(k.stock_amt / NULLIF(k.stock_qty, 0), 2) AS stock_unit_cost",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "ods.ods_税利上缴流水",
+        "target": "cdw.dwd_税利明细",
+        "files": [
+          "烟草数仓演示/wf_dwd_清洗/t_dwd_税利明细 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_dwd_清洗/t_dwd_税利明细 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 9,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "voucher_no",
+            "source_column": "voucher_no",
+            "expression": "t.voucher_no AS voucher_no",
+            "resolved": true
+          },
+          {
+            "target_column": "stat_month",
+            "source_column": "stat_month",
+            "expression": "t.stat_month AS stat_month",
+            "resolved": true
+          },
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "t.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "t.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_type",
+            "source_column": "tax_type",
+            "expression": "t.tax_type AS tax_type",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_amt",
+            "source_column": "tax_amt",
+            "expression": "t.tax_amt AS tax_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "profit_amt",
+            "source_column": "profit_amt",
+            "expression": "t.profit_amt AS profit_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "total_tax_profit",
+            "source_column": "tax_amt",
+            "expression": "t.tax_amt + t.profit_amt AS total_tax_profit",
+            "resolved": true
+          },
+          {
+            "target_column": "total_tax_profit",
+            "source_column": "profit_amt",
+            "expression": "t.tax_amt + t.profit_amt AS total_tax_profit",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "src.erp_生产工单明细",
+        "target": "ods.ods_卷烟产量流水",
+        "files": [
+          "烟草数仓演示/wf_ods_采集/t_ods_产量流水 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_产量流水 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 8,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "work_order_no",
+            "source_column": "work_order_no",
+            "expression": "a.work_order_no AS work_order_no",
+            "resolved": true
+          },
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "a.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "a.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "work_date",
+            "source_column": "work_date",
+            "expression": "a.work_date AS work_date",
+            "resolved": true
+          },
+          {
+            "target_column": "output_qty",
+            "source_column": "output_qty",
+            "expression": "CAST(a.output_qty AS DECIMAL(18, 4)) AS output_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "defect_qty",
+            "source_column": "defect_qty",
+            "expression": "CAST(a.defect_qty AS DECIMAL(18, 4)) AS defect_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "shift_code",
+            "source_column": "shift_code",
+            "expression": "a.shift_code AS shift_code",
+            "resolved": true
+          },
+          {
+            "target_column": "update_time",
+            "source_column": "update_time",
+            "expression": "a.update_time AS update_time",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "src.fin_税金凭证",
+        "target": "ods.ods_税利上缴流水",
+        "files": [
+          "烟草数仓演示/wf_ods_采集/t_ods_税利流水 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_税利流水 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 8,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "voucher_no",
+            "source_column": "voucher_no",
+            "expression": "d.voucher_no AS voucher_no",
+            "resolved": true
+          },
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "d.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "d.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_type",
+            "source_column": "tax_type",
+            "expression": "d.tax_type AS tax_type",
+            "resolved": true
+          },
+          {
+            "target_column": "stat_month",
+            "source_column": "stat_month",
+            "expression": "d.stat_month AS stat_month",
+            "resolved": true
+          },
+          {
+            "target_column": "tax_amt",
+            "source_column": "tax_amt",
+            "expression": "CAST(d.tax_amt AS DECIMAL(18, 2)) AS tax_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "profit_amt",
+            "source_column": "profit_amt",
+            "expression": "CAST(d.profit_amt AS DECIMAL(18, 2)) AS profit_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "update_time",
+            "source_column": "update_time",
+            "expression": "d.update_time AS update_time",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "src.mes_销售出库明细",
+        "target": "ods.ods_卷烟销量流水",
+        "files": [
+          "烟草数仓演示/wf_ods_采集/t_ods_销量流水 (taskParams.sql)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_销量流水 (taskParams.sql)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 8,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "outbound_no",
+            "source_column": "outbound_no",
+            "expression": "b.outbound_no AS outbound_no",
+            "resolved": true
+          },
+          {
+            "target_column": "customer_code",
+            "source_column": "customer_code",
+            "expression": "b.customer_code AS customer_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "b.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_date",
+            "source_column": "sale_date",
+            "expression": "b.sale_date AS sale_date",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_qty",
+            "source_column": "sale_qty",
+            "expression": "CAST(b.sale_qty AS DECIMAL(18, 4)) AS sale_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "sale_amt",
+            "source_column": "sale_amt",
+            "expression": "CAST(b.sale_amt AS DECIMAL(18, 2)) AS sale_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "channel_code",
+            "source_column": "channel_code",
+            "expression": "b.channel_code AS channel_code",
+            "resolved": true
+          },
+          {
+            "target_column": "update_time",
+            "source_column": "update_time",
+            "expression": "b.update_time AS update_time",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "src.wms_库存快照",
+        "target": "ods.ods_库存快照基线",
+        "files": [
+          "烟草数仓演示/wf_ods_采集/t_ods_库存快照 (taskParams.rawScript)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_库存快照 (taskParams.rawScript)",
+            "statement_index": 2,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 3,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "c.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "c.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "base_stock_qty",
+            "source_column": "stock_qty",
+            "expression": "SUM(CAST(c.stock_qty AS DECIMAL(18, 4))) AS base_stock_qty",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      },
+      {
+        "source": "src.wms_库存快照",
+        "target": "ods.ods_成品库存快照",
+        "files": [
+          "烟草数仓演示/wf_ods_采集/t_ods_库存快照 (taskParams.rawScript)"
+        ],
+        "statements": [
+          {
+            "file": "烟草数仓演示/wf_ods_采集/t_ods_库存快照 (taskParams.rawScript)",
+            "statement_index": 1,
+            "task_type": "INSERT_SELECT"
+          }
+        ],
+        "column_mappings": 8,
+        "unresolved_mappings": 0,
+        "constant_mappings": 0,
+        "columns": [
+          {
+            "target_column": "warehouse_code",
+            "source_column": "warehouse_code",
+            "expression": "c.warehouse_code AS warehouse_code",
+            "resolved": true
+          },
+          {
+            "target_column": "plant_code",
+            "source_column": "plant_code",
+            "expression": "c.plant_code AS plant_code",
+            "resolved": true
+          },
+          {
+            "target_column": "brand_code",
+            "source_column": "brand_code",
+            "expression": "c.brand_code AS brand_code",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_date",
+            "source_column": "stock_date",
+            "expression": "c.stock_date AS stock_date",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_qty",
+            "source_column": "stock_qty",
+            "expression": "CAST(c.stock_qty AS DECIMAL(18, 4)) AS stock_qty",
+            "resolved": true
+          },
+          {
+            "target_column": "stock_amt",
+            "source_column": "stock_amt",
+            "expression": "CAST(c.stock_amt AS DECIMAL(18, 2)) AS stock_amt",
+            "resolved": true
+          },
+          {
+            "target_column": "batch_no",
+            "source_column": "batch_no",
+            "expression": "c.batch_no AS batch_no",
+            "resolved": true
+          },
+          {
+            "target_column": "update_time",
+            "source_column": "update_time",
+            "expression": "c.update_time AS update_time",
+            "resolved": true
+          }
+        ],
+        "columns_truncated": false,
+        "partition_filters": {
+          "dt": "2026-01-01"
+        }
+      }
+    ],
+    "failures": [],
+    "scan_meta": {}
+  }
+}

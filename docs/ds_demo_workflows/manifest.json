@@ -1,0 +1,150 @@
+{
+  "note": "由 scripts/ds_setup_demo.py 从真实 DolphinScheduler 实例导出（GET /process-definition/{code}）",
+  "base_url": "http://localhost:12345/dolphinscheduler",
+  "project": {
+    "name": "烟草数仓演示",
+    "code": "184722470975040"
+  },
+  "datasource": {
+    "name": "hive_演示",
+    "id": 1
+  },
+  "workflow_count": 4,
+  "task_count": 16,
+  "workflows": [
+    {
+      "workflow": "wf_ods_采集",
+      "code": "184722470980160",
+      "description": "ODS 贴源采集：ERP/MES/WMS/FIN 源系统 -> 贴源表（4 个任务，并行执行）",
+      "tasks": [
+        {
+          "name": "t_ods_产量流水",
+          "type": "SQL",
+          "code": "184722470977088",
+          "upstream": []
+        },
+        {
+          "name": "t_ods_销量流水",
+          "type": "SQL",
+          "code": "184722470977089",
+          "upstream": []
+        },
+        {
+          "name": "t_ods_税利流水",
+          "type": "SQL",
+          "code": "184722470977090",
+          "upstream": []
+        },
+        {
+          "name": "t_ods_库存快照",
+          "type": "SHELL",
+          "code": "184722470977091",
+          "upstream": []
+        }
+      ]
+    },
+    {
+      "workflow": "wf_dwd_清洗",
+      "code": "184722470987328",
+      "description": "DWD 明细清洗：贴源表 + 维表 -> 明细事实表（4 个任务，并行执行）",
+      "tasks": [
+        {
+          "name": "t_dwd_产量明细",
+          "type": "SQL",
+          "code": "184722470984256",
+          "upstream": []
+        },
+        {
+          "name": "t_dwd_销量明细",
+          "type": "SQL",
+          "code": "184722470984257",
+          "upstream": []
+        },
+        {
+          "name": "t_dwd_库存明细",
+          "type": "SQL",
+          "code": "184722470984258",
+          "upstream": []
+        },
+        {
+          "name": "t_dwd_税利明细",
+          "type": "SQL",
+          "code": "184722470984259",
+          "upstream": []
+        }
+      ]
+    },
+    {
+      "workflow": "wf_dws_汇总",
+      "code": "184722470994496",
+      "description": "DWS 汇总：明细 -> 汇总表（任务间有真实调度依赖：汇总任务等产量/库存汇总先跑完）",
+      "tasks": [
+        {
+          "name": "t_dws_产量汇总",
+          "type": "SQL",
+          "code": "184722470991424",
+          "upstream": []
+        },
+        {
+          "name": "t_dws_库存汇总",
+          "type": "SQL",
+          "code": "184722470991425",
+          "upstream": []
+        },
+        {
+          "name": "t_dws_税利汇总",
+          "type": "SQL",
+          "code": "184722470991426",
+          "upstream": []
+        },
+        {
+          "name": "t_dws_产销存汇总",
+          "type": "SQL",
+          "code": "184722470991427",
+          "upstream": [
+            "t_dws_产量汇总",
+            "t_dws_库存汇总"
+          ]
+        }
+      ]
+    },
+    {
+      "workflow": "wf_ads_报表",
+      "code": "184722471002688",
+      "description": "ADS 应用层：汇总表 -> 报表宽表（含一个 DEPENDENT 任务，声明对 wf_dws_汇总 的原生依赖）",
+      "tasks": [
+        {
+          "name": "t_check_上游就绪",
+          "type": "DEPENDENT",
+          "code": "184722470999616",
+          "upstream": []
+        },
+        {
+          "name": "t_ads_产销存月报",
+          "type": "SQL",
+          "code": "184722470999617",
+          "upstream": [
+            "t_check_上游就绪"
+          ]
+        },
+        {
+          "name": "t_ads_税利分析",
+          "type": "SQL",
+          "code": "184722470999618",
+          "upstream": [
+            "t_check_上游就绪"
+          ]
+        },
+        {
+          "name": "t_ads_经营指标驾驶舱",
+          "type": "SQL",
+          "code": "184722470999619",
+          "upstream": [
+            "t_ads_产销存月报",
+            "t_ads_税利分析"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+flowchart LR
+  subgraph sg_src["源系统层"]
+    direction LR
+    n0["src.erp_生产工单明细"]
+    n1["src.fin_税金凭证"]
+    n2["src.mes_销售出库明细"]
+    n3["src.wms_库存快照"]
+  end
+  subgraph sg_ods["ODS 贴源层"]
+    direction LR
+    n4["ods.ods_卷烟产量流水"]
+    n5["ods.ods_卷烟销量流水"]
+    n6["ods.ods_库存快照基线"]
+    n7["ods.ods_成品库存快照"]
+    n8["ods.ods_税利上缴流水"]
+  end
+  subgraph sg_dim["维度层"]
+    direction LR
+    n9["dim.dim_brand"]
+    n10["dim.dim_plant"]
+  end
+  subgraph sg_dwd["DWD 明细层"]
+    direction LR
+    n11["cdw.dwd_卷烟产量明细"]
+    n12["cdw.dwd_卷烟销量明细"]
+    n13["cdw.dwd_成品库存明细"]
+    n14["cdw.dwd_税利明细"]
+  end
+  subgraph sg_dws["DWS 汇总层"]
+    direction LR
+    n15["cdw.dws_产量汇总"]
+    n16["cdw.dws_产销存汇总"]
+    n17["cdw.dws_库存汇总"]
+    n18["cdw.dws_税利汇总"]
+  end
+  subgraph sg_ads["ADS 应用层"]
+    direction LR
+    n19["ads.ads_产销存月报"]
+    n20["ads.ads_税利分析"]
+    n21["ads.ads_经营指标明细"]
+    n22["ads.ads_经营指标驾驶舱"]
+  end
+  n0 -- "8 字段" --> n4
+  n1 -- "8 字段" --> n8
+  n2 -- "8 字段" --> n5
+  n3 -- "3 字段" --> n6
+  n3 -- "8 字段" --> n7
+  n4 -- "10 字段" --> n11
+  n5 -- "9 字段" --> n12
+  n7 -- "9 字段" --> n13
+  n8 -- "9 字段" --> n14
+  n9 -- "2 字段" --> n11
+  n9 -- "1 字段" --> n12
+  n9 -- "1 字段" --> n14
+  n9 -- "2 字段" --> n19
+  n9 -- "1 字段" --> n20
+  n10 -- "1 字段" --> n11
+  n10 -- "1 字段" --> n13
+  n10 -- "1 字段" --> n19
+  n11 -- "4 字段" --> n15
+  n12 -- "2 字段" --> n16
+  n13 -- "5 字段" --> n17
+  n14 -- "7 字段" --> n18
+  n15 -- "3 字段" --> n16
+  n15 -- "2 字段" --> n18
+  n16 -- "10 字段" --> n19
+  n16 -- "2 字段" --> n20
+  n17 -- "1 字段" --> n16
+  n18 -- "8 字段" --> n20
+  n19 -- "8 字段" --> n21
+  n20 -- "2 字段" --> n21
+  n21 -- "7 字段" --> n22
+  classDef hlc fill:#fde047,stroke:#a16207,stroke-width:2px,color:#1f2937
+  classDef hlu fill:#bfdbfe,stroke:#1d4ed8,color:#1e3a8a
+  classDef hld fill:#fed7aa,stroke:#c2410c,color:#7c2d12
