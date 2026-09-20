@@ -1,0 +1,67 @@
+
+[1;36m━━━━ 0/7 前置检查[0m
+  [1;32m✅ docker 可用[0m
+  [1;32m✅ docker 守护进程正常[0m
+  [1;32m✅ 项目 venv 存在[0m
+  [1;32m✅ javac 可用（javac 17.0.20）[0m
+
+[1;36m━━━━ 1/7 启动血缘解析服务（插件要调用它）[0m
+  [1;32m✅ 血缘服务已在运行（18080）[0m
+
+[1;36m━━━━ 2/7 确保海豚容器存在且运行[0m
+  [1;32m✅ 容器运行中[0m
+
+[1;36m━━━━ 3/7 部署插件 jar（本地没有则先编译）[0m
+  [1;32m✅ 本地已有 jar：dolphinscheduler-task-lineage-3.2.2.jar (20K)[0m
+     libs/worker-server 已是最新
+     libs/master-server 已是最新
+     libs/api-server 已是最新
+     libs/standalone-server 已是最新
+  [1;32m✅ 插件 jar 全部已是最新（无需重启）[0m
+
+[1;36m━━━━ 4/7 部署 UI 配置（让 LINEAGE 出现在任务类型列表）[0m
+     dynamic-task-type-config.yaml 已是最新
+  [1;32m✅ UI 静态资源已同步[0m
+     前端补丁已是最新: assets/dag-sidebar.340ad7aa.js
+     前端补丁已是最新: assets/detail-modal.de80dd20.js
+     前端补丁已是最新: assets/task-type.27c43290.js
+  [1;32m✅ 前端任务类型表补丁已同步[0m
+
+[1;36m━━━━ 5/7 重启海豚并等待就绪[0m
+     无变更，跳过重启（省时间）
+     等待海豚 UI 就绪 ...
+  [1;32m✅ 海豚已就绪（第 1 次探测，HTTP 200）[0m
+  [1;32m✅ 插件已加载：Registered task plugin: LINEAGE[0m
+
+[1;36m━━━━ 6/7 重建演示数据（内存库重启后必做）[0m
+  [1;32m✅ 海豚登录正常[0m
+     重建「烟草数仓演示」项目 + 4 个工作流（16 个任务）...
+  [1;32m✅ 烟草数仓演示数据已就绪[0m
+     [项目] 已创建项目 烟草数仓演示（code=184808090567232）
+     [工作流] 已创建 wf_ods_采集（code=184808090646080），任务 4 个：t_ods_产量流水、t_ods_销量流水、t_ods_税利流水、t_ods_库存快照
+     [工作流] 已创建 wf_dwd_清洗（code=184808090681920），任务 4 个：t_dwd_产量明细、t_dwd_销量明细、t_dwd_库存明细、t_dwd_税利明细
+     [工作流] 已创建 wf_dws_汇总（code=184808090713664），任务 4 个：t_dws_产量汇总、t_dws_库存汇总、t_dws_税利汇总、t_dws_产销存汇总
+     [工作流] 已创建 wf_ads_报表（code=184808090748480），任务 4 个：t_check_上游就绪、t_ads_产销存月报、t_ads_税利分析、t_ads_经营指标驾驶舱
+     完成：
+       项目        : 烟草数仓演示（code=184808090567232）
+       工作流      : 4 个
+
+[1;36m━━━━ 7/7 端到端验证：LINEAGE 任务真跑一次[0m
+  [1;32m✅ 端到端验证通过（工作流 + LINEAGE 任务均 SUCCESS）[0m
+     workflowCode = 184808090890816
+     2b) 回读工作流定义，确认 taskType=LINEAGE 已落库
+       任务 t_lineage_订单血缘  taskType=LINEAGE
+        [0] 工作流实例 1 state=SUCCESS | 任务实例 1 state=SUCCESS taskType=LINEAGE
+     [INFO] 2026-09-20 20:24:12.288 +0800 -   分析模式 : SQL 解析   |   方言 : hive   |   语句数 : 1   |   耗时 : 12 ms
+     [INFO] 2026-09-20 20:24:12.290 +0800 -   ✅ 血缘分析完成 | 源表 1 张 → 目标表 1 张 | 字段映射 3 个 | 业务口径命中 0 条 | 耗时 12 ms
+     最终任务实例 1 状态: SUCCESS
+
+[1;36m━━━━ 完成[0m
+  海豚 UI    : http://localhost:12345/dolphinscheduler/ui/       （admin / dolphinscheduler123）
+  血缘服务   : http://localhost:18080/health
+  API 文档   : http://localhost:12345/dolphinscheduler
+
+  【演示路径】登录海豚 → 项目「血缘分析插件演示」→ 工作流「wf_lineage_血缘分析演示」
+              → 运行 → 工作流实例 → 任务实例 → 查看日志（血缘报告在此）
+
+  [1;32m✅ 演示环境已就绪 🎉[0m

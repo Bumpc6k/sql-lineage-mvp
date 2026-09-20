@@ -55,7 +55,10 @@
 | `serviceUrl` | string | `http://172.17.0.1:18080` | 血缘服务地址（容器内访问宿主的 docker 网关地址） |
 | `timeout` | int | `30000` | HTTP 超时（毫秒） |
 
-被调用的血缘服务端点：`POST /parse`、`POST /impact`、`POST /upstream`、`GET /health`。
+被调用的血缘服务端点：`POST /analyze`（`mode=sql`，血缘 + 业务口径一体化）、
+`POST /impact`、`POST /upstream`、`GET /health`。
+`mode=sql` 时若 `/analyze` 不可用（服务端还是旧版本），会自动**回退**到 `POST /parse`，
+并把回退原因写进任务日志，血缘报告照常输出。
 
 任务执行成功的判定：HTTP 2xx 且返回体不是 `{"code": 非0}` 业务错误。
 
@@ -66,8 +69,25 @@
 lineage_mode, lineage_service_url,
 lineage_input_tables, lineage_output_tables,
 lineage_input_table_count, lineage_output_table_count,
+lineage_kb_available, lineage_metric_count, lineage_metric_names,
 lineage_cost_ms, lineage_report_raw
 ```
+
+`lineage_metric_count` = 本任务产出字段命中了几条知识库口径；
+`lineage_metric_names` = 命中的口径中文名，逗号分隔（如 `产量,打码量（条）`）。
+
+### 2.1 任务日志格式：五段式中文报告
+
+| 段 | 内容 | 数据来源 |
+|---|---|---|
+| ① 表级血缘 | 数据流向（源表 ──► 目标表）+ 源表/目标表清单 | `/analyze` 或 `/parse` |
+| ② 字段级血缘 | 每个目标字段 ← 源表.源字段 + 表达式 | 同上 |
+| ③ 加工条件 | 过滤条件 / 分区过滤 | 同上 |
+| ④ 加工 SQL 原文 | 解析后的 SQL（`mode=impact/upstream` 时是分析目标表） | 同上 |
+| ⑤ 业务口径 | 本任务产出指标的**口径公式 / 类型 / 置信度 / 来源脚本 / 依赖字段 / 上游链路**，以及涉及字段的中文业务名与业务规则 | `/analyze` 的 `knowledge` 段（知识库 SQLite） |
+
+第 ⑤ 段只在有内容时展开；知识库不存在、没命中、或服务端是旧版本时，
+只输出一行「未匹配到业务口径（可先执行 kb build 建库）」，①②③④ 完全不受影响。
 
 ## 3. 编译与部署
 
@@ -161,9 +181,10 @@ curl -s "http://localhost:12345/dolphinscheduler/log/detail?taskInstanceId=<id>&
 ## 5. 验证
 
 ```bash
-cd /root/projects/ds-lineage-plugin
-bash verify.sh                # 全量：部署检查 + 端到端跑一次
-bash verify.sh --skip-run     # 只做 1~5（不跑工作流）
+cd /root/projects/sql-lineage-mvp/ds-plugin
+bash verify.sh                            # 全量：部署检查 + 端到端跑一次（t_order 示例 SQL）
+bash verify.sh --skip-run                 # 只做 1~5（不跑工作流）
+../.venv/bin/python verify_knowledge.py   # 用「产量口径」SQL 跑一次，断言 ①~⑤ 全部出现
 ```
 
 `verify.sh` 的输出（摘录，完整见 `build/verify_output.txt`）：
@@ -183,29 +204,94 @@ bash verify.sh --skip-run     # 只做 1~5（不跑工作流）
 上线响应: {"code": 0, "msg": "success", "data": true, "success": true, "failed": false}
 启动响应: {"code": 0, "msg": "success", "data": 184725350915648, ...}
    [0] 工作流实例 2 state=SUCCESS | 任务实例 2 state=SUCCESS taskType=LINEAGE
-
---- 任务实例日志摘录 ---
-分析模式   : sql - SQL 血缘解析 (parse SQL)
-血缘服务   : http://172.17.0.1:18080/parse
-请求体     : {"sql":"INSERT INTO dwd.t_order\nSELECT id, amt, dt\nFROM ods.t_order_src\nWHERE dt = '2026-01-01'","dialect":"hive"}
----------------- 血缘报告 (lineage report) ----------------
-输入表 input_tables (1):
-    <- ods.t_order_src
-输出表 output_tables (1):
-    -> dwd.t_order
-表级血缘 table_lineage:
-  [0] :
-    source : ods.t_order_src
-    target : dwd.t_order
-字段级血缘 column_lineage:
-  [0] :   target_column : id   source_column : id   resolved : true
-  [1] :   target_column : amt  source_column : amt  resolved : true
-  [2] :   target_column : dt   source_column : dt   resolved : true
----------------- 血缘报告结束 (end of report) --------------
-耗时       : 9 ms
-输出参数已写入 varPool: [lineage_mode, lineage_service_url, lineage_input_tables, lineage_output_tables,
-                        lineage_input_table_count, lineage_output_table_count, lineage_cost_ms, lineage_report_raw]
 ```
+
+### 5.1 「血缘 + 业务口径」真实任务日志（来自 `verify_knowledge.py`）
+
+任务 SQL 就是 `examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql`，
+知识库先用 `python -m lineage.cli kb build` 建好（75 条口径）。
+下面是海豚任务实例日志里第 ⑤ 段的**原文**（`GET /log/detail?taskInstanceId=2`）：
+
+```
+分析模式   : sql - SQL 血缘解析 + 业务口径匹配 (analyze SQL + knowledge base)
+血缘服务   : http://172.17.0.1:18080/analyze
+请求体     : {"sql":"-- ... 码段明细 → 产量口径明细 ...","dialect":"hive","with_knowledge":true}
+
+  ┌── ① 表级血缘 ──────────────────────────────────────────────────
+  │  数据流向：
+  │      ods.ods_卷烟码段流水  ──►  cdw.dwd_卷烟产量码段明细
+  │  源表（输入 1 张）: ods.ods_卷烟码段流水
+  │  目标表（输出 1 张）: cdw.dwd_卷烟产量码段明细
+  ┌── ② 字段级血缘（17 个字段映射）────────────────────────────────
+  │      chanliang_qty  ←  ods.ods_卷烟码段流水.dama_qty      表达式: SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty
+  ┌── ③ 加工条件（过滤 / 分区）────────────────────────────────────
+  │      • b.dt = '2026-01-01'
+  ┌── ④ 加工 SQL 原文 ─────────────────────────────────────────────
+  │      INSERT OVERWRITE TABLE cdw.dwd_卷烟产量码段明细 PARTITION(dt = '2026-01-01') SELECT ...
+  ┌── ⑤ 业务口径（知识库匹配）──────────────────────────────────────
+  │  本任务产出指标的业务口径：
+  │      • 产量（chanliang_qty） = 打码量 + 跳码量 - 重码量
+  │        类型: 聚合    置信度: 0.9    目标表: cdw.dwd_卷烟产量码段明细
+  │        来源: examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+  │        依赖: ods.ods_卷烟码段流水.chongma_qty(重码量), ods.ods_卷烟码段流水.dama_qty(打码量), ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+  │        上游链路: cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  │      • 打码占比（dama_rate） = CASE WHEN 打码量 + 跳码量 - 重码量 > 0 THEN ROUND(打码量 / (打码量 + 跳码量 - 重码量), 6) ELSE 0 END
+  │        类型: 条件分支    置信度: 0.85    目标表: cdw.dwd_卷烟产量码段明细
+  │      • 产量（条）（chanliang_cig） = (打码量 + 跳码量 - 重码量) * 250
+  │        ...（共 7 条口径，最多展示 8 条）
+  │  涉及字段的中文业务名：
+  │      • chongma_qty → 重码量     • dama_qty → 打码量
+  │      • tiaoma_qty → 跳码量     • chanliang_qty → 产量
+  │      • dama_rate → 打码占比     • chanliang_cig → 产量（条）
+  │      • dama_qty_total → 打码量合计     • tiaoma_qty_total → 跳码量合计
+  │      • chongma_qty_total → 重码量合计     • dama_cig_qty → 打码量（条）
+  │      • work_order_no → 工单号     • plant_code → 生产厂编码
+  │      • brand_code → 牌号编码     • batch_no → 批次号
+  │  业务规则：
+  │      • [业务规则（注释）] 产量口径：打码量+跳码量-重码量（箱）（脚本注释）
+  │      • [分区规则] 分区/时点条件：dt = 2026-01-01
+  │      • [过滤规则] 时点/分区过滤：b.dt = '2026-01-01'
+  │  ⓘ 口径由 kb build 从加工脚本自动提炼（语法级，未做语义校验）
+  ══════════════════════════════════════════════════════════════════
+  ✅ 血缘分析完成 | 源表 1 张 → 目标表 1 张 | 字段映射 17 个 | 业务口径命中 7 条 | 耗时 8 ms
+  ══════════════════════════════════════════════════════════════════
+输出参数已写入 varPool: [lineage_mode, lineage_service_url, lineage_input_tables, lineage_output_tables,
+  lineage_input_table_count, lineage_output_table_count, lineage_kb_available, lineage_metric_count,
+  lineage_metric_names, lineage_cost_ms, lineage_report_raw]
+```
+
+> 上面 ①②③④ 段为节选（完整字段级血缘 17 行、SQL 原文一行一屏），第 ⑤ 段是完整原文。
+> 复现命令：`bash /usr/local/bin/prep-ds-demo.sh`（恢复演示环境）→
+> `.venv/bin/python ds-plugin/verify_knowledge.py`。
+
+### 5.2 降级验证：服务端是旧版本（没有 `/analyze`）
+
+`verify_knowledge.py --degraded` 配合 `scripts/p5_legacy_proxy.py`（把 `/analyze` 变成 404、
+其余转发真实服务）跑出来的**真实日志**：
+
+```
+[WARN] ... 一体化端点不可用（lineage service returned HTTP 404 : {"success": false, "error": "unknown endpoint /analyze（旧版服务）"}
+），回退到 http://172.17.0.1:18099/parse：本次只输出血缘，不含业务口径
+分析模式   : sql - SQL 血缘解析 + 业务口径匹配 (analyze SQL + knowledge base)
+血缘服务   : http://172.17.0.1:18099/analyze
+...
+血缘服务 : http://172.17.0.1:18099/parse        <-- 报告头显示实际调用的端点
+  ┌── ⑤ 业务口径（知识库匹配）──────────────────────────────────────
+  │  未匹配到业务口径（可先执行 kb build 建库）
+  ✅ 血缘分析完成 | 源表 1 张 → 目标表 1 张 | 字段映射 17 个 | 业务口径命中 0 条 | 耗时 7 ms
+```
+
+结论：**任务照样 SUCCESS，①②③④ 段一字不少**，只是第 ⑤ 段退化成一行提示。
+
+### 5.3 `mode=impact` / `mode=upstream` 回归
+
+```bash
+.venv/bin/python verify_impact_mode.py   # 下游影响：①②③ 段 + 下游影响段，第 ⑤ 段不出现
+```
+
+`impact` / `upstream` 模式走 `/impact` / `/upstream`（没有 `knowledge` 段），
+所以插件**不打印**第 ⑤ 段，汇总行也保持原来的「… | 字段映射 N 个 | 耗时 N ms」——
+这两条路与改造前完全一致（已实测，见 `scripts/p5_verify_all.sh` 第 4 步）。
 
 ## 6. 已知坑 / 限制（踩过的）
 

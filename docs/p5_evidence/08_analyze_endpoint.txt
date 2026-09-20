@@ -1,0 +1,114 @@
+==============================================================================
+$ curl -s -X POST http://127.0.0.1:18080/analyze -H 'Content-Type: application/json' -d @<(python 读 examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql)
+==============================================================================
+SQL 文件 : examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql   行数: 24  字符数: 1653
+success            : True
+statement_count    : 1
+input_tables       : ['ods.ods_卷烟码段流水']
+output_tables      : ['cdw.dwd_卷烟产量码段明细']
+table_lineage      : [{'source': 'ods.ods_卷烟码段流水', 'target': 'cdw.dwd_卷烟产量码段明细'}]
+column_lineage_count: 17
+------------------------------------------------------------------------------
+knowledge.kb_available : True
+knowledge.metric_count : 7
+knowledge.matched_fields: ['dama_qty_total', 'tiaoma_qty_total', 'chongma_qty_total', 'chanliang_qty', 'dama_rate', 'dama_cig_qty', 'chanliang_cig']
+  • 产量（chanliang_qty） @ cdw.dwd_卷烟产量码段明细
+      formula      : 产量 = 打码量 + 跳码量 - 重码量
+      formula_full : 产量 = SUM(打码量) + SUM(跳码量) - SUM(重码量)
+      metric_type  : 聚合   confidence: 0.9   matched_by: 目标字段
+      source       : examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+      depends_text : ods.ods_卷烟码段流水.chongma_qty(重码量), ods.ods_卷烟码段流水.dama_qty(打码量), ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+      lineage_path : cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  • 打码占比（dama_rate） @ cdw.dwd_卷烟产量码段明细
+      formula      : 打码占比 = CASE WHEN 打码量 + 跳码量 - 重码量 > 0 THEN ROUND(打码量 / (打码量 + 跳码量 - 重码量), 6) ELSE 0 END
+      formula_full : 打码占比 = CASE WHEN SUM(打码量) + SUM(跳码量) - SUM(重码量) > 0 THEN ROUND(SUM(打码量) / (SUM(打码量) + SUM(跳码量) - SUM(重码量)), 6) ELSE 0 END
+      metric_type  : 条件分支   confidence: 0.85   matched_by: 目标字段
+      source       : examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+      depends_text : ods.ods_卷烟码段流水.chongma_qty(重码量), ods.ods_卷烟码段流水.dama_qty(打码量), ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+      lineage_path : cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  • 产量（条）（chanliang_cig） @ cdw.dwd_卷烟产量码段明细
+      formula      : 产量（条） = (打码量 + 跳码量 - 重码量) * 250
+      formula_full : 产量（条） = (SUM(打码量) + SUM(跳码量) - SUM(重码量)) * 250
+      metric_type  : 聚合   confidence: 0.9   matched_by: 目标字段
+      source       : examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+      depends_text : ods.ods_卷烟码段流水.chongma_qty(重码量), ods.ods_卷烟码段流水.dama_qty(打码量), ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+      lineage_path : cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  • 打码量合计（dama_qty_total） @ cdw.dwd_卷烟产量码段明细
+      formula      : 打码量合计 = SUM(打码量)
+      formula_full : 打码量合计 = SUM(打码量)
+      metric_type  : 聚合   confidence: 0.9   matched_by: 目标字段
+      source       : examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+      depends_text : ods.ods_卷烟码段流水.dama_qty(打码量)
+      lineage_path : cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  • 跳码量合计（tiaoma_qty_total） @ cdw.dwd_卷烟产量码段明细
+      formula      : 跳码量合计 = SUM(跳码量)
+      formula_full : 跳码量合计 = SUM(跳码量)
+      metric_type  : 聚合   confidence: 0.9   matched_by: 目标字段
+      source       : examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+      depends_text : ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+      lineage_path : cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  • 重码量合计（chongma_qty_total） @ cdw.dwd_卷烟产量码段明细
+      formula      : 重码量合计 = SUM(重码量)
+      formula_full : 重码量合计 = SUM(重码量)
+      metric_type  : 聚合   confidence: 0.9   matched_by: 目标字段
+      source       : examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+      depends_text : ods.ods_卷烟码段流水.chongma_qty(重码量)
+      lineage_path : cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  • 打码量（条）（dama_cig_qty） @ cdw.dwd_卷烟产量码段明细
+      formula      : 打码量（条） = 打码量 * 250
+      formula_full : 打码量（条） = SUM(打码量) * 250
+      metric_type  : 聚合   confidence: 0.9   matched_by: 目标字段
+      source       : examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+      depends_text : ods.ods_卷烟码段流水.dama_qty(打码量)
+      lineage_path : cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+knowledge.terms (14) : chongma_qty→重码量, dama_qty→打码量, tiaoma_qty→跳码量, chanliang_qty→产量, dama_rate→打码占比, chanliang_cig→产量（条）, dama_qty_total→打码量合计, tiaoma_qty_total→跳码量合计, chongma_qty_total→重码量合计, dama_cig_qty→打码量（条）, work_order_no→工单号, plant_code→生产厂编码, brand_code→牌号编码, batch_no→批次号
+knowledge.rules (3) :
+  • [业务规则（注释）] 产量口径：打码量+跳码量-重码量（箱）（脚本注释）  （examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+  • [分区规则] 分区/时点条件：dt = 2026-01-01  （examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+  • [过滤规则] 时点/分区过滤：b.dt = '2026-01-01'  （examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql）
+------------------------------------------------------------------------------
+【证据】knowledge.metrics[chanliang_qty] 原文 JSON：
+{
+  "target_table": "cdw.dwd_卷烟产量码段明细",
+  "target_column": "chanliang_qty",
+  "chinese_name": "产量",
+  "formula": "产量 = 打码量 + 跳码量 - 重码量",
+  "formula_full": "产量 = SUM(打码量) + SUM(跳码量) - SUM(重码量)",
+  "metric_type": "聚合",
+  "confidence": 0.9,
+  "unit": "箱",
+  "layer": "dwd",
+  "aggregate_func": "SUM",
+  "expression_normalized": "SUM(dama_qty) + SUM(tiaoma_qty) - SUM(chongma_qty)",
+  "depends_on": [
+    {
+      "table": "ods.ods_卷烟码段流水",
+      "column": "chongma_qty",
+      "chinese_name": "重码量"
+    },
+    {
+      "table": "ods.ods_卷烟码段流水",
+      "column": "dama_qty",
+      "chinese_name": "打码量"
+    },
+    {
+      "table": "ods.ods_卷烟码段流水",
+      "column": "tiaoma_qty",
+      "chinese_name": "跳码量"
+    }
+  ],
+  "depends_text": "ods.ods_卷烟码段流水.chongma_qty(重码量), ods.ods_卷烟码段流水.dama_qty(打码量), ods.ods_卷烟码段流水.tiaoma_qty(跳码量)",
+  "source_script": "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql",
+  "source_statement": 1,
+  "source_task_type": "INSERT_SELECT",
+  "input_tables": [
+    "ods.ods_卷烟码段流水"
+  ],
+  "notes": "脚本注释：产量口径：打码量+跳码量-重码量（箱）；口径本体已剥离一致的聚合函数 SUM()（共 3 个依赖字段）",
+  "matched_by": "目标字段",
+  "lineage_path": [
+    "cdw.dwd_卷烟产量码段明细",
+    "ods.ods_卷烟码段流水",
+    "src.mes_码段采集接口"
+  ]
+}

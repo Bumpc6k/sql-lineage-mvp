@@ -9,6 +9,8 @@
 端点：
   GET  /health                    健康检查
   POST /parse                     {"sql": "...", "dialect": "hive"} → 表级/字段级血缘
+  POST /analyze                   {"sql": "...", "dialect": "hive", "with_knowledge": true}
+                                  → 血缘 + 业务口径知识库一体化（/parse 的超集）
   POST /impact                    {"table": "...", "graph": "path.json", "depth": 3} → 下游影响
   POST /upstream                  {"table": "...", "graph": "path.json"} → 上游溯源
   GET  /kb/summary                业务口径知识库概览
@@ -31,9 +33,12 @@ from lineage.graph import LineageGraph  # noqa: E402
 from lineage.knowledge import (  # noqa: E402
     KnowledgeStore,
     answer,
+    collect_target_fields,
     default_db_path,
     format_metric,
+    match_knowledge,
     search,
+    knowledge_unavailable,
 )
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -113,14 +118,64 @@ def handle_upstream(payload: dict) -> dict:
 
 
 # --------------------------------------------------------------------------- #
+# P5：血缘 × 业务口径一体化端点
+# --------------------------------------------------------------------------- #
+def _kb_db_path(payload: dict) -> str:
+    """请求体里的 db > 环境变量 KB_DB > 默认 data/knowledge.db（统一成绝对路径）。"""
+    db = (payload.get("db") or "").strip() or os.environ.get("KB_DB") or str(default_db_path())
+    if not os.path.isabs(db):
+        db = os.path.join(PROJECT_ROOT, db)
+    return db
+
+
+def build_knowledge_section(payload: dict, parsed: dict) -> dict:
+    """在解析结果之上叠加知识库口径匹配；任何异常都降级成 kb_available=false。"""
+    if payload.get("with_knowledge") in (False, "false", "False", 0, "0", "off"):
+        out = knowledge_unavailable("本次请求 with_knowledge=false，已跳过知识库匹配")
+        out["hint"] = "如需口径匹配，请传 with_knowledge=true"
+        return out
+
+    db_path = _kb_db_path(payload)
+    if not os.path.exists(db_path):
+        return knowledge_unavailable(f"知识库文件不存在: {db_path}")
+
+    try:
+        store = KnowledgeStore(db_path, create=False)
+    except Exception as e:  # noqa: BLE001
+        return knowledge_unavailable(f"打开知识库失败: {type(e).__name__}: {e}")
+
+    try:
+        counts = store.counts()
+        if not counts.get("kb_metrics"):
+            return knowledge_unavailable(f"知识库为空: {db_path}")
+        return match_knowledge(
+            store,
+            collect_target_fields(parsed.get("column_lineage") or []),
+            parsed.get("output_tables") or [],
+            limit_metrics=int(payload.get("limit_metrics") or 12),
+            limit_rules=int(payload.get("limit_rules") or 5),
+        )
+    except Exception as e:  # noqa: BLE001
+        return knowledge_unavailable(f"知识库匹配失败: {type(e).__name__}: {e}")
+    finally:
+        store.close()
+
+
+def handle_analyze(payload: dict) -> dict:
+    """``/parse`` 的超集：血缘解析结果原样返回，另加 knowledge 段。"""
+    parsed = handle_parse(payload)
+    if not parsed.get("success"):
+        return parsed
+    parsed["knowledge"] = build_knowledge_section(payload, parsed)
+    return parsed
+
+
+# --------------------------------------------------------------------------- #
 # P4：业务口径知识库端点
 # --------------------------------------------------------------------------- #
 def _open_kb(payload: dict) -> KnowledgeStore:
     """打开知识库：请求体里的 db > 环境变量 KB_DB > 默认 data/knowledge.db。"""
-    db = (payload.get("db") or "").strip() or os.environ.get("KB_DB") or str(default_db_path())
-    if not os.path.isabs(db):
-        db = os.path.join(PROJECT_ROOT, db)
-    return KnowledgeStore(db)
+    return KnowledgeStore(_kb_db_path(payload))
 
 
 def handle_kb_summary(payload: dict) -> dict:
@@ -180,6 +235,7 @@ def handle_kb_metric(payload: dict) -> dict:
 
 ROUTES = {
     "/parse": handle_parse,
+    "/analyze": handle_analyze,
     "/impact": handle_impact,
     "/upstream": handle_upstream,
     "/kb/summary": handle_kb_summary,
@@ -207,6 +263,15 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
         if path in ("/health", ""):
+            kb_db = str(default_db_path())
+            kb_exists = os.path.exists(kb_db)
+            kb_metrics = 0
+            if kb_exists:
+                try:
+                    with KnowledgeStore(kb_db, create=False) as store:
+                        kb_metrics = int(store.counts().get("kb_metrics") or 0)
+                except Exception:  # noqa: BLE001 — /health 不能因为知识库坏而失败
+                    kb_metrics = -1
             self._send(200, {
                 "success": True,
                 "service": "lineage-api",
@@ -214,8 +279,9 @@ class Handler(BaseHTTPRequestHandler):
                 "get_endpoints": sorted(GET_ROUTES),
                 "default_graph": os.path.basename(DEFAULT_GRAPH),
                 "graph_exists": os.path.exists(DEFAULT_GRAPH),
-                "kb_db": str(default_db_path()),
-                "kb_db_exists": os.path.exists(str(default_db_path())),
+                "kb_db": kb_db,
+                "kb_db_exists": kb_exists,
+                "kb_metrics": kb_metrics,
             })
             return
         fn = ROUTES.get(path)

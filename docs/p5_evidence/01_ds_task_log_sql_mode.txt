@@ -1,0 +1,296 @@
+
+==============================================================================
+0) 登录海豚
+==============================================================================
+{"code": 0, "msg": "login success", "data": {"securityConfigType": "PASSWORD", "sessionId": "d7f63ec4-2910-450e-bd76-a448d97feb4b"}, "success": true, "failed": false}
+
+==============================================================================
+1) 准备项目
+==============================================================================
+复用已有项目: 血缘分析插件演示 code=184808090854976
+
+==============================================================================
+2) 用真实口径 SQL 建 LINEAGE 工作流（dwd_卷烟产量码段明细.sql，24 行）
+==============================================================================
+taskCode = 184808094180928
+创建工作流响应: {"code": 0, "msg": "success", "data": {"id": 6, "code": 184808094187072, "name": "wf_lineage_业务口径演示", "version": 0, "releaseState": null, "projectCode": 184808090854976, "description": "LINEAGE 插件：血缘 + 业务口径一体化演示", "globalParams": "[]", "globalParamList": null, "globalParamMap": {}, "createTime": "20
+workflowCode = 184808094187072
+
+==============================================================================
+3) 上线并运行
+==============================================================================
+上线响应: {"code": 0, "msg": "success", "data": true, "success": true, "failed": false}
+启动响应: {"code": 0, "msg": "success", "data": 184808094206528, "success": true, "failed": false}
+
+==============================================================================
+4) 轮询任务实例
+==============================================================================
+   [0] 工作流实例 2 state=SUCCESS | 任务实例 2 state=SUCCESS taskType=LINEAGE
+
+==============================================================================
+5) 任务实例日志原文（血缘报告 + 业务口径）
+==============================================================================
+[LOG-PATH]: /opt/dolphinscheduler/logs/20260920/184808094187072/1/2/2.log, [HOST]:  172.17.0.3:1234
+[INFO] 2026-09-20 20:24:15.163 +0800 - 
+***********************************************************************************************
+[INFO] 2026-09-20 20:24:15.164 +0800 - *********************************  Initialize task context  ***********************************
+[INFO] 2026-09-20 20:24:15.164 +0800 - ***********************************************************************************************
+[INFO] 2026-09-20 20:24:15.164 +0800 - Begin to initialize task
+[INFO] 2026-09-20 20:24:15.164 +0800 - Set task startTime: 1789907055164
+[INFO] 2026-09-20 20:24:15.164 +0800 - Set task appId: 2_2
+[INFO] 2026-09-20 20:24:15.165 +0800 - End initialize task {
+  "taskInstanceId" : 2,
+  "taskName" : "t_lineage_产量口径",
+  "firstSubmitTime" : 1789907055158,
+  "startTime" : 1789907055164,
+  "taskType" : "LINEAGE",
+  "workflowInstanceHost" : "172.17.0.3:5678",
+  "host" : "172.17.0.3:1234",
+  "logPath" : "/opt/dolphinscheduler/logs/20260920/184808094187072/1/2/2.log",
+  "processId" : 0,
+  "processDefineCode" : 184808094187072,
+  "processDefineVersion" : 1,
+  "processInstanceId" : 2,
+  "scheduleTime" : 0,
+  "executorId" : 1,
+  "cmdTypeIfComplement" : 0,
+  "tenantCode" : "default",
+  "processDefineId" : 0,
+  "projectId" : 0,
+  "projectCode" : 184808090854976,
+  "taskParams" : "{\"mode\":\"sql\",\"sql\":\"-- =============================================================\\n-- DWD 层：码段明细 → 产量口径明细 cdw.dwd_卷烟产量码段明细\\n-- 上游：ods.ods_卷烟码段流水\\n-- 下游：ads.ads_码段产量日报 / cdw.dws_产量汇总\\n-- 核心口径：产量 = 打码量 + 跳码量 - 重码量（公司统一产量口径）\\n-- =============================================================\\nINSERT OVERWRITE TABLE cdw.dwd_卷烟产量码段明细 PARTITION (dt = '2026-01-01')\\nSELECT\\n    b.work_order_no                                       AS work_order_no,     -- 工单号\\n    b.plant_code                                          AS plant_code,        -- 生产厂编码\\n    b.brand_code                                          AS brand_code,        -- 牌号编码\\n    b.batch_no                                            AS batch_no,          -- 批次号\\n    SUM(b.dama_qty)                                       AS dama_qty_total,    -- 打码量合计（箱）\\n    SUM(b.tiaoma_qty)                                     AS tiaoma_qty_total,  -- 跳码量合计（箱）\\n    SUM(b.chongma_qty)                                    AS chongma_qty_total, -- 重码量合计（箱）\\n    SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty,   -- 产量口径：打码量+跳码量-重码量（箱）\\n    CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) > 0\\n         THEN ROUND(SUM(b.dama_qty) / (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)), 6)\\n         ELSE 0 END                                       AS dama_rate,         -- 打码占比（打码量/产量）\\n    SUM(b.dama_qty) * 250                                 AS dama_cig_qty,      -- 打码量折条（箱转条）\\n    (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)) * 250 AS chanliang_cig -- 产量折条（箱转条）\\nFROM ods.ods_卷烟码段流水 b\\nWHERE b.dt = '2026-01-01'\\nGROUP BY b.work_order_no, b.plant_code, b.brand_code, b.batch_no;\\n\",\"dialect\":\"hive\",\"table\":\"\",\"depth\":3,\"graph\":\"warehouse_graph.json\",\"serviceUrl\":\"http://172.17.0.1:18080\",\"timeout\":30000,\"localParams\":[],\"resourceList\":[],\"varPool\":[]}",
+  "prepareParamsMap" : {
+    "system.task.definition.name" : {
+      "prop" : "system.task.definition.name",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "t_lineage_产量口径"
+    },
+    "system.project.name" : {
+      "prop" : "system.project.name",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : null
+    },
+    "system.project.code" : {
+      "prop" : "system.project.code",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "184808090854976"
+    },
+    "system.workflow.instance.id" : {
+      "prop" : "system.workflow.instance.id",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "2"
+    },
+    "system.biz.curdate" : {
+      "prop" : "system.biz.curdate",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "20260920"
+    },
+    "system.biz.date" : {
+      "prop" : "system.biz.date",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "20260919"
+    },
+    "system.task.instance.id" : {
+      "prop" : "system.task.instance.id",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "2"
+    },
+    "system.workflow.definition.name" : {
+      "prop" : "system.workflow.definition.name",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "wf_lineage_业务口径演示"
+    },
+    "system.task.definition.code" : {
+      "prop" : "system.task.definition.code",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "184808094180928"
+    },
+    "system.workflow.definition.code" : {
+      "prop" : "system.workflow.definition.code",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "184808094187072"
+    },
+    "system.datetime" : {
+      "prop" : "system.datetime",
+      "direct" : "IN",
+      "type" : "VARCHAR",
+      "value" : "20260920202415"
+    }
+  },
+  "taskAppId" : "2_2",
+  "taskTimeout" : 2147483647,
+  "workerGroup" : "default",
+  "delayTime" : 0,
+  "currentExecutionStatus" : "SUBMITTED_SUCCESS",
+  "endTime" : 0,
+  "dryRun" : 0,
+  "paramsMap" : { },
+  "cpuQuota" : -1,
+  "memoryMax" : -1,
+  "testFlag" : 0,
+  "logBufferEnable" : false,
+  "dispatchFailTimes" : 0
+}
+[INFO] 2026-09-20 20:24:15.165 +0800 - 
+***********************************************************************************************
+[INFO] 2026-09-20 20:24:15.165 +0800 - *********************************  Load task instance plugin  *********************************
+[INFO] 2026-09-20 20:24:15.165 +0800 - ***********************************************************************************************
+[INFO] 2026-09-20 20:24:15.167 +0800 - Send task status RUNNING_EXECUTION master: 172.17.0.3:1234
+[INFO] 2026-09-20 20:24:15.168 +0800 - Current tenant is default tenant, will use bootstrap user: root to execute the task
+[INFO] 2026-09-20 20:24:15.168 +0800 - TenantCode: root check successfully
+[INFO] 2026-09-20 20:24:15.168 +0800 - WorkflowInstanceExecDir: /tmp/dolphinscheduler/exec/process/root/184808090854976/184808094187072_1/2/2 check successfully
+[INFO] 2026-09-20 20:24:15.168 +0800 - Create TaskChannel: org.apache.dolphinscheduler.plugin.task.lineage.LineageTaskChannel successfully
+[INFO] 2026-09-20 20:24:15.168 +0800 - Download resources successfully: 
+ResourceContext(resourceItemMap={})
+[INFO] 2026-09-20 20:24:15.169 +0800 - Download upstream files: [] successfully
+[INFO] 2026-09-20 20:24:15.169 +0800 - LINEAGE task initialized, params: LineageParameters{mode='sql', dialect='hive', table='', depth=3, graph='warehouse_graph.json', serviceUrl='http://172.17.0.1:18080', timeout=30000, sql=<1653 chars>}
+[INFO] 2026-09-20 20:24:15.169 +0800 - Task plugin instance: LINEAGE create successfully
+[INFO] 2026-09-20 20:24:15.169 +0800 - LINEAGE task start, taskInstanceId=2
+[INFO] 2026-09-20 20:24:15.169 +0800 - Success initialized task plugin instance successfully
+[INFO] 2026-09-20 20:24:15.169 +0800 - Set taskVarPool: null successfully
+[INFO] 2026-09-20 20:24:15.169 +0800 - 
+***********************************************************************************************
+[INFO] 2026-09-20 20:24:15.169 +0800 - *********************************  Execute task instance  *************************************
+[INFO] 2026-09-20 20:24:15.169 +0800 - ***********************************************************************************************
+[INFO] 2026-09-20 20:24:15.169 +0800 - ============================================================
+[INFO] 2026-09-20 20:24:15.169 +0800 -   LINEAGE 血缘分析任务
+[INFO] 2026-09-20 20:24:15.169 +0800 - ============================================================
+[INFO] 2026-09-20 20:24:15.169 +0800 - 分析模式   : sql - SQL 血缘解析 + 业务口径匹配 (analyze SQL + knowledge base)
+[INFO] 2026-09-20 20:24:15.169 +0800 - 血缘服务   : http://172.17.0.1:18080/analyze
+[INFO] 2026-09-20 20:24:15.169 +0800 - 请求体     : {"sql":"-- =============================================================\n-- DWD 层：码段明细 → 产量口径明细 cdw.dwd_卷烟产量码段明细\n-- 上游：ods.ods_卷烟码段流水\n-- 下游：ads.ads_码段产量日报 / cdw.dws_产量汇总\n-- 核心口径：产量 = 打码量 + 跳码量 - 重码量（公司统一产量口径）\n-- =============================================================\nINSERT OVERWRITE TABLE cdw.dwd_卷烟产量码段明细 PARTITION (dt = '2026-01-01')\nSELECT\n    b.work_order_no                                       AS work_order_no,     -- 工单号\n    b.plant_code                                          AS plant_code,        -- 生产厂编码\n    b.brand_code                                          AS brand_code,        -- 牌号编码\n    b.batch_no                                            AS batch_no,          -- 批次号\n    SUM(b.dama_qty)                                       AS dama_qty_total,    -- 打码量合计（箱）\n    SUM(b.tiaoma_qty)                                     AS tiaoma_qty_total,  -- 跳码量合计（箱）\n    SUM(b.chongma_qty)                                    AS chongma_qty_total, -- 重码量合计（箱）\n    SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty,   -- 产量口径：打码量+跳码量-重码量（箱）\n    CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) > 0\n         THEN ROUND(SUM(b.dama_qty) / (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)), 6)\n         ELSE 0 END                                       AS dama_rate,         -- 打码占比（打码量/产量）\n    SUM(b.dama_qty) * 250                                 AS dama_cig_qty,      -- 打码量折条（箱转条）\n    (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)) * 250 AS chanliang_cig -- 产量折条（箱转条）\nFROM ods.ods_卷烟码段流水 b\nWHERE b.dt = '2026-01-01'\nGROUP BY b.work_order_no, b.plant_code, b.brand_code, b.batch_no;\n","dialect":"hive","with_knowledge":true}
+[INFO] 2026-09-20 20:24:15.169 +0800 - ============================================================
+[INFO] 2026-09-20 20:24:15.178 +0800 - 
+[INFO] 2026-09-20 20:24:15.178 +0800 - ╔══════════════════════════════════════════════════════════════════╗
+[INFO] 2026-09-20 20:24:15.178 +0800 - ║              数 据 血 缘 分 析 报 告   LINEAGE REPORT            ║
+[INFO] 2026-09-20 20:24:15.178 +0800 - ╚══════════════════════════════════════════════════════════════════╝
+[INFO] 2026-09-20 20:24:15.178 +0800 -   分析模式 : SQL 解析   |   方言 : hive   |   语句数 : 1   |   耗时 : 9 ms
+[INFO] 2026-09-20 20:24:15.178 +0800 -   血缘服务 : http://172.17.0.1:18080/analyze
+[INFO] 2026-09-20 20:24:15.178 +0800 - 
+[INFO] 2026-09-20 20:24:15.178 +0800 -   ┌── ① 表级血缘 ──────────────────────────────────────────────────
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │  数据流向：
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      ods.ods_卷烟码段流水  ──►  cdw.dwd_卷烟产量码段明细
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │  源表（输入 1 张）: ods.ods_卷烟码段流水
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │  目标表（输出 1 张）: cdw.dwd_卷烟产量码段明细
+[INFO] 2026-09-20 20:24:15.179 +0800 - 
+[INFO] 2026-09-20 20:24:15.179 +0800 -   ┌── ② 字段级血缘（17 个字段映射）────────────────────────────────
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │  目标表 cdw.dwd_卷烟产量码段明细 :
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      work_order_no  ←  ods.ods_卷烟码段流水.work_order_no      表达式: b.work_order_no AS work_order_no
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      plant_code  ←  ods.ods_卷烟码段流水.plant_code      表达式: b.plant_code AS plant_code
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      brand_code  ←  ods.ods_卷烟码段流水.brand_code      表达式: b.brand_code AS brand_code
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      batch_no  ←  ods.ods_卷烟码段流水.batch_no      表达式: b.batch_no AS batch_no
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      dama_qty_total  ←  ods.ods_卷烟码段流水.dama_qty      表达式: SUM(b.dama_qty) AS dama_qty_total
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      tiaoma_qty_total  ←  ods.ods_卷烟码段流水.tiaoma_qty      表达式: SUM(b.tiaoma_qty) AS tiaoma_qty_total
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      chongma_qty_total  ←  ods.ods_卷烟码段流水.chongma_qty      表达式: SUM(b.chongma_qty) AS chongma_qty_total
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      chanliang_qty  ←  ods.ods_卷烟码段流水.chongma_qty      表达式: SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      chanliang_qty  ←  ods.ods_卷烟码段流水.dama_qty      表达式: SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      chanliang_qty  ←  ods.ods_卷烟码段流水.tiaoma_qty      表达式: SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      dama_rate  ←  ods.ods_卷烟码段流水.chongma_qty      表达式: CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) > 0 THEN ROUND(SUM(b.dama_qty) / (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)), 6) ELSE 0 END AS dama_rate
+[INFO] 2026-09-20 20:24:15.179 +0800 -   │      dama_rate  ←  ods.ods_卷烟码段流水.dama_qty      表达式: CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) > 0 THEN ROUND(SUM(b.dama_qty) / (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)), 6) ELSE 0 END AS dama_rate
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      dama_rate  ←  ods.ods_卷烟码段流水.tiaoma_qty      表达式: CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) > 0 THEN ROUND(SUM(b.dama_qty) / (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)), 6) ELSE 0 END AS dama_rate
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      dama_cig_qty  ←  ods.ods_卷烟码段流水.dama_qty      表达式: SUM(b.dama_qty) * 250 AS dama_cig_qty
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      chanliang_cig  ←  ods.ods_卷烟码段流水.chongma_qty      表达式: (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)) * 250 AS chanliang_cig
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      chanliang_cig  ←  ods.ods_卷烟码段流水.dama_qty      表达式: (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)) * 250 AS chanliang_cig
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      chanliang_cig  ←  ods.ods_卷烟码段流水.tiaoma_qty      表达式: (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)) * 250 AS chanliang_cig
+[INFO] 2026-09-20 20:24:15.180 +0800 - 
+[INFO] 2026-09-20 20:24:15.180 +0800 -   ┌── ③ 加工条件（过滤 / 分区）────────────────────────────────────
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │  过滤条件（语句 1）:
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      • b.dt = '2026-01-01'
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │  分区过滤:
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      • dt = 2026-01-01
+[INFO] 2026-09-20 20:24:15.180 +0800 - 
+[INFO] 2026-09-20 20:24:15.180 +0800 -   ┌── ④ 加工 SQL 原文 ─────────────────────────────────────────────
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      INSERT OVERWRITE TABLE cdw.dwd_卷烟产量码段明细 PARTITION(dt = '2026-01-01') SELECT b.work_order_no AS work_order_no, b.plant_code AS plant_code, b.brand_code AS brand_code, b.batch_no AS batch_no, SUM(b.dama_qty) AS dama_qty_total, SUM(b.tiaoma_qty) AS tiaoma_qty_total, SUM(b.chongma_qty) AS chongma_qty_total, SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty, CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) > 0 THEN ROUND(SUM(b.dama_qty) / (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)), 6) ELSE 0 END AS dama_rate, SUM(b.dama_qty) * 250 AS dama_cig_qty, (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)) * 250 AS chanliang_cig FROM ods.ods_卷烟码段流水 AS b WHERE b.dt = '2026-01-01' GROUP BY b.work_order_no, b.plant_code, b.brand_code, b.batch_no
+[INFO] 2026-09-20 20:24:15.180 +0800 - 
+[INFO] 2026-09-20 20:24:15.180 +0800 -   ┌── ⑤ 业务口径（知识库匹配）──────────────────────────────────────
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │  本任务产出指标的业务口径：
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      • 产量（chanliang_qty） = 打码量 + 跳码量 - 重码量
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │        类型: 聚合    置信度: 0.9    目标表: cdw.dwd_卷烟产量码段明细
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │        来源: examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │        依赖: ods.ods_卷烟码段流水.chongma_qty(重码量), ods.ods_卷烟码段流水.dama_qty(打码量), ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │        上游链路: cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      • 打码占比（dama_rate） = CASE WHEN 打码量 + 跳码量 - 重码量 > 0 THEN ROUND(打码量 / (打码量 + 跳码量 - 重码量), 6) ELSE 0 END
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │        类型: 条件分支    置信度: 0.85    目标表: cdw.dwd_卷烟产量码段明细
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │        来源: examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │        依赖: ods.ods_卷烟码段流水.chongma_qty(重码量), ods.ods_卷烟码段流水.dama_qty(打码量), ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │        上游链路: cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │      • 产量（条）（chanliang_cig） = (打码量 + 跳码量 - 重码量) * 250
+[INFO] 2026-09-20 20:24:15.180 +0800 -   │        类型: 聚合    置信度: 0.9    目标表: cdw.dwd_卷烟产量码段明细
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        来源: examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        依赖: ods.ods_卷烟码段流水.chongma_qty(重码量), ods.ods_卷烟码段流水.dama_qty(打码量), ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        上游链路: cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │      • 打码量合计（dama_qty_total） = SUM(打码量)
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        类型: 聚合    置信度: 0.9    目标表: cdw.dwd_卷烟产量码段明细
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        来源: examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        依赖: ods.ods_卷烟码段流水.dama_qty(打码量)
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        上游链路: cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │      • 跳码量合计（tiaoma_qty_total） = SUM(跳码量)
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        类型: 聚合    置信度: 0.9    目标表: cdw.dwd_卷烟产量码段明细
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        来源: examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        依赖: ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        上游链路: cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │      • 重码量合计（chongma_qty_total） = SUM(重码量)
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        类型: 聚合    置信度: 0.9    目标表: cdw.dwd_卷烟产量码段明细
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        来源: examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        依赖: ods.ods_卷烟码段流水.chongma_qty(重码量)
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        上游链路: cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │      • 打码量（条）（dama_cig_qty） = 打码量 * 250
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        类型: 聚合    置信度: 0.9    目标表: cdw.dwd_卷烟产量码段明细
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        来源: examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        依赖: ods.ods_卷烟码段流水.dama_qty(打码量)
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │        上游链路: cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+[INFO] 2026-09-20 20:24:15.181 +0800 -   │  涉及字段的中文业务名：
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • chongma_qty → 重码量     • dama_qty → 打码量
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • tiaoma_qty → 跳码量     • chanliang_qty → 产量
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • dama_rate → 打码占比     • chanliang_cig → 产量（条）
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • dama_qty_total → 打码量合计     • tiaoma_qty_total → 跳码量合计
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • chongma_qty_total → 重码量合计     • dama_cig_qty → 打码量（条）
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • work_order_no → 工单号     • plant_code → 生产厂编码
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • brand_code → 牌号编码     • batch_no → 批次号
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │  业务规则：
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • [业务规则（注释）] 产量口径：打码量+跳码量-重码量（箱）（脚本注释）
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • [分区规则] 分区/时点条件：dt = 2026-01-01
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │      • [过滤规则] 时点/分区过滤：b.dt = '2026-01-01'
+[INFO] 2026-09-20 20:24:15.182 +0800 -   │  ⓘ 口径由 kb build 从加工脚本自动提炼（语法级，未做语义校验）
+[INFO] 2026-09-20 20:24:15.182 +0800 - 
+[INFO] 2026-09-20 20:24:15.182 +0800 -   ══════════════════════════════════════════════════════════════════
+[INFO] 2026-09-20 20:24:15.182 +0800 -   ✅ 血缘分析完成 | 源表 1 张 → 目标表 1 张 | 字段映射 17 个 | 业务口径命中 7 条 | 耗时 9 ms
+[INFO] 2026-09-20 20:24:15.182 +0800 -   ══════════════════════════════════════════════════════════════════
+[INFO] 2026-09-20 20:24:15.182 +0800 - 
+[INFO] 2026-09-20 20:24:15.183 +0800 - 输出参数已写入 varPool: [lineage_mode, lineage_service_url, lineage_input_tables, lineage_output_tables, lineage_input_table_count, lineage_output_table_count, lineage_kb_available, lineage_metric_count, lineage_metric_names, lineage_cost_ms, lineage_report_raw]
+[INFO] 2026-09-20 20:24:15.183 +0800 - 
+***********************************************************************************************
+[INFO] 2026-09-20 20:24:15.183 +0800 - *********************************  Finalize task instance  ************************************
+[INFO] 2026-09-20 20:24:15.183 +0800 - ***********************************************************************************************
+[INFO] 2026-09-20 20:24:15.183 +0800 - Upload output files: [] successfully
+[INFO] 2026-09-20 20:24:15.185 +0800 - Send task execute status: SUCCESS to master : 172.17.0.3:1234
+[INFO] 2026-09-20 20:24:15.186 +0800 - Remove the current task execute context from worker cache
+[INFO] 2026-09-20 20:24:15.186 +0800 - The current execute mode isn't develop mode, will clear the task execute file: /tmp/dolphinscheduler/exec/process/root/184808090854976/184808094187072_1/2/2
+[INFO] 2026-09-20 20:24:15.186 +0800 - Success clear the task execute file: /tmp/dolphinscheduler/exec/process/root/184808090854976/184808094187072_1/2/2
+[INFO] 2026-09-20 20:24:15.186 +0800 - FINALIZE_SESSION
+
+
+==============================================================================
+6) 断言检查
+==============================================================================
+   ✅ ① 表级血缘
+   ✅ ② 字段级血缘
+   ✅ ③ 加工条件
+   ✅ ④ 加工 SQL 原文
+   ✅ ⑤ 业务口径
+   ✅ 产量口径公式原文
+   ✅ 上游链路
+   ✅ 字段中文名
+   ✅ 汇总行口径命中数
+   ✅ varPool 新增口径出参
+
+最终任务实例 2 状态: SUCCESS，口径命中 7 条

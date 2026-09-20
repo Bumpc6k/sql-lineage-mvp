@@ -1,0 +1,32 @@
+=== GET /health ===
+endpoints: ['/analyze', '/impact', '/kb/ask', '/kb/metric', '/kb/search', '/kb/summary', '/parse', '/upstream']
+kb_metrics: 75
+
+=== POST /parse （旧端点）===
+success= True in= ['ods.t_order_src'] out= ['dwd.t_order'] cols= 3 has_knowledge= False
+
+=== POST /analyze （新端点）===
+success= True kb_available= True metrics= 0 reason= -
+
+=== POST /impact ===
+success= True found= False downstream_count= 0
+
+=== POST /upstream ===
+success= True found= False upstream_count= 0 paths= []
+
+=== GET /kb/summary ===
+success= True counts= {'kb_scripts': 24, 'kb_tables': 38, 'kb_fields': 298, 'kb_metrics': 75, 'kb_rules': 76, 'kb_terms': 139, 'kb_table_lineage': 44, 'pending_terms': 1, 'fields_with_chinese': 296}
+
+=== POST /kb/search ===
+success= True total= 3 top= 产量 = 打码量 + 跳码量 - 重码量
+
+=== POST /kb/ask ===
+success= True intent= metric_formula | 【产量】计算口径（共 6 条相关口径，列前 3 条）
+
+=== GET /kb/metric ===
+success= True count= 1 formula= 产量 = 打码量 + 跳码量 - 重码量
+
+=== /analyze 边界：空 SQL / 不存在的库 / with_knowledge=false ===
+空 SQL -> success= False sql 不能为空
+库不存在 -> success= True kb_available= False hint= 知识库不存在或为空，请先执行 `.venv/bin/python -m lineage.cli kb build` 建库
+with_knowledge=false -> success= True kb_available= False reason= 本次请求 with_knowledge=false，已跳过知识库匹配

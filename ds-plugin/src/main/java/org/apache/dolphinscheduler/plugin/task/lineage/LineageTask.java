@@ -80,29 +80,31 @@ public class LineageTask extends AbstractTask {
 
         String serviceUrl = trimTrailingSlash(parameters.getServiceUrl());
         String mode = parameters.normalizedMode();
-        String endpoint;
+        String primaryEndpoint;
+        String fallbackEndpoint = null;
         String requestBody;
         String action;
         switch (mode) {
             case "impact":
-                endpoint = "/impact";
+                primaryEndpoint = "/impact";
                 action = "下游影响分析 (downstream impact)";
                 requestBody = buildTableBody();
                 break;
             case "upstream":
-                endpoint = "/upstream";
+                primaryEndpoint = "/upstream";
                 action = "上游溯源 (upstream trace)";
                 requestBody = buildTableBody();
                 break;
             case "sql":
             default:
-                endpoint = "/parse";
-                action = "SQL 血缘解析 (parse SQL)";
+                primaryEndpoint = "/analyze";
+                fallbackEndpoint = "/parse";
+                action = "SQL 血缘解析 + 业务口径匹配 (analyze SQL + knowledge base)";
                 requestBody = buildSqlBody();
                 break;
         }
 
-        String url = serviceUrl + endpoint;
+        String url = serviceUrl + primaryEndpoint;
         long start = System.currentTimeMillis();
         String response;
         try {
@@ -113,7 +115,19 @@ public class LineageTask extends AbstractTask {
             logger.info("血缘服务   : {}", url);
             logger.info("请求体     : {}", requestBody);
             logger.info("{}", HEADER);
-            response = LineageServiceClient.postJson(url, requestBody, parameters.getTimeout());
+            try {
+                response = LineageServiceClient.postJson(url, requestBody, parameters.getTimeout());
+            } catch (Exception first) {
+                if (fallbackEndpoint == null) {
+                    throw first;
+                }
+                // 服务端可能还是老版本（没有 /analyze）：回退到 /parse，血缘报告照常输出
+                String fallbackUrl = serviceUrl + fallbackEndpoint;
+                logger.warn("一体化端点不可用（{}），回退到 {}：本次只输出血缘，不含业务口径",
+                        first.getMessage(), fallbackUrl);
+                response = LineageServiceClient.postJson(fallbackUrl, requestBody, parameters.getTimeout());
+                url = fallbackUrl;
+            }
         } catch (Exception e) {
             setExitStatusCode(TaskConstants.EXIT_CODE_FAILURE);
             logger.error("调用血缘服务失败: {}", url, e);
@@ -165,6 +179,8 @@ public class LineageTask extends AbstractTask {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("sql", parameters.getSql());
         body.put("dialect", parameters.getDialect());
+        // /analyze 需要它；老版本服务端忽略未知字段，所以同一个请求体可以两边复用
+        body.put("with_knowledge", Boolean.TRUE);
         return JSONUtils.toJsonString(body);
     }
 
@@ -317,6 +333,18 @@ public class LineageTask extends AbstractTask {
             logger.info("  │      {}", parameters.getTable());
         }
 
+        // ---------------------------------------------------------- ⑤ 业务口径
+        JsonNode knowledge = root.get("knowledge");
+        boolean kbAvailable = knowledge != null && !knowledge.isNull()
+                && knowledge.path("kb_available").asBoolean(false);
+        JsonNode kbMetrics = kbAvailable ? knowledge.get("metrics") : null;
+        int metricCount = kbMetrics != null && kbMetrics.isArray() ? kbMetrics.size() : 0;
+        // 只有 sql 模式（调 /analyze）才有口径可谈；impact/upstream 保持原来的四段报告
+        boolean showKnowledge = knowledge != null || "sql".equals(mode);
+        if (showKnowledge) {
+            printKnowledgeSection(knowledge, kbAvailable, metricCount);
+        }
+
         // ---------------------------------------------------------- impact/upstream
         JsonNode direction = root.get("direction");
         if (direction != null && !direction.isNull()) {
@@ -359,8 +387,13 @@ public class LineageTask extends AbstractTask {
         // ---------------------------------------------------------- 汇总
         logger.info("");
         logger.info("  ══════════════════════════════════════════════════════════════════");
-        logger.info("  ✅ 血缘分析完成 | 源表 {} 张 → 目标表 {} 张 | 字段映射 {} 个 | 耗时 {} ms",
-                inputTables.size(), outputTables.size(), columnCount, cost);
+        if (showKnowledge) {
+            logger.info("  ✅ 血缘分析完成 | 源表 {} 张 → 目标表 {} 张 | 字段映射 {} 个 | 业务口径命中 {} 条 | 耗时 {} ms",
+                    inputTables.size(), outputTables.size(), columnCount, metricCount, cost);
+        } else {
+            logger.info("  ✅ 血缘分析完成 | 源表 {} 张 → 目标表 {} 张 | 字段映射 {} 个 | 耗时 {} ms",
+                    inputTables.size(), outputTables.size(), columnCount, cost);
+        }
         logger.info("  ══════════════════════════════════════════════════════════════════");
         logger.info("");
 
@@ -369,12 +402,138 @@ public class LineageTask extends AbstractTask {
         }
     }
 
+    /**
+     * ⑤ 业务口径：把服务端 {@code /analyze} 匹配到的知识库口径渲染成中文报告段。
+     *
+     * <p>知识库不可用 / 无命中 / 服务端是旧版本，都只是多一行提示 —— ①②③④ 段不受影响。
+     */
+    private void printKnowledgeSection(JsonNode knowledge, boolean kbAvailable, int metricCount) {
+        logger.info("");
+        logger.info("  ┌── ⑤ 业务口径（知识库匹配）──────────────────────────────────────");
+        if (knowledge == null || knowledge.isNull()) {
+            logger.info("  │  未匹配到业务口径（可先执行 kb build 建库）");
+            logger.info("  │  ⓘ 服务端未返回 knowledge 段：可能是旧版本服务（本插件用 POST /analyze）");
+            return;
+        }
+        if (!kbAvailable) {
+            logger.info("  │  未匹配到业务口径（可先执行 kb build 建库）");
+            String reason = opt(knowledge.get("reason"));
+            if (!reason.isEmpty()) {
+                logger.info("  │  原因: {}", reason);
+            }
+            return;
+        }
+
+        JsonNode metrics = knowledge.get("metrics");
+        if (metricCount > 0 && metrics != null && metrics.isArray()) {
+            logger.info("  │  本任务产出指标的业务口径：");
+            int shown = 0;
+            final int maxShow = 8;
+            for (JsonNode m : metrics) {
+                if (shown >= maxShow) {
+                    logger.info("  │      ... 其余 {} 条口径已省略", metricCount - maxShow);
+                    break;
+                }
+                shown++;
+                String cn = opt(m.get("chinese_name"));
+                String column = opt(m.get("target_column"));
+                // 知识库里的 formula 是「名称 = 表达式」，名称已在行首，这里只取表达式
+                String formula = formulaBody(cn.isEmpty() ? column : cn, opt(m.get("formula")));
+                if (formula.isEmpty()) {
+                    formula = formulaBody(cn.isEmpty() ? column : cn, opt(m.get("formula_full")));
+                }
+                logger.info("  │      • {}{} = {}",
+                        cn.isEmpty() ? column : cn,
+                        column.isEmpty() ? "" : "（" + column + "）",
+                        formula.isEmpty() ? "(无公式)" : formula);
+                logger.info("  │        类型: {}    置信度: {}    目标表: {}",
+                        opt(m.get("metric_type")), opt(m.get("confidence")), opt(m.get("target_table")));
+                logger.info("  │        来源: {} 第 {} 条语句",
+                        opt(m.get("source_script")), opt(m.get("source_statement")));
+                logger.info("  │        依赖: {}", dependsText(m.get("depends_on"), opt(m.get("depends_text"))));
+                logger.info("  │        上游链路: {}", flatten(m.get("lineage_path")));
+            }
+        } else {
+            logger.info("  │  知识库已就绪，但本任务产出字段未匹配到已登记指标口径");
+        }
+
+        JsonNode terms = knowledge.get("terms");
+        if (terms != null && terms.isArray() && terms.size() > 0) {
+            logger.info("  │  涉及字段的中文业务名：");
+            List<String> cells = new ArrayList<>();
+            for (JsonNode t : terms) {
+                if (cells.size() >= 16) {
+                    cells.add("...");
+                    break;
+                }
+                cells.add("• " + opt(t.get("field")) + " → " + opt(t.get("chinese_name")));
+            }
+            for (int i = 0; i < cells.size(); i += 2) {
+                int end = Math.min(i + 2, cells.size());
+                logger.info("  │      {}", joinWith(cells.subList(i, end), "     "));
+            }
+        }
+
+        JsonNode rules = knowledge.get("rules");
+        if (rules != null && rules.isArray() && rules.size() > 0) {
+            logger.info("  │  业务规则：");
+            int n = 0;
+            for (JsonNode r : rules) {
+                if (n++ >= 5) {
+                    break;
+                }
+                logger.info("  │      • [{}] {}", opt(r.get("rule_type")), opt(r.get("description")));
+            }
+        }
+        logger.info("  │  ⓘ 口径由 kb build 从加工脚本自动提炼（语法级，未做语义校验）");
+    }
+
+    /** 口径公式：知识库里是「名称 = 表达式」，行首已经写了名称，这里剥掉重复的前缀 */
+    private static String formulaBody(String name, String formula) {
+        String body = formula == null ? "" : formula.trim();
+        if (name != null && !name.isEmpty() && body.startsWith(name)) {
+            body = body.substring(name.length()).trim();
+            if (body.startsWith("=")) {
+                body = body.substring(1).trim();
+            }
+        }
+        return body;
+    }
+
+    /** 依赖字段：优先按结构化 depends_on 拼，服务端没给就退回 depends_text */
+    private static String dependsText(JsonNode deps, String fallback) {
+        if (deps == null || !deps.isArray() || deps.size() == 0) {
+            return fallback == null || fallback.isEmpty() ? "-" : fallback;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (JsonNode d : deps) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(opt(d.get("table"))).append('.').append(opt(d.get("column")));
+            String cn = opt(d.get("chinese_name"));
+            if (!cn.isEmpty()) {
+                sb.append('(').append(cn).append(')');
+            }
+        }
+        return sb.length() == 0 ? "-" : sb.toString();
+    }
+
+    /** 取值：缺失一律给空串（区别于 {@link #text(JsonNode)} 的 "-"） */
+    private static String opt(JsonNode node) {
+        return node == null || node.isNull() ? "" : node.asText();
+    }
+
     /** 用逗号把列表拼成一行 */
     private static String join(List<String> items) {
+        return joinWith(items, ", ");
+    }
+
+    private static String joinWith(List<String> items, String separator) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < items.size(); i++) {
             if (i > 0) {
-                sb.append(", ");
+                sb.append(separator);
             }
             sb.append(items.get(i));
         }
@@ -473,6 +632,28 @@ public class LineageTask extends AbstractTask {
         List<String> inputTables = readStringArray(root, "input_tables");
         List<String> outputTables = readStringArray(root, "output_tables");
 
+        // 业务口径命中（来自服务端 /analyze 的 knowledge 段）
+        JsonNode knowledge = root.get("knowledge");
+        boolean kbAvailable = knowledge != null && !knowledge.isNull()
+                && knowledge.path("kb_available").asBoolean(false);
+        int metricCount = 0;
+        List<String> metricNames = new ArrayList<>();
+        if (kbAvailable) {
+            JsonNode metrics = knowledge.get("metrics");
+            if (metrics != null && metrics.isArray()) {
+                metricCount = metrics.size();
+                for (JsonNode m : metrics) {
+                    String name = opt(m.get("chinese_name"));
+                    if (name.isEmpty()) {
+                        name = opt(m.get("target_column"));
+                    }
+                    if (!name.isEmpty() && !metricNames.contains(name)) {
+                        metricNames.add(name);
+                    }
+                }
+            }
+        }
+
         Map<String, String> output = new LinkedHashMap<>();
         output.put("lineage_mode", mode);
         output.put("lineage_service_url", url);
@@ -480,6 +661,9 @@ public class LineageTask extends AbstractTask {
         output.put("lineage_output_tables", String.join(",", outputTables));
         output.put("lineage_input_table_count", String.valueOf(inputTables.size()));
         output.put("lineage_output_table_count", String.valueOf(outputTables.size()));
+        output.put("lineage_kb_available", String.valueOf(kbAvailable));
+        output.put("lineage_metric_count", String.valueOf(metricCount));
+        output.put("lineage_metric_names", String.join(",", metricNames));
         output.put("lineage_cost_ms", String.valueOf(cost));
         String raw = root.toString();
         output.put("lineage_report_raw", raw.length() > 4000 ? raw.substring(0, 4000) : raw);

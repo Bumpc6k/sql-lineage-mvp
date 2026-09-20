@@ -50,6 +50,12 @@ from .pipeline import (
     format_build_text,
 )
 from .qa import LLMClient, LLMSettings, answer, detect_intent, extract_entity, format_metric
+from .integrate import (
+    KB_BUILD_HINT,
+    collect_target_fields,
+    match_knowledge,
+    unavailable as knowledge_unavailable,
+)
 from .search import format_search_text, search
 from .store import DEFAULT_DB_PATH, KnowledgeStore, default_db_path
 from .textutil import (
@@ -96,6 +102,11 @@ __all__ = [
     "extract_entity",
     "LLMClient",
     "LLMSettings",
+    # 血缘 × 知识库一体化
+    "match_knowledge",
+    "collect_target_fields",
+    "knowledge_unavailable",
+    "KB_BUILD_HINT",
     # 文档 / 流水线
     "to_markdown",
     "export_markdown",

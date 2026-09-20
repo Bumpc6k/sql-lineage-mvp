@@ -1,0 +1,48 @@
+
+[1;32m==> 1/5 从容器导出编译依赖 jar[0m
+
+[1;32m==> 2/5 javac --release 8 编译[0m
+   classpath: /root/projects/sql-lineage-mvp/ds-plugin/libs/jackson-annotations-2.13.4.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/slf4j-api-1.7.36.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/dolphinscheduler-common-3.2.2.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/jackson-core-2.13.4.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/commons-lang3-3.12.0.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/commons-collections4-4.3.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/jackson-databind-2.13.4.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/dolphinscheduler-task-api-3.2.2.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/dolphinscheduler-spi-3.2.2.jar:
+   sources (5):
+     src/main/java/org/apache/dolphinscheduler/plugin/task/lineage/LineageParameters.java
+     src/main/java/org/apache/dolphinscheduler/plugin/task/lineage/LineageServiceClient.java
+     src/main/java/org/apache/dolphinscheduler/plugin/task/lineage/LineageTask.java
+     src/main/java/org/apache/dolphinscheduler/plugin/task/lineage/LineageTaskChannel.java
+     src/main/java/org/apache/dolphinscheduler/plugin/task/lineage/LineageTaskChannelFactory.java
+   javac 成功
+
+[1;32m==> 3/5 打包插件 jar (含 META-INF/services SPI 注册)[0m
+   SPI 注册文件内容: org.apache.dolphinscheduler.plugin.task.lineage.LineageTaskChannelFactory
+   产物: /root/projects/sql-lineage-mvp/ds-plugin/dolphinscheduler-task-lineage-3.2.2.jar
+META-INF/
+META-INF/MANIFEST.MF
+META-INF/services/
+META-INF/services/org.apache.dolphinscheduler.plugin.task.api.TaskChannelFactory
+org/
+org/apache/
+org/apache/dolphinscheduler/
+org/apache/dolphinscheduler/plugin/
+org/apache/dolphinscheduler/plugin/task/
+org/apache/dolphinscheduler/plugin/task/lineage/
+org/apache/dolphinscheduler/plugin/task/lineage/LineageParameters.class
+org/apache/dolphinscheduler/plugin/task/lineage/LineageServiceClient.class
+org/apache/dolphinscheduler/plugin/task/lineage/LineageTask.class
+org/apache/dolphinscheduler/plugin/task/lineage/LineageTaskChannel.class
+org/apache/dolphinscheduler/plugin/task/lineage/LineageTaskChannelFactory.class
+
+[1;32m==> 4/5 复制插件 jar 进容器[0m
+   -> /opt/dolphinscheduler/libs/worker-server/dolphinscheduler-task-lineage-3.2.2.jar
+   -> /opt/dolphinscheduler/libs/master-server/dolphinscheduler-task-lineage-3.2.2.jar
+   -> /opt/dolphinscheduler/libs/api-server/dolphinscheduler-task-lineage-3.2.2.jar
+   -> /opt/dolphinscheduler/libs/standalone-server/dolphinscheduler-task-lineage-3.2.2.jar
+
+[1;32m==> 5/5 重启 ds-standalone 并等待 UI 就绪[0m
+ds-standalone
+   海豚 UI 已就绪 (第 12 次探测, HTTP 200)
+
+插件日志检查:
+[WI-0][TI-0] - [INFO] 2026-09-20 20:24:02.034 +0800 o.a.d.p.t.a.TaskPluginManager:[65] - Registered task plugin: HIVECLI - HiveCliTaskChannelFactory
+[WI-0][TI-0] - [INFO] 2026-09-20 20:24:02.034 +0800 o.a.d.p.t.a.TaskPluginManager:[60] - Registering task plugin: FLINK - FlinkTaskChannelFactory
+[WI-0][TI-0] - [INFO] 2026-09-20 20:24:02.035 +0800 o.a.d.p.t.a.TaskPluginManager:[65] - Registered task plugin: FLINK - FlinkTaskChannelFactory
+[WI-0][TI-0] - [WARN] 2026-09-20 20:24:03.409 +0800 o.a.d.p.t.a.TaskPluginManager:[52] - The task plugin has already been loaded
+[WI-0][TI-0] - [WARN] 2026-09-20 20:24:08.783 +0800 o.a.d.p.t.a.TaskPluginManager:[52] - The task plugin has already been loaded
