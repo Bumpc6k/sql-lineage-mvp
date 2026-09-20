@@ -527,13 +527,23 @@ def ensure_datasource(client: DsClient) -> int:
 
 
 def _delete_project(client: DsClient, code: Any, name: str) -> None:
-    """先删干净项目下的工作流定义，再删项目（海豚不允许直接删有定义的项目）。"""
+    """先删干净项目下的工作流定义，再删项目（海豚不允许直接删有定义的项目）。
+
+    注意：海豚的 ``DELETE /process-definition`` **要求定义处于 OFFLINE**，否则接口报错、
+    定义留在库里，接着 ``DELETE /project`` 也会失败（项目非空），最后建同名项目时撞上
+    「already exists」——整轮演示数据重建就废了。所以这里先无条件下线一次再删。
+    """
     try:
         defs = client.list_process_definitions(code)
     except DsError as exc:                                   # pragma: no cover - 防御
         print(f"[项目] 读取 {name} 的工作流失败：{exc}", file=sys.stderr)
         defs = []
     for d in defs:
+        try:
+            client.request("POST", f"/projects/{int(code)}/process-definition/{int(d['code'])}/release",
+                           params={"releaseState": "OFFLINE"}, raise_on_error=False)
+        except DsError:                                      # pragma: no cover - 防御
+            pass
         client.delete_process_definition(code, d["code"])
     print(f"[项目] 删除项目 {name}（code={code}），连带清理 {len(defs)} 个工作流定义")
     client.delete_project(code)

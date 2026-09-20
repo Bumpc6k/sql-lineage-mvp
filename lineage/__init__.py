@@ -10,6 +10,10 @@
 * **P3 调度集成层**（``lineage.ds_client`` / ``lineage.ds_lineage``）：
   旁路对接 DolphinScheduler OpenAPI（只读、不改海豚源码），把工作流里的任务 SQL
   还原成「项目(工程) → 工作流 → 任务节点 → 表」的多层血缘，支持反向查询与工作流依赖推导。
+* **P6 工作流级血缘**（``lineage.workflow``）：给 DolphinScheduler 的 ``LINEAGE_DAG`` 任务类型
+  提供 ``POST /analyze-workflow`` —— 拉取**一整个工作流**的全部任务脚本批量解析，合并成
+  工作流级血缘（跨任务表级链路 / 任务级依赖 / 跨任务字段血缘），再做断链·孤岛·环路·未登记口径
+  四类链路质量体检，并落一份工作流级 HTML 报告（``lineage.report`` 的「工作流模式」）。
 """
 
 from .ds_client import DsApiError, DsAuthError, DsClient, DsConnectionError, extract_scripts

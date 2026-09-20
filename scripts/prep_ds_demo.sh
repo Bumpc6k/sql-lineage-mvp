@@ -257,7 +257,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-step "7/7 端到端验证：LINEAGE 任务真跑一次"
+step "7/7 端到端验证：LINEAGE / LINEAGE_DAG 任务各真跑一次"
 # ---------------------------------------------------------------------------
 if [ "$SKIP_VERIFY" = "1" ]; then
   warn "（--skip-verify）跳过验证"
@@ -265,11 +265,22 @@ elif [ ! -f "$PY" ]; then
   warn "无 venv python，跳过验证"
 else
   if "$PY" "$PLUGIN_DIR/verify_api.py" > /tmp/prep_verify.log 2>&1; then
-    ok "端到端验证通过（工作流 + LINEAGE 任务均 SUCCESS）"
+    ok "LINEAGE（单脚本）端到端验证通过"
     grep -E "workflowCode|taskType=LINEAGE|state=SUCCESS|最终任务实例|输入表|输出表|耗时" /tmp/prep_verify.log | tail -10 | sed 's/^/     /'
   else
-    bad "端到端验证失败（详情 /tmp/prep_verify.log）"
+    bad "LINEAGE 端到端验证失败（详情 /tmp/prep_verify.log）"
     tail -12 /tmp/prep_verify.log | sed 's/^/     /'
+    FAILED=1
+  fi
+
+  # 工作流级：3 个 SQL 任务 + 1 个 LINEAGE_DAG 节点（含给历史工作流追加尾节点）
+  if "$PY" "$PLUGIN_DIR/verify_dag.py" > /tmp/prep_verify_dag.log 2>&1; then
+    ok "LINEAGE_DAG（工作流级）端到端验证通过"
+    grep -E "回读任务|无法|✅ 工作流血缘分析完成|📊 完整报告|VERIFY" /tmp/prep_verify_dag.log \
+      | tail -8 | sed 's/^/     /'
+  else
+    bad "LINEAGE_DAG 端到端验证失败（详情 /tmp/prep_verify_dag.log）"
+    tail -12 /tmp/prep_verify_dag.log | sed 's/^/     /'
     FAILED=1
   fi
 fi

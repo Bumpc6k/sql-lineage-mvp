@@ -28,6 +28,7 @@
 | P4 范围（已完成） | **业务口径知识提炼 + 知识库**：从字段级血缘的 `expression` 提炼指标口径（聚合 / 算术 / 比率 / 条件 / 窗口），归一化成中文可读公式（`产量 = 打码量 + 跳码量 - 重码量`）；字段名 → 中文业务名（脚本注释 > 内置词典 > 命名规则 > 待确认）；从 WHERE / JOIN / 注释提炼业务规则；落进 **SQLite 知识库**（幂等 rebuild / 增量 upsert / 内容指纹），提供 `kb` 子命令（build/summary/search/show/ask/export/terms/fields）、HTTP 端点（`/kb/search`、`/kb/ask`、`/kb/summary`、`/kb/metric`）与《业务口径知识库.md》导出。仍然**零新增运行期依赖**（`sqlite3` + `urllib` + `http.server` 全是标准库）。 |
 | P5 范围（已完成） | **血缘 × 业务口径一体化（嵌进 DolphinScheduler 任务日志）**：血缘服务新增 `POST /analyze`（= `/parse` 的超集，再叠加知识库口径匹配）；DolphinScheduler 的 LINEAGE 任务插件在原有四段式血缘报告后新增 **「⑤ 业务口径」** 段 —— 直接在海豚任务实例日志里看到「本任务产出的指标口径是什么、依赖哪些上游字段、链路怎么走」，并把命中口径数 / 口径名写入 `varPool` 供下游任务引用。仍然**零新增运行期依赖**（插件是纯 JDK `HttpURLConnection`，服务端是标准库 `http.server`）。 |
 | P5.1 范围（已完成） | **任务日志精简 + 可跳转 HTML 报告**：① 插件日志的字段级血缘改成**紧凑表格**（目标字段 / 来源字段 / 加工表达式，最多 15 行，其余折叠「见完整报告」），业务口径只展开**最关键的 3 条**（按类型/置信度/依赖排序），其余口径·术语·规则各折叠一行；② 血缘服务新增 `POST /report` 与 `GET /report/<id>`，把同一份分析结果渲染成**单文件 HTML 报告**（内联 CSS/JS/SVG：表级流向、字段映射真表格 + 关键字过滤、口径卡片、上游链路 SVG），任务日志末尾打印可点击 URL；报告是附加产物，生成失败不影响血缘返回。仍然**零新增运行期依赖**（服务端纯标准库，插件纯 JDK）。 |
+| P6 范围（已完成） | **工作流级血缘（`LINEAGE_DAG` 任务类型 + `POST /analyze-workflow`）**：第二个 DolphinScheduler 任务类型，挂在工作流**尾部**即可 —— 运行时自己用 `TaskExecutionContext` 里的 `projectCode` / `processDefineCode` 拉取本工作流**全部任务脚本**（SQL 任务的 `sql`、SHELL/PYTHON 的 `rawScript`、pre/post 语句）批量解析，输出 **① 任务清单 ② 全链路图谱（跨任务，并用 `warehouse_graph.json` 向上补 src/ods 层）③ 跨任务字段血缘（带「来源任务」）④ 工作流级口径汇总 ⑤ 链路质量体检（断链/孤岛/环路/未登记口径，且与全局血缘交叉核对）**，并落一份**工作流级 HTML 报告**（报告页切「工作流模式」：任务清单 + 全链路 DAG SVG + 质量体检徽标）。核心价值：**历史工作流零改造**（原有 N 个任务一行不改，只加 1 个尾节点）。仍然**零新增运行期依赖**（插件纯 JDK `HttpURLConnection`，服务端标准库 `http.server` + sqlglot）。 |
 | 明确不做的 | 不接图数据库（用内存图 + JSON 落盘）、不接元数据（`SELECT *` 仍无法展开）、不做动态分区 / 运行期语义分析、不做口径的语义聚类与跨层一致性校验（P4 只做「语法级」提炼）、不替代调度（只读不写、不触发实例）。 |
 
 **技术选型**：Python 3.10+ / [sqlglot](https://github.com/tobymao/sqlglot)（多方言 AST 解析，`hive` / `spark` / `doris` / `postgres` 均可切换）。
@@ -1884,6 +1885,145 @@ bash scripts/report_evidence.sh
 
 ---
 
+### 6.8.3 工作流级血缘：`POST /analyze-workflow` + `LINEAGE_DAG` 任务类型（本轮新增）
+
+**动机**：`LINEAGE`（单脚本）知道「这张表从哪来」，但数仓里真正的问题几乎都在**工作流级别** ——
+`wf_dwd_清洗` 产出 4 张 DWD 表，`wf_dws_汇总` 消费其中 3 张又产出 4 张……一条链路断在哪、
+哪张表没人消费、哪张表没登记口径，只有把**整个工作流的脚本一次性拉下来批量解析**才看得出来。
+
+**做法**：新增第二个任务类型 `LINEAGE_DAG`（`LINEAGE` 的姊妹，代码风格 / 日志排版完全一致），
+挂在（多任务）工作流尾部。它**不需要用户填任何 SQL**：
+
+```text
+海豚工作流（原有 N 个任务一行不改）
+   ├─ t_sql_ods_产量流水 ──┐
+   ├─ t_sql_dwd_产量明细 ──┤  业务脚本，完全不感知血缘插件
+   ├─ t_sql_dws_产量汇总 ──┘
+   └─ t_dag_工作流血缘（LINEAGE_DAG，尾节点）
+          ├─ ① 拉工作流定义：GET /projects/{pc}/process-definition/{code}（sessionId 登录）
+          ├─ ② 提取脚本：SQL→taskParams.sql / SHELL·PYTHON→rawScript / pre·postStatements
+          ├─ ③ 逐脚本本地解析（SqlLineageParser，hive）+ 知识库 match_knowledge
+          ├─ ④ 合并成工作流级血缘（表级边 / 任务级依赖 / 跨任务字段血缘）
+          └─ ⑤ 质量体检（断链·孤岛·环路·未登记口径，并与 warehouse_graph.json 交叉核对）
+                    ▼
+          POST /analyze-workflow（宿主 172.17.0.1:18080）
+                    ▼
+          五段式中文报告写进任务日志 + 一份可点击的工作流级 HTML 报告
+```
+
+**服务端**：`lineage/workflow.py`（`api_server.py` 只做路由 + 异常包装），`lineage/report.py` 支持
+「工作流模式」（`meta.workflow` 存在时：标题栏换成工作流名/任务数/链路级数，多一屏「工作流概览」
+= 任务清单 + 全链路面包屑 + 质量体检徽标，字段级表格多一列「来源任务」，第 ④ 段换成**全链路 DAG SVG**
+（按最长路径分层，左=贴源、右=应用层））；单任务报告**一个字节未变**（有单测守着）。
+
+真实 `curl`（打「烟草数仓演示」项目的 `wf_dwd_清洗`，4 个 SQL 任务）：
+
+```bash
+$ curl -s -X POST http://localhost:18080/analyze-workflow -H 'Content-Type: application/json' \
+       -d '{"project_code": 184812330295872, "process_define_code": 184812330396224,
+            "scope": "current", "task_types": ["SQL","SHELL","PYTHON"],
+            "include_sub_process": false, "with_knowledge": true, "with_report": true}' \
+       -o /tmp/aw.json -w 'HTTP %{http_code}  bytes=%{size_download}  time=%{time_total}s\n'
+HTTP 200  bytes=32383  time=0.029155s
+
+$ python3 -c "import json;d=json.load(open('/tmp/aw.json'));print(d['success'], d['chain'], d['quality']['summary'])"
+True ['src.erp_生产工单明细', 'ods.ods_卷烟产量流水', 'cdw.dwd_卷烟产量明细'] \
+     {'dangling_output_count': 4, 'dangling_cross_workflow_count': 4, 'orphan_input_count': 0,
+      'orphan_cross_workflow_count': 0, 'cycle_count': 0, 'missing_knowledge_count': 0, 'checked': True}
+
+# 任务清单（4 个任务全部解析：脚本长度 1085 / 828 / 763 / 747，字段血缘 43 条，口径命中 5 条）
+#   t_dwd_产量明细  SQL  1085 字符  产出 cdw.dwd_卷烟产量明细  口径 2
+#   t_dwd_销量明细  SQL   828 字符  产出 cdw.dwd_卷烟销量明细  口径 1
+#   t_dwd_库存明细  SQL   763 字符  产出 cdw.dwd_成品库存明细  口径 1
+#   t_dwd_税利明细  SQL   747 字符  产出 cdw.dwd_税利明细      口径 1
+
+# 报告：HTTP 200 text/html; charset=utf-8  48773 字节
+$ curl -s -o /tmp/aw.html -w 'HTTP %{http_code}  %{content_type}  %{size_download}\n' \
+       http://localhost:18080/report/rpt_20260920_213348_0e59336e
+HTTP 200  text/html; charset=utf-8  48773
+```
+
+响应结构（关键字段）：
+
+```json
+{ "success": true,
+  "workflow": { "name": "wf_dwd_清洗", "code": 184812330396224, "task_count": 4, "parsed_task_count": 4,
+                "statement_count": 4,
+                "chain": ["src.erp_生产工单明细", "ods.ods_卷烟产量流水", "cdw.dwd_卷烟产量明细"],
+                "chain_in_workflow": ["ods.ods_卷烟产量流水", "cdw.dwd_卷烟产量明细"],
+                "chain_external": { "upstream": ["src.erp_生产工单明细"],
+                                    "downstream": ["cdw.dws_产量汇总", "cdw.dws_产销存汇总", "ads.ads_产销存月报", "…"] } },
+  "tasks":  [ { "name": "t_dwd_产量明细", "type": "SQL", "script_len": 1085, "statement_count": 1,
+                "input_tables": ["dim.dim_brand", "dim.dim_plant", "ods.ods_卷烟产量流水"],
+                "output_tables": ["cdw.dwd_卷烟产量明细"], "column_count": 13, "metric_count": 2,
+                "errors": [] }, "…" ],
+  "merged": { "table_lineage": [ { "source": "ods.ods_卷烟产量流水", "target": "cdw.dwd_卷烟产量明细",
+                                   "tasks": ["t_dwd_产量明细"] }, "… 共 9 条" ],
+              "nodes": ["… 10 张表"], "edges": ["… 9 条"],
+              "task_lineage": [ { "source_task": "t_dwd_产量明细", "target_task": "t_dwd_销量明细",
+                                  "via_tables": ["…"] } ],
+              "column_lineage_count": 43 },
+  "chain": ["src.erp_生产工单明细", "ods.ods_卷烟产量流水", "cdw.dwd_卷烟产量明细"],
+  "knowledge": { "kb_available": true, "metric_count": 5, "terms": 30, "rules": 5 },
+  "quality": { "dangling_outputs": [ { "table": "cdw.dwd_卷烟产量明细", "cross_workflow": true,
+                                       "global_downstream": ["cdw.dws_产量汇总", "…"],
+                                       "hint": "本工作流内无人消费；全局血缘显示下游在其它工作流：…" }, "… 4 条" ],
+               "orphan_inputs": [], "cycles": [], "missing_knowledge": [] },
+  "cost_ms": 27, "report_id": "rpt_20260920_213348_0e59336e",
+  "url": "http://localhost:18080/report/rpt_20260920_213348_0e59336e",
+  "internal_url": "http://172.17.0.1:18080/report/rpt_20260920_213348_0e59336e" }
+```
+
+**链路质量体检**四类判据（都可解释、可复现）：
+
+| 判据 | 规则 | 为什么要跟全局血缘交叉核对 |
+| --- | --- | --- |
+| `dangling_outputs` 断链 | 产出表在本工作流内无人消费，且不是 `ads/app/rpt` 应用层 | 数仓天然分层，DWD 表被**下一个工作流**消费是常态 —— 命中 `warehouse_graph.json` 下游的条目会标 `cross_workflow: true` 并列出下游表，避免误报成「漏挂任务」 |
+| `orphan_inputs` 孤岛 | 输入表在本工作流内无上游，且不是 `src/ods/dim` 贴源层 | 同上（上游在别的工作流 / 外部系统直灌），标出 `global_upstream` |
+| `cycles` 环路 | 表级依赖图 DFS 找环（最多报 5 个） | 工作流原生 DAG 不会成环、字段级也不成环，它防的是「脚本读了自己写的表」这类**数据层环** |
+| `missing_knowledge` 未登记口径 | 产出表不在知识库 `kb_metrics` 里 | 提醒「这条链路还没人维护口径」 |
+
+**端到端落地**：`ds-plugin/` 里的 `LineageDagTask`（请求体只带工作流身份 + 解析范围），
+`ds-plugin/verify_dag.py` 一条命令跑完「建流 → 上线 → 运行 → 拉日志全文」；
+真实任务日志（五段式报告全文）、参数表、UI 可见性做法（侧边栏 / 类型表 / 节点设置弹窗 4 处补丁）
+与已知限制见 **`ds-plugin/README.md` 第 7 章**。插件加载日志：
+
+```text
+o.a.d.p.t.a.TaskPluginManager:[65] - Registered task plugin: LINEAGE_DAG - LineageDagTaskChannelFactory
+o.a.d.p.t.a.TaskPluginManager:[65] - Registered task plugin: LINEAGE - LineageTaskChannelFactory
+```
+
+任务日志摘录（完整见 `ds-plugin/README.md`）：
+
+```text
+╔══════════════════════════════════════════════════════════════════╗
+║           工 作 流 血 缘 分 析 报 告   WORKFLOW LINEAGE REPORT   ║
+╚══════════════════════════════════════════════════════════════════╝
+  工作流   : wf_dag_工作流血缘演示_并行运行   任务 4 个（解析 3）   语句 3   耗时 32 ms
+  血缘服务 : http://172.17.0.1:18080/analyze-workflow   （口径命中 7 条 / 节点 6 / 边 5）
+  ┌── ② 全链路图谱（跨任务）────────────────────────────────────────
+  │      src.erp_生产工单明细 ──► ods.ods_卷烟产量流水 ──► cdw.dwd_卷烟产量明细 ──► cdw.dws_产量汇总
+  │  分层 : src → ods → cdw（3 层；本工作流内 4 级）
+  └── ⑤ 链路质量体检 ───────────────────────────────────────────────
+  │  ✅ 环路：任务间未形成环，表级依赖亦无环
+  │  ⚠ 1 张产出表在本工作流内无人消费（断链）← 全局血缘显示下游在其它工作流
+  ✅ 工作流血缘分析完成 | 任务 4 个 | 节点 6 | 边 5 | 字段映射 14 个 | 口径命中 7 条 | 耗时 32 ms
+  📊 完整报告（浏览器打开）: http://localhost:18080/report/rpt_20260920_213318_edd7fec9
+```
+
+**已知限制（如实说明）**：
+
+* 前端交互（侧边栏拖拽 + 节点设置弹窗渲染）**没有用真浏览器验证** —— 本环境浏览器工具调用会超时
+  （P5.1 报告阶段同样如此）。给出的是可复现的**结构性证据**：4 个前端 bundle 在服务端 HTTP 200 且含
+  补丁串、与镜像原版逐一 diff 只有 1 行差异、补丁片段在 QuickJS 里真跑能落进侧边栏渲染的 `Universal`
+  分类、`dynamic-task-type-config.yaml` + `lineage-dag.json` 都已进容器且可 200 取到。
+  **请 Ctrl+Shift+R 硬刷新后在浏览器里确认一次。**
+* 演示环境没有真实 HIVE 数据源 ⇒ SQL 任务必然 FAILURE ⇒ 海豚**不会提交失败上游的下游任务**，
+  所以「尾部串联」的节点在本环境会被跳过（插件读的是**定义**、不是执行结果，两种挂法报告完全一致；
+  验证脚本同时演示了尾部串联与同层挂载两种接法）。
+
+---
+
 ### 6.9 提炼规则：口径是怎么算出来的（可解释、可复现，不依赖 LLM）
 
 输入是 P1 的字段级血缘（`column_lineage[].expression`）+ P2 的血缘图 + SQL 注释，
@@ -2338,17 +2478,17 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 .venv/bin/python -m pytest -q
 ```
 
-真实运行输出（**292 个用例全通过**）：
+真实运行输出（**312 个用例全通过**）：
 
 ```text
 $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
       .venv/bin/python -m pytest -o addopts="" -q
-........................................................................ [ 24%]
-........................................................................ [ 49%]
-........................................................................ [ 73%]
-........................................................................ [ 98%]
-....                                                                     [100%]
-292 passed in 22.11s
+........................................................................ [ 23%]
+........................................................................ [ 46%]
+........................................................................ [ 69%]
+........................................................................ [ 92%]
+........................                                                 [100%]
+312 passed in 23.67s
 ```
 
 分文件统计（用例数）：
@@ -2364,6 +2504,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 | `tests/test_knowledge.py` | 52 | P4 口径知识库：表达式归一化 / 聚合剥离 / 中文化、中文业务名推断优先级、注释挖掘（文件头 / 行内 / 表级 COMMENT）、口径提炼（类型 / 公式 / 依赖 / 来源）、rebuild 幂等（内容指纹）、增量 upsert、孤立记录清理、检索打分、问数意图识别与无 LLM 降级、CLI 子命令、HTTP 处理函数、Markdown 导出 |
 | `tests/test_knowledge_integrate.py` | 12 | P5 血缘 × 业务口径一体化：目标字段抽取（去重 / 保序 / 容错）、口径匹配（公式 / 类型 / 置信度 / 依赖 / 链路 / 排序）、术语与业务规则、匹配不到不报错，以及 `/analyze` 是 `/parse` 超集、知识库缺失/空库/损坏/`with_knowledge=false` 四种降级 |
 | `tests/test_report.py` | 23 | P5.1 HTML 报告：报告 ID 与文件名清洗（防路径穿越）、渲染结构（标题栏 / 表级流向 / 字段真表格 / 口径卡片 / 内联 SVG / 页脚）、**零外部依赖**（无外链 script/link/img/@import）、HTML 转义（`<script>` 不落地）、空数据与知识库缺失降级、SVG 退回表级血缘、口径排序（聚合 > 比率 > …，置信度降序）、落盘 / URL 拼装 / 环境变量覆盖 / 只保留最近 N 份，以及**真起 `ThreadingHTTPServer` 验 `POST /report` → `GET /report/<id>`（200 + `text/html`）/ `/reports` 清单 / 404 分支** 与 `/analyze` 的 `report` 段 |
+| `tests/test_workflow.py` | 20 | **P6 工作流级血缘**：起 `tests/ds_mock.py` 的模拟海豚，验证「登录 → 拉工作流定义 → 批量解析（`sql` + SHELL 里多语句）→ 合并表级/字段级/任务级血缘 → 全链路 chain」；任务类型过滤、按名定位与 `scope=project` 全项目分析、四类质量体检（断链 / 孤岛 / 环路 / 未登记口径）；降级五连（缺目标 / 找不到工作流 / 密码错 / 连不上海豚 / 知识库关掉或不存在）；纯函数单测（`_longest_chain` 优先 ods 起点、`_find_cycles` 检出环、`_stitch_chain` 拼全局血缘、`_quality` 环+缺口径）；报告工作流模式（工作流概览 / 任务清单 / 链路质量体检 / 来源任务列 / 全链路图，且仍零外链）**与单任务报告未回归**；以及真起 `ThreadingHTTPServer` 验 `POST /analyze-workflow` 与 `/health` 端点清单 |
 
 > 汇总行（`N passed`）需要覆盖 `pytest.ini` 里的 `addopts = -q`：
 > `.venv/bin/python -m pytest -o addopts="" -q`。另外本机 shell 里预置了
@@ -2485,6 +2626,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 | P4.1 **口径提炼与知识层（已完成）** | 对字段的 `expression` 做语义归纳（同类表达式识别：聚合 / 算术 / 比率 / 条件 / 窗口），自动生成口径公式（中文可读）+ 字段中文业务名 + 业务规则，落进 SQLite 知识库（`kb build`）；提供关键词检索、口径溯源、自然语言问数（规则模式 + 可插拔 LLM）、Markdown 知识文档导出（`docs/业务口径知识库.md`）与 HTTP 端点 | 从「血缘关系」升级到「口径知识」；P1 的字段级 `expression` + P2 的血缘图 + P3 的调度侧字段级血缘都是这一步的输入。实现见第 6 章 |
 | P4.2 **智能问数** | NL → SQL 生成 → 用血缘/口径做**口径合规校验** → 结果解释与溯源（这条数来自哪几张表、什么口径、哪个调度任务产出的） | 最终形态：数据资产智能运营平台；P3 提供的「表 → 工作流 / 任务」映射可以做到「数不对时直接定位到调度节点」 |
 | **P5「血缘 × 业务口径」一体化（已完成）** | 血缘服务新增 `POST /analyze`（`/parse` 超集 + 知识库口径匹配，字段级命中 / 输出表兜底 / 术语 / 规则 / 上游链路，全降级不报错）；DolphinScheduler LINEAGE 任务插件（`ds-plugin/`）改调 `/analyze`，任务日志新增「⑤ 业务口径」段，出参加 `lineage_metric_count` / `lineage_metric_names` | 把「有血缘」推进到「有口径」：调度日志一眼看到本任务产出的指标怎么算、依赖谁、上游链路怎么走。实现见第 6.8.1 节 + `ds-plugin/README.md` |
+| **P6 工作流级血缘（已完成）** | 第二个任务类型 `LINEAGE_DAG` + 服务端 `POST /analyze-workflow`：挂在工作流尾部即可，运行时自动拉本工作流全部任务脚本批量解析，输出任务清单 / 全链路图谱 / 跨任务字段血缘 / 口径汇总 / 链路质量体检，并生成工作流级 HTML 报告；报告页支持「工作流模式」，单任务报告不受影响 | 把「一条 SQL 的血缘」升级为「一条调度链路（工作流）的血缘 + 体检」，且**历史工作流零改造**（原有 N 个任务一行不改，只加 1 个尾节点）。实现见第 6.8.3 节 + `ds-plugin/README.md` 第 7 章 |
 | 可选工程化 | 图数据库替换内存图（Neo4j / NebulaGraph）、增量扫描（按文件 mtime 差分更新图）、**调度侧血缘 diff 与 CI 巡检**（`cycle`、`ds sync` 退出码已可直接接流水线）、调度变量替换后再解析 | 规模与稳定性工程 |
 
 > P2 特意**没有**引入图数据库和前端框架：演示环境可能没有外网/没有依赖安装权限，

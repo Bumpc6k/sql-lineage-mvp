@@ -12,6 +12,12 @@
   POST /analyze                   {"sql": "...", "dialect": "hive", "with_knowledge": true}
                                   → 血缘 + 业务口径知识库一体化（/parse 的超集）
                                   默认顺带生成一份 HTML 报告（body 传 with_report=false 可关掉）
+  POST /analyze-workflow          {"project_code": 123, "process_define_code": 456, "scope": "current",
+                                   "task_types": ["SQL","SHELL","PYTHON"], "include_sub_process": false,
+                                   "with_knowledge": true, "with_report": true}
+                                  → 工作流级血缘（LINEAGE_DAG 任务类型）：一次拉取整个工作流的
+                                    全部任务脚本批量解析，返回 任务清单 / 合并表级血缘 / 跨任务字段血缘 /
+                                    全链路 / 业务口径汇总 / 链路质量体检（断链·孤岛·环路·未登记口径）
   POST /report                    {"sql": "...", "dialect": "hive", "with_knowledge": true, "task_name": "..."}
                                   → 生成单文件 HTML 报告（零外部依赖），返回 report_id 与可点击 URL
   GET  /report/<report_id>        取回该 HTML 报告（text/html; charset=utf-8）
@@ -55,6 +61,7 @@ from lineage.knowledge import (  # noqa: E402
     search,
     knowledge_unavailable,
 )
+from lineage.workflow import analyze_workflow  # noqa: E402
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_GRAPH = os.path.join(PROJECT_ROOT, "warehouse_graph.json")
@@ -356,9 +363,24 @@ def handle_kb_metric(payload: dict) -> dict:
             "metrics": rows, "details": details}
 
 
+def handle_analyze_workflow(payload: dict) -> dict:
+    """``POST /analyze-workflow``：工作流级血缘（LINEAGE_DAG 任务类型的服务端入口）。
+
+    真正的逻辑在 :func:`lineage.workflow.analyze_workflow`：登录海豚 OpenAPI → 拉工作流定义
+    → 批量解析所有任务脚本 → 合并成工作流级血缘 → 链路质量体检 → 落一份 HTML 报告。
+    这里只负责把「内部异常」也包成业务错误（HTTP 一律 200，插件按 ``success`` 判断）。
+    """
+    try:
+        return analyze_workflow(payload)
+    except Exception as e:  # noqa: BLE001 — 任何意外都降级成可读的错误信息
+        return {"success": False, "error": f"{type(e).__name__}: {e}",
+                "traceback": traceback.format_exc()[-1500:]}
+
+
 ROUTES = {
     "/parse": handle_parse,
     "/analyze": handle_analyze,
+    "/analyze-workflow": handle_analyze_workflow,
     "/report": handle_report,
     "/impact": handle_impact,
     "/upstream": handle_upstream,
@@ -373,7 +395,7 @@ ROUTES = {
 GET_ROUTES = {"/health", "/kb/summary", "/kb/metric", "/reports"}
 
 #: HTTP 层为 ``POST /analyze`` 注入的默认值 —— 插件一次调用就能拿到报告地址
-POST_DEFAULTS = {"/analyze": {"with_report": True}}
+POST_DEFAULTS = {"/analyze": {"with_report": True}, "/analyze-workflow": {"with_report": True}}
 
 
 class Handler(BaseHTTPRequestHandler):

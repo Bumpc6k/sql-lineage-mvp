@@ -374,6 +374,7 @@ _JS = """
 # --------------------------------------------------------------------------- #
 def _hero(meta: Dict[str, Any], stats: Dict[str, Any]) -> str:
     task = _text(meta.get("task_name"), "LINEAGE 血缘分析任务")
+    workflow = meta.get("workflow") or {}
     chips = [
         ("任务", task, ""),
         ("生成时间", _text(meta.get("generated_at")), ""),
@@ -382,6 +383,19 @@ def _hero(meta: Dict[str, Any], stats: Dict[str, Any]) -> str:
         ("字段映射", f"{stats['column_count']} 个", ""),
         ("表级流向", f"{stats['input_count']} 源表 → {stats['output_count']} 目标表", ""),
     ]
+    if workflow:
+        # 工作流级报告：把「这是哪个工作流 / 几个任务 / 全链路多长」顶到最前面
+        chips = [
+            ("工作流", _text(workflow.get("name"), "-"), ""),
+            ("生成时间", _text(meta.get("generated_at")), ""),
+            ("任务", f"{_text(workflow.get('task_count'), '?')} 个"
+                     f"（解析 {_text(workflow.get('parsed_task_count'), '?')} 个）", ""),
+            ("全链路", f"{len(workflow.get('chain') or [])} 级", ""),
+            ("解析耗时", f"{_text(meta.get('cost_ms'), '?')} ms", ""),
+            ("方言", _text(meta.get("dialect"), "-"), ""),
+            ("字段映射", f"{stats['column_count']} 个", ""),
+            ("表级流向", f"{stats['input_count']} 源表 → {stats['output_count']} 目标表", ""),
+        ]
     if stats["kb_available"]:
         chips.append(("业务口径", f"命中 {stats['metric_count']} 条", "green"))
     else:
@@ -391,12 +405,129 @@ def _hero(meta: Dict[str, Any], stats: Dict[str, Any]) -> str:
     chip_html = "".join(
         f'<span class="chip {cls}">{_esc(label)} <b>{_esc(value)}</b></span>' for label, value, cls in chips
     )
+    if workflow:
+        title, sub = "工作流血缘分析报告", "WORKFLOW LINEAGE REPORT"
+        footer = ("由 DolphinScheduler LINEAGE_DAG 任务插件生成（一次解析整个工作流）"
+                  f" · 血缘服务 {_esc(_text(meta.get('service_url')))}")
+        id_html = f"<h1>{_esc(title)}<small>{sub}</small></h1>"
+    else:
+        id_html = "<h1>血缘分析报告<small>LINEAGE REPORT</small></h1>"
+        footer = (f"由 DolphinScheduler LINEAGE 任务插件生成 · "
+                  f"血缘服务 {_esc(_text(meta.get('service_url')))}")
     return (
         '<header class="hero"><div class="wrap">'
-        "<h1>血缘分析报告<small>LINEAGE REPORT</small></h1>"
-        f'<p class="sub">由 DolphinScheduler LINEAGE 任务插件生成 · 血缘服务 {_esc(_text(meta.get("service_url")))}</p>'
-        f'<div class="chips">{chip_html}</div>'
+        + id_html
+        + f'<p class="sub">{footer}</p>'
+        + f'<div class="chips">{chip_html}</div>'
         "</div></header>"
+    )
+
+
+def _section_workflow(workflow: Dict[str, Any], parsed: Dict[str, Any]) -> str:
+    """工作流模式的第一屏：任务清单 + 全链路 + 链路质量体检。
+
+    只有 ``meta.workflow`` 存在时才渲染 —— 单任务报告一个字节都不变。
+    """
+    tasks = list(workflow.get("tasks") or [])
+    quality = workflow.get("quality") or {}
+    summary = quality.get("summary") or {}
+    chain = list(workflow.get("chain") or [])
+
+    rows: List[str] = []
+    for i, task in enumerate(tasks, start=1):
+        outs = list(task.get("output_tables") or [])
+        out_html = "".join(f'<span class="dep">{_esc(o)}</span>' for o in outs[:4])
+        if len(outs) > 4:
+            out_html += f'<span class="badge">+{len(outs) - 4}</span>'
+        if not out_html:
+            out_html = '<span class="badge">无产出</span>'
+        errors = list(task.get("errors") or [])
+        status = ('<span class="badge ok">已解析</span>' if task.get("parsed")
+                  else '<span class="badge warn">跳过/无脚本</span>')
+        rows.append(
+            "<tr>"
+            f'<td class="idx">{i}</td>'
+            f'<td class="tgt">{_esc(_text(task.get("name")))}</td>'
+            f'<td><span class="badge">{_esc(_text(task.get("type")))}</span></td>'
+            f'<td class="mono">{_esc(_text(task.get("script_len"), "0"))}</td>'
+            f'<td class="mono">{_esc(_text(task.get("statement_count"), "0"))}</td>'
+            f"<td>{out_html}</td>"
+            f'<td class="mono">{_esc(_text(task.get("metric_count"), "0"))}</td>'
+            f"<td>{status}</td>"
+            f'<td class="tbl">{_esc("；".join(errors[:2])) if errors else "-"}</td>'
+            "</tr>"
+        )
+    task_table = (
+        '<div class="table-scroll" style="max-height:420px"><table><thead><tr>'
+        "<th>#</th><th>任务名</th><th>类型</th><th>脚本字符</th><th>语句</th>"
+        "<th>产出表</th><th>口径</th><th>状态</th><th>备注</th>"
+        "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
+        if rows else '<div class="empty">工作流里没有可解析的任务</div>'
+    )
+
+    def _badge(count: int, ok_text: str, warn_text: str) -> str:
+        if count:
+            return f'<span class="badge warn">{_esc(warn_text)}</span>'
+        return f'<span class="badge ok">{_esc(ok_text)}</span>'
+
+    def _items(key: str, extra: str = "", arrow: str = "") -> str:
+        items = quality.get(key) or []
+        if not items:
+            return ""
+        chips = []
+        for item in items[:8]:
+            note = item.get(extra) if extra else None
+            suffix = ""
+            if note and arrow:
+                suffix = f'<i> {arrow} {_esc(", ".join(str(n) for n in note[:3]))}</i>'
+            elif item.get("cross_workflow"):
+                suffix = "<i> 跨工作流</i>"
+            chips.append(f'<span class="dep">{_esc(_text(item.get("table")))}{suffix}</span>')
+        more = f'<span class="badge">共 {len(items)} 张</span>' if len(items) > 8 else ""
+        return f'<div class="deplist" style="margin-top:8px">{"".join(chips)}{more}</div>'
+
+    dangling = summary.get("dangling_output_count") or 0
+    orphan = summary.get("orphan_input_count") or 0
+    cycles = summary.get("cycle_count") or 0
+    missing = summary.get("missing_knowledge_count") or 0
+    quality_html = (
+        '<div class="deplist">'
+        + _badge(cycles, "✅ 无环路", f"⚠ {cycles} 个环路")
+        + _badge(dangling, "✅ 无断链（产出表都有下游）",
+                 f"⚠ {dangling} 张产出表本工作流内无人消费"
+                 f"（其中 {summary.get('dangling_cross_workflow_count') or 0} 张下游在别的工作流）")
+        + _badge(orphan, "✅ 无孤岛输入（输入表都有上游）",
+                 f"⚠ {orphan} 张输入表本工作流内无上游"
+                 f"（其中 {summary.get('orphan_cross_workflow_count') or 0} 张上游在别的工作流）")
+        + _badge(missing, "✅ 产出表口径已全部登记",
+                 f"⚠ {missing} 张产出表未登记口径")
+        + "</div>"
+    )
+    quality_html += _items("dangling_outputs", "global_downstream", "→")
+    quality_html += _items("orphan_inputs", "global_upstream", "←")
+    quality_html += _items("missing_knowledge")
+
+    chain_html = (
+        '<div class="path" style="margin-top:6px">' + _path_html(chain) + "</div>"
+        if chain else '<div class="empty">未解析出跨任务链路（脚本可能都是单表加工）</div>'
+    )
+    external = workflow.get("chain_external") or {}
+    tail = ""
+    if external.get("downstream"):
+        tail = ('<p class="hint">本工作流产出其后还会流向：'
+                + _esc(", ".join(external["downstream"])) + "（全局血缘，可能在别的工作流）</p>")
+
+    return (
+        '<section id="workflow"><h2><span class="n">W</span>工作流概览'
+        f'<span class="count">{_esc(_text(workflow.get("project_code")))} / '
+        f'{_esc(_text(workflow.get("code")))} · {len(tasks)} 个任务</span></h2>'
+        '<h3 style="margin:0 0 10px;font-size:14px">任务清单</h3>'
+        f"{task_table}"
+        '<h3 style="margin:22px 0 10px;font-size:14px">全链路（跨任务）</h3>'
+        f"{chain_html}{tail}"
+        '<h3 style="margin:22px 0 10px;font-size:14px">链路质量体检</h3>'
+        f"{quality_html}"
+        "</section>"
     )
 
 
@@ -435,8 +566,10 @@ def _section_tables(edges: List[Dict[str, Any]], tables_in: List[str], tables_ou
     )
 
 
-def _section_columns(columns: List[Dict[str, Any]]) -> str:
+def _section_columns(columns: List[Dict[str, Any]], show_task: bool = False) -> str:
+    """字段级血缘真表格；工作流模式下多一列「来源任务」（跨任务字段血缘的关键）。"""
     rows: List[str] = []
+    span = 8 if show_task else 7
     for i, col in enumerate(columns[:MAX_COLUMN_ROWS], start=1):
         tgt_table = _text(col.get("target_table"))
         tgt_col = _text(col.get("target_column"))
@@ -446,10 +579,12 @@ def _section_columns(columns: List[Dict[str, Any]]) -> str:
         resolved = col.get("resolved")
         badge = ('<span class="badge ok">已解析</span>' if resolved
                  else '<span class="badge warn">未解析</span>')
-        key = f"{tgt_table} {tgt_col} {src_table} {src_col} {expr}".lower()
+        key = f"{tgt_table} {tgt_col} {src_table} {src_col} {expr} {col.get('task') or ''}".lower()
+        task_cell = (f'<td class="tbl">{_esc(_text(col.get("task"), "-"))}</td>' if show_task else "")
         rows.append(
             f'<tr data-key="{_esc(key)}">'
             f'<td class="idx">{i}</td>'
+            f"{task_cell}"
             f'<td class="tbl">{_esc(tgt_table)}</td>'
             f'<td class="tgt">{_esc(tgt_col)}</td>'
             f'<td class="tbl">{_esc(src_table)}</td>'
@@ -467,15 +602,17 @@ def _section_columns(columns: List[Dict[str, Any]]) -> str:
     more = ""
     if len(columns) > MAX_COLUMN_ROWS:
         more = f'<p class="hint">仅展示前 {MAX_COLUMN_ROWS} 行，共 {len(columns)} 行。</p>'
+    task_head = "<th>来源任务</th>" if show_task else ""
     return (
         '<section id="columns"><h2><span class="n">2</span>字段级血缘'
-        '<span class="count" id="col-count">'
+        + (f'<span class="badge" style="margin-left:10px">跨任务 · {span - 1} 列</span>' if show_task else "")
+        + '<span class="count" id="col-count">'
         f"{len(columns)} 行字段映射</span></h2>"
         '<div class="toolbar">'
         '<input id="col-filter" type="text" placeholder="输入字段名 / 表名 / 表达式关键字过滤，例如 chanliang_qty">'
         "</div>"
         '<div class="table-scroll"><table id="col-table"><thead><tr>'
-        "<th>#</th><th>目标表</th><th>目标字段</th><th>来源表</th><th>来源字段</th><th>加工表达式</th><th>状态</th>"
+        f"<th>#</th>{task_head}<th>目标表</th><th>目标字段</th><th>来源表</th><th>来源字段</th><th>加工表达式</th><th>状态</th>"
         "</tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></div>"
@@ -662,6 +799,107 @@ def _svg_graph(metrics: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> st
     return f'<div class="graph">{"".join(parts)}</div>{note}'
 
 
+def _table_layer(table: str) -> str:
+    """表名前缀当分层名（``cdw.dwd_x`` → ``cdw``），用于给链路节点上色。"""
+    name = str(table or "")
+    return name.split(".")[0].lower() if "." in name else ""
+
+
+def _svg_workflow_graph(edges: List[Dict[str, Any]], max_nodes: int = MAX_GRAPH_NODES) -> str:
+    """工作流级全链路图：按「最长路径层级」把表排成左→右若干层（内联 SVG）。
+
+    与 :func:`_svg_graph`（单任务口径上游链路）的区别：这里画的是**整张表级 DAG**，
+    所以能一眼看出 ``src → ods → cdw.dwd → cdw.dws → ads`` 这种跨任务主干，
+    以及哪张表挂了多条下游（分叉）。
+    """
+    nodes = sorted({t for edge in edges for t in (edge.get("source"), edge.get("target")) if t})
+    if not nodes:
+        return '<div class="empty">未解析出表级血缘</div>'
+    adj: Dict[str, List[str]] = {n: [] for n in nodes}
+    for edge in edges:
+        src, tgt = edge.get("source"), edge.get("target")
+        if src in adj and tgt in adj and tgt not in adj[src]:
+            adj[src].append(tgt)
+
+    depth: Dict[str, int] = {n: 0 for n in nodes}
+    for _ in range(len(nodes)):  # 松弛法算子图最长路径（有环时也会停下来）
+        changed = False
+        for node in nodes:
+            for nxt in adj[node]:
+                if depth[nxt] < depth[node] + 1:
+                    depth[nxt] = depth[node] + 1
+                    changed = True
+        if not changed:
+            break
+
+    kept = sorted(sorted(nodes, key=lambda n: (-depth[n], n))[:max_nodes], key=lambda n: (depth[n], n))
+    allow = set(kept)
+    layers = sorted({depth[n] for n in kept})
+    order: Dict[int, int] = {}
+    positions: Dict[str, Tuple[int, int, int]] = {}
+    box_w, box_h, pad_x, pad_y, gap_y, col_w = 228, 42, 24, 24, 16, 300
+    for node in kept:
+        level = layers.index(depth[node])
+        row = order.get(level, 0)
+        order[level] = row + 1
+        positions[node] = (pad_x + level * col_w, pad_y + row * (box_h + gap_y), level)
+
+    width = pad_x * 2 + box_w + col_w * max(len(layers) - 1, 0)
+    height = pad_y * 2 + max(order.values() or [1]) * (box_h + gap_y) - gap_y
+    parts = [
+        f'<svg viewBox="0 0 {width} {height}" width="{width}" height="{height}" '
+        'xmlns="http://www.w3.org/2000/svg" role="img" aria-label="工作流全链路图">',
+        "<defs><marker id=\"warrow\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" "
+        "markerHeight=\"7\" orient=\"auto-start-reverse\">"
+        '<path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff"/></marker></defs>',
+    ]
+    for edge in edges:
+        src, tgt = edge.get("source"), edge.get("target")
+        if src not in allow or tgt not in allow or src == tgt:
+            continue
+        x1, y1, lv1 = positions[src]
+        x2, y2, lv2 = positions[tgt]
+        if lv2 <= lv1:  # 同层 / 回边：画条小弧线意思一下，别穿过节点
+            parts.append(
+                f'<path d="M {x1 + box_w} {y1 + box_h // 2} C {x1 + box_w + 40} {y1 + box_h // 2},'
+                f' {x1 + box_w + 40} {y2 + box_h // 2}, {x2 + box_w} {y2 + box_h // 2}" fill="none" '
+                'stroke="#f85149" stroke-width="1.6" marker-end="url(#warrow)" opacity="0.9"/>'
+            )
+            continue
+        parts.append(
+            f'<line x1="{x1 + box_w}" y1="{y1 + box_h // 2}" x2="{x2 - 6}" y2="{y2 + box_h // 2}" '
+            'stroke="#58a6ff" stroke-width="1.6" marker-end="url(#warrow)" opacity="0.85"/>'
+        )
+    for node in kept:
+        x, y, _lv = positions[node]
+        layer = _table_layer(node)
+        stroke = {"src": "#d29922", "ods": "#d29922", "ads": "#bc8cff"}.get(layer, "#2a3441")
+        fill = {"ads": "#241a33"}.get(layer, "#1b2330")
+        parts.append(
+            f'<rect x="{x}" y="{y}" width="{box_w}" height="{box_h}" rx="9" fill="{fill}" '
+            f'stroke="{stroke}" stroke-width="1.4"/>'
+            f'<text x="{x + 12}" y="{y + 26}" fill="#e6edf3" font-size="12.5">'
+            f'{_esc(_clip(node, 32))}</text>'
+        )
+    parts.append("</svg>")
+    return (
+        f'<div class="graph">{"".join(parts)}</div>'
+        f'<p class="hint">节点 = 表，箭头 = 数据流向（左：贴源 → 右：应用层）。'
+        f"共 {len(kept)} 个节点 / {len(edges)} 条边"
+        + (f"，另有 {len(nodes) - len(kept)} 个节点未画出。" if len(nodes) > len(kept) else "。")
+        + "</p>"
+    )
+
+
+def _section_workflow_graph(edges: List[Dict[str, Any]]) -> str:
+    return (
+        '<section id="upstream"><h2><span class="n">4</span>全链路图'
+        '<span class="count">工作流内表级 DAG（跨任务）</span></h2>'
+        + _svg_workflow_graph(edges)
+        + "</section>"
+    )
+
+
 def _section_upstream(metrics: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> str:
     return (
         '<section id="upstream"><h2><span class="n">4</span>上游链路图'
@@ -676,11 +914,13 @@ def _section_sql(statements: List[Dict[str, Any]], meta: Dict[str, Any]) -> str:
     sql_texts: List[str] = []
     for st in statements or []:
         index = st.get("statement_index")
+        # 工作流模式下每条语句都带上了来源任务，标出来才不会看不出是谁的 SQL
+        label = f"任务 {st.get('task')} · 语句 {index}" if st.get("task") else f"语句 {index}"
         for item in st.get("filters") or []:
-            cond_rows.append(f'<span class="dep">语句 {_esc(index)} 过滤 <i>{_esc(item)}</i></span>')
+            cond_rows.append(f'<span class="dep">{_esc(label)} 过滤 <i>{_esc(item)}</i></span>')
         pf = st.get("partition_filters") or {}
         for key, value in pf.items():
-            cond_rows.append(f'<span class="dep">分区 <i>{_esc(key)} = {_esc(value)}</i></span>')
+            cond_rows.append(f'<span class="dep">{_esc(label)} 分区 <i>{_esc(key)} = {_esc(value)}</i></span>')
         if st.get("sql"):
             sql_texts.append(st["sql"])
     if not sql_texts and meta.get("sql"):
@@ -737,6 +977,9 @@ def render_report(parsed: Dict[str, Any], meta: Optional[Dict[str, Any]] = None)
     }
 
     title = f"血缘分析报告 {meta.get('report_id') or ''}".strip()
+    workflow = meta.get("workflow") or {}
+    if workflow:
+        title = f"工作流血缘分析报告 {workflow.get('name') or ''} {meta.get('report_id') or ''}".strip()
     return (
         "<!DOCTYPE html>\n"
         '<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n'
@@ -745,10 +988,11 @@ def render_report(parsed: Dict[str, Any], meta: Optional[Dict[str, Any]] = None)
         f"<style>{_CSS}</style>\n</head>\n<body>\n"
         + _hero(meta, stats)
         + '<div class="wrap">'
+        + (_section_workflow(workflow, parsed) if workflow else "")
         + _section_tables(edges, tables_in, tables_out)
-        + _section_columns(columns)
+        + _section_columns(columns, show_task=bool(workflow))
         + _section_knowledge(metrics, knowledge, kb_available)
-        + _section_upstream(metrics, edges)
+        + (_section_workflow_graph(edges) if workflow else _section_upstream(metrics, edges))
         + _section_sql(statements, meta)
         + "<footer>"
         + f"生成时间 {_esc(meta.get('generated_at'))} · 报告 ID {_esc(_text(meta.get('report_id')))} · "

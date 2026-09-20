@@ -1,0 +1,76 @@
+解析到工作流：项目 code=184813938012736  工作流 code=184813938030144（烟草数仓演示 / wf_dwd_清洗）
+===== 1) POST /analyze-workflow（真实 curl，打的是烟草数仓演示/wf_dwd_清洗）=====
+HTTP 200  bytes=32383  time=0.028765s
+success: True
+workflow: {"name": "wf_dwd_清洗", "code": 184813938030144, "project_code": 184813938012736, "release_state": "OFFLINE", "scope": "current", "task_count": 4, "parsed_task_count": 4, "workflow_count": 1, "statement_count": 4, "chain": ["src.erp_生产工单明细", "ods.ods_卷烟产量流水", "cdw.dwd_卷烟产量明细"], "chain_in_workflow": ["ods.ods_卷烟产量流水", "cdw.dwd_卷烟产量明细"], "chain_external": {"upstream": ["src.erp_生产工单明细"], "downstream": ["cdw.dws_产量汇总", "cdw.dws_产销存汇总", "ads.ads_产销存月报", "ads.ads_经营指标明细", "ads.ads_经营指标驾驶舱"]}, "layers": ["cdw", "dim", "ods"]}
+workflows: [{"name": "wf_dwd_清洗", "code": 184813938030144, "task_count": 4}]
+tasks:
+    {"name": "t_dwd_产量明细", "type": "SQL", "code": 184813938026048, "parsed": true, "script_len": 1085, "script_keys": ["taskParams.sql"], "statement_count": 1, "input_tables": ["dim.dim_brand", "dim.dim_plant", "ods.ods_卷烟产量流水"], "output_tables": ["cdw.dwd_卷烟产量明细"], "column_count": 13, "metric_count": 2, "errors": []}
+    {"name": "t_dwd_销量明细", "type": "SQL", "code": 184813938026049, "parsed": true, "script_len": 828, "script_keys": ["taskParams.sql"], "statement_count": 1, "input_tables": ["dim.dim_brand", "ods.ods_卷烟销量流水"], "output_tables": ["cdw.dwd_卷烟销量明细"], "column_count": 10, "metric_count": 1, "errors": []}
+    {"name": "t_dwd_库存明细", "type": "SQL", "code": 184813938026050, "parsed": true, "script_len": 763, "script_keys": ["taskParams.sql"], "statement_count": 1, "input_tables": ["dim.dim_plant", "ods.ods_成品库存快照"], "output_tables": ["cdw.dwd_成品库存明细"], "column_count": 10, "metric_count": 1, "errors": []}
+    {"name": "t_dwd_税利明细", "type": "SQL", "code": 184813938026051, "parsed": true, "script_len": 747, "script_keys": ["taskParams.sql"], "statement_count": 1, "input_tables": ["dim.dim_brand", "ods.ods_税利上缴流水"], "output_tables": ["cdw.dwd_税利明细"], "column_count": 10, "metric_count": 1, "errors": []}
+chain: src.erp_生产工单明细 → ods.ods_卷烟产量流水 → cdw.dwd_卷烟产量明细
+chain_in_workflow: ['ods.ods_卷烟产量流水', 'cdw.dwd_卷烟产量明细'] | chain_external: {"upstream": ["src.erp_生产工单明细"], "downstream": ["cdw.dws_产量汇总", "cdw.dws_产销存汇总", "ads.ads_产销存月报", "ads.ads_经营指标明细", "ads.ads_经营指标驾驶舱"]}
+merged.n(table_lineage)= 9  nodes= 10  edges= 9  column_lineage= 43
+merged.table_lineage[0:3]: [{"source": "dim.dim_brand", "target": "cdw.dwd_卷烟产量明细", "tasks": ["t_dwd_产量明细"]}, {"source": "dim.dim_brand", "target": "cdw.dwd_卷烟销量明细", "tasks": ["t_dwd_销量明细"]}, {"source": "dim.dim_brand", "target": "cdw.dwd_税利明细", "tasks": ["t_dwd_税利明细"]}]
+merged.task_lineage: []
+merged.column_lineage[0]: {"target_table": "cdw.dwd_卷烟产量明细", "target_column": "work_order_no", "source_table": "ods.ods_卷烟产量流水", "source_column": "work_order_no", "expression": "p.work_order_no AS work_order_no", "resolved": true, "task": "t_dwd_产量明细", "task_type": "SQL"}
+knowledge: kb_available= True  metric_count= 5  terms= 30  rules= 5
+quality.summary: {"dangling_output_count": 4, "dangling_cross_workflow_count": 4, "orphan_input_count": 0, "orphan_cross_workflow_count": 0, "cycle_count": 0, "missing_knowledge_count": 0, "checked": true}
+quality.cycles: [] missing_knowledge: []
+quality.dangling_outputs[0]: {"table": "cdw.dwd_卷烟产量明细", "layer": "cdw", "produced_by": ["t_dwd_产量明细"], "cross_workflow": true, "global_downstream": ["cdw.dws_产量汇总", "cdw.dws_产销存汇总", "cdw.dws_税利汇总", "ads.ads_产销存月报", "ads.ads_税利分析"], "hint": "本工作流内无人消费；全局血缘显示下游在其它工作流：cdw.dws_产量汇总, cdw.dws_产销存汇总, cdw.dws_税利汇总, ads.ads_产销存月报, ads.ads_税利分析"}
+report_id: rpt_20260920_220246_ffe29b73 | url: http://localhost:18080/report/rpt_20260920_220246_ffe29b73 | internal: http://172.17.0.1:18080/report/rpt_20260920_220246_ffe29b73
+cost_ms: 27 | ds_base: http://localhost:12345/dolphinscheduler | dialect: hive
+
+===== 2) GET /report/<id>（工作流级 HTML 报告）=====
+HTTP 200  content_type=text/html; charset=utf-8  bytes=48773
+--- HTML 前 15 行 ---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>工作流血缘分析报告 wf_dwd_清洗 rpt_20260920_220246_ffe29b73</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel-2:#1b2330; --line:#2a3441;
+  --fg:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --accent-2:#1f6feb;
+  --green:#3fb950; --amber:#d29922; --purple:#bc8cff; --red:#f85149;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+--- 工作流级关键区块是否都在 ---
+  工作流概览        1
+  任务清单           1
+  全链路（跨任务） 1
+  链路质量体检     1
+  来源任务           1
+  全链路图           1
+  WORKFLOW               1
+
+===== 3) 前端 4 个文件：HTTP 200 + 含 LINEAGE_DAG =====
+  dag-sidebar.340ad7aa.js  HTTP=200  LINEAGE_DAG出现=2 次
+  task-type.27c43290.js  HTTP=200  LINEAGE_DAG出现=2 次
+  detail-modal.de80dd20.js  HTTP=200  LINEAGE_DAG出现=2 次
+  detail.f1164795.js  HTTP=200  LINEAGE_DAG出现=1 次
+--- sidebar 里新增的那一项 ---
+t.dataList.push({taskType:"LINEAGE_DAG",taskCategory:"Universal",collection:!1,starHover:!1,type:"LINEAGE_DAG"})
+--- detail.js 表单映射 ---
+,LINEAGE_DAG:Rr}
+--- task-type / detail-modal 类型表 ---
+/tmp/dag_evidence/task-type.27c43290.js:LINEAGE_DAG:{alias:"LINEAGE_DAG",helperLinkDisable:!0}
+/tmp/dag_evidence/detail-modal.de80dd20.js:LINEAGE_DAG:{alias:"LINEAGE_DAG",helperLinkDisable:!0}
+
+===== 4) 任务类型配置与动态表单（容器内） =====
+21:    - {name: LINEAGE,icon: /ui/static/lineage/lineage-icon.svg,hover: /ui/static/lineage/lineage-hover.svg,json: /ui/static/lineage/lineage.json}
+22:    - {name: LINEAGE_DAG,icon: /ui/static/lineage/lineage-dag-icon.svg,hover: /ui/static/lineage/lineage-dag-hover.svg,json: /ui/static/lineage/lineage-dag.json}
+total 32
+drwxr-xr-x 2 root root 4096 Sep 20 21:20 .
+drwxr-xr-x 3 root root 4096 Sep 19 21:41 ..
+-rw-r--r-- 1 root root  585 Sep 20 21:19 lineage-dag-hover.svg
+-rw-r--r-- 1 root root  810 Sep 20 21:19 lineage-dag-icon.svg
+-rw-r--r-- 1 root root 1471 Sep 20 21:19 lineage-dag.json
+-rw-r--r-- 1 root root  333 Sep 19 21:41 lineage-hover.svg
+-rw-r--r-- 1 root root  426 Sep 19 21:41 lineage-icon.svg
+-rw-r--r-- 1 root root 1853 Sep 19 21:41 lineage.json

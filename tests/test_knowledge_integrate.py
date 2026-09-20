@@ -173,12 +173,12 @@ def test_handle_analyze_empty_sql() -> None:
 
 
 def test_build_knowledge_section_api_shape() -> None:
-    """/health 的 endpoints 列表里必须出现 /analyze。"""
+    """/health 的 endpoints 列表里必须出现 /analyze（以及工作流级的 /analyze-workflow）。"""
     from lineage.api_server import ROUTES
 
     assert "/analyze" in ROUTES
     assert sorted(ROUTES) == sorted([
-        "/parse", "/analyze", "/report", "/impact", "/upstream",
+        "/parse", "/analyze", "/analyze-workflow", "/report", "/impact", "/upstream",
         "/kb/summary", "/kb/search", "/kb/ask", "/kb/metric",
     ])
 
