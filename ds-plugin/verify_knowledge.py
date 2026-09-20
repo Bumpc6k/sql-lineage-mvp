@@ -233,6 +233,8 @@ def main() -> int:
             ("日志写明回退 /parse", "回退到 http://172.17.0.1:18099/parse" in msg),
             ("汇总行仍输出", "血缘分析完成" in msg),
             ("未命中口径计数为 0", "业务口径命中 0 条" in msg),
+            ("降级路径不输出报告 URL 行（安静略过）", "📊 完整报告" not in msg),
+            ("② 字段级仍是紧凑表格", "目标字段" in msg and "加工表达式" in msg and "┼" in msg),
         ]
     else:
         checks = [
@@ -246,12 +248,36 @@ def main() -> int:
             ("字段中文名", "dama_qty → 打码量" in msg),
             ("汇总行口径命中数", re.search(r"业务口径命中 \d+ 条", msg) is not None),
             ("varPool 新增口径出参", "lineage_metric_count" in msg and "lineage_metric_names" in msg),
+            # --- 本轮「日志精简 + 可跳转 HTML 报告」新增断言 ---
+            ("② 字段级是紧凑表格（表头 + 分隔线）",
+             "目标字段" in msg and "来源字段" in msg and "加工表达式" in msg and "┼" in msg),
+            ("② 超出 15 行折叠成一行提示", "其余 2 行见完整报告" in msg),
+            ("⑤ 只展开最关键的 3 条口径", len(re.findall(r"│\s+★ \d\.", msg)) == 3),
+            ("⑤ 其余口径折叠成一行", "另有 4 条口径" in msg and "详见完整报告" in msg),
+            ("📊 完整报告 URL 行（可点击）",
+             re.search(r"📊 完整报告（浏览器打开）: http://localhost:18080/report/rpt_\d{8}_\d{6}_[0-9a-f]{8}", msg) is not None),
+            ("varPool 新增报告出参",
+             "lineage_report_id" in msg and "lineage_report_url" in msg),
         ]
     for name, ok in checks:
         print(f"   {'✅' if ok else '❌'} {name}")
 
     m = re.search(r"业务口径命中 (\d+) 条", msg)
     print(f"\n最终任务实例 {task_instance_id} 状态: {state}，口径命中 {m.group(1) if m else '?'} 条")
+    url = re.search(r"📊 完整报告（浏览器打开）: (\S+)", msg)
+    if url:
+        print(f"任务日志里的完整报告地址: {url.group(1)}")
+        try:
+            req = urllib.request.Request(url.group(1)  # 宿主机视角的 localhost 地址
+                                         .replace("http://localhost:", "http://127.0.0.1:"))
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = resp.read().decode("utf-8")
+            card_marker = '<div class="card">'
+            print(f"   ✅ 报告可打开：HTTP {resp.status} {resp.headers.get('Content-Type')} "
+                  f"{len(body.encode('utf-8'))} 字节，"
+                  f"字段映射行 {body.count('<tr data-key=')} / 口径卡片 {body.count(card_marker)}")
+        except Exception as e:  # noqa: BLE001 — 报告取不到不影响任务本身成功
+            print(f"   ⚠️ 报告取回失败（不影响任务成功）: {type(e).__name__}: {e}")
     return 0 if (state == "SUCCESS" and all(ok for _, ok in checks)) else 1
 
 

@@ -8,6 +8,9 @@ venv/
 # 输出产物
 *.json.bak
 /tmp/
+# 生成的 HTML 血缘报告（服务端运行期产物，不入库；生成逻辑见 lineage/report.py）
+/reports/
+
 # P4 知识库产物（可随时 kb build 重建，不入库）
 data/*.db
 data/*.db-journal

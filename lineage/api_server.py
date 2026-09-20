@@ -11,6 +11,11 @@
   POST /parse                     {"sql": "...", "dialect": "hive"} → 表级/字段级血缘
   POST /analyze                   {"sql": "...", "dialect": "hive", "with_knowledge": true}
                                   → 血缘 + 业务口径知识库一体化（/parse 的超集）
+                                  默认顺带生成一份 HTML 报告（body 传 with_report=false 可关掉）
+  POST /report                    {"sql": "...", "dialect": "hive", "with_knowledge": true, "task_name": "..."}
+                                  → 生成单文件 HTML 报告（零外部依赖），返回 report_id 与可点击 URL
+  GET  /report/<report_id>        取回该 HTML 报告（text/html; charset=utf-8）
+  GET  /reports                   最近生成的报告清单（JSON，便于排查 / 做导航页）
   POST /impact                    {"table": "...", "graph": "path.json", "depth": 3} → 下游影响
   POST /upstream                  {"table": "...", "graph": "path.json"} → 上游溯源
   GET  /kb/summary                业务口径知识库概览
@@ -22,14 +27,24 @@ import argparse
 import json
 import os
 import sys
+import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
+from typing import Optional, Tuple
+from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from lineage.parser import SqlLineageParser  # noqa: E402
 from lineage.graph import LineageGraph  # noqa: E402
+from lineage.report import (  # noqa: E402
+    list_reports,
+    report_bases,
+    report_path,
+    reports_dir,
+    safe_report_id,
+    save_report,
+)
 from lineage.knowledge import (  # noqa: E402
     KnowledgeStore,
     answer,
@@ -161,13 +176,121 @@ def build_knowledge_section(payload: dict, parsed: dict) -> dict:
         store.close()
 
 
-def handle_analyze(payload: dict) -> dict:
-    """``/parse`` 的超集：血缘解析结果原样返回，另加 knowledge 段。"""
+def _flag(value, default: bool = False) -> bool:
+    """宽松布尔解析（JSON true / "true" / 1 / "on" 都认）。"""
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "false", "0", "no", "off")
+    return bool(value)
+
+
+def build_report_meta(payload: dict, parsed: dict, cost_ms: Optional[int] = None) -> dict:
+    """给 HTML 报告标题栏用的元信息（任务名 / 耗时 / 服务地址 / SQL 原文）。
+
+    ``cost_ms`` 优先用调用方（插件）传的，没传就用本函数所在请求里实测的解析耗时。
+    """
+    return {
+        "task_name": payload.get("task_name") or payload.get("source_name") or "LINEAGE 血缘分析任务",
+        "mode": payload.get("mode") or "sql",
+        "dialect": parsed.get("dialect"),
+        "cost_ms": payload.get("cost_ms") or cost_ms,
+        "statement_count": parsed.get("statement_count"),
+        "service_url": report_bases()[0] + "/analyze",
+        "sql": payload.get("sql") or "",
+    }
+
+
+def attach_report(payload: dict, parsed: dict, cost_ms: Optional[int] = None) -> Tuple[Optional[dict], str]:
+    """生成并落盘 HTML 报告。返回 ``(报告信息, 错误说明)``；失败只降级，绝不打断血缘结果。"""
+    try:
+        meta = build_report_meta(payload, parsed, cost_ms)
+        info = save_report(parsed, meta, directory=reports_dir(payload))
+        return info, ""
+    except Exception as e:  # noqa: BLE001 — 报告是附加产物，失败不能影响血缘接口
+        err = f"{type(e).__name__}: {e}"
+        sys.stderr.write(f"[lineage-api] 生成 HTML 报告失败: {err}\n")
+        return None, err
+
+
+def _analyze_core(payload: dict) -> dict:
+    """血缘解析 + 知识库口径匹配（不落报告，供 /analyze 与 /report 复用）。"""
     parsed = handle_parse(payload)
     if not parsed.get("success"):
         return parsed
     parsed["knowledge"] = build_knowledge_section(payload, parsed)
     return parsed
+
+
+def _analyze_timed(payload: dict) -> Tuple[dict, int]:
+    """跑一次分析并实测服务端耗时（毫秒）—— 报告标题栏的「解析耗时」用它。"""
+    started = time.perf_counter()
+    parsed = _analyze_core(payload)
+    return parsed, int((time.perf_counter() - started) * 1000)
+
+
+def handle_analyze(payload: dict) -> dict:
+    """``/parse`` 的超集：血缘解析结果原样返回，另加 knowledge 段。
+
+    payload 里 ``with_report=true`` 时顺带生成 HTML 报告并返回 ``report`` 段
+    （HTTP 层的 ``POST /analyze`` 默认就是 true —— 任务插件一次调用即可拿到
+    分析结果 + 可点击的报告地址；直接调本函数的单测不会写盘）。
+    """
+    parsed, cost_ms = _analyze_timed(payload)
+    if not parsed.get("success"):
+        return parsed
+    if _flag(payload.get("with_report"), default=False):
+        info, err = attach_report(payload, parsed, cost_ms)
+        if info:
+            parsed["report"] = info
+            parsed["report_id"] = info["report_id"]
+            parsed["report_url"] = info["url"]
+            parsed["report_internal_url"] = info["internal_url"]
+        else:
+            parsed["report_error"] = err
+    return parsed
+
+
+def handle_report(payload: dict) -> dict:
+    """``POST /report``：跑一遍分析 → 渲染单文件 HTML 报告 → 返回可点击 URL。
+
+    请求体与 ``/analyze`` 完全一致（``sql`` / ``dialect`` / ``with_knowledge`` / ``db``），
+    额外可传 ``task_name``（报告标题里的任务名）、``report_id``（自定义 ID）、
+    ``reports_dir``（落盘目录，测试用）。
+    """
+    parsed, cost_ms = _analyze_timed(payload)
+    if not parsed.get("success"):
+        return parsed
+
+    info, err = attach_report(payload, parsed, cost_ms)
+    if not info:
+        return {"success": False, "error": f"生成 HTML 报告失败: {err}"}
+
+    knowledge = parsed.get("knowledge") or {}
+    metrics = knowledge.get("metrics") or []
+    input_tables = parsed.get("input_tables") or []
+    output_tables = parsed.get("output_tables") or []
+    return {
+        "success": True,
+        **info,
+        "hint": "浏览器直接打开 url；容器/任务里请用 internal_url",
+        "stats": {
+            "cost_ms": cost_ms,
+            "dialect": parsed.get("dialect"),
+            "statement_count": parsed.get("statement_count"),
+            "source_table_count": len(input_tables),
+            "target_table_count": len(output_tables),
+            "input_tables": input_tables,
+            "output_tables": output_tables,
+            "table_lineage_count": len(parsed.get("table_lineage") or []),
+            "column_lineage_count": parsed.get("column_lineage_count") or len(parsed.get("column_lineage") or []),
+            "column_lineage_shown": len(parsed.get("column_lineage") or []),
+            "kb_available": bool(knowledge.get("kb_available")),
+            "metric_count": len(metrics),
+            "metric_names": [m.get("chinese_name") or m.get("target_column") for m in metrics],
+            "html_bytes": info["size_bytes"],
+        },
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -236,6 +359,7 @@ def handle_kb_metric(payload: dict) -> dict:
 ROUTES = {
     "/parse": handle_parse,
     "/analyze": handle_analyze,
+    "/report": handle_report,
     "/impact": handle_impact,
     "/upstream": handle_upstream,
     "/kb/summary": handle_kb_summary,
@@ -245,7 +369,11 @@ ROUTES = {
 }
 
 #: 支持 GET 的端点（其余为 POST）
-GET_ROUTES = {"/health", "/kb/summary", "/kb/metric"}
+#: 另有动态 GET：``/report/<report_id>``（取回 HTML 报告）与 ``/reports``（最近报告清单）
+GET_ROUTES = {"/health", "/kb/summary", "/kb/metric", "/reports"}
+
+#: HTTP 层为 ``POST /analyze`` 注入的默认值 —— 插件一次调用就能拿到报告地址
+POST_DEFAULTS = {"/analyze": {"with_report": True}}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -258,6 +386,37 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_html(self, code: int, body: bytes):
+        self.send_response(code)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_report(self, raw_id: str):
+        """``GET /report/<report_id>``：把落盘的 HTML 原样吐回去（找不到给 404 HTML 页）。"""
+        rid = safe_report_id(unquote(raw_id or ""))
+        if rid:
+            target = report_path(rid, reports_dir())
+            try:
+                if target.is_file():
+                    self._send_html(200, target.read_bytes())
+                    return
+            except OSError as e:
+                sys.stderr.write(f"[lineage-api] 读取报告失败 {target}: {e}\n")
+        body = (
+            '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
+            "<title>404 · 报告不存在</title></head>"
+            '<body style="font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:48px">'
+            "<h1>404 · 报告不存在</h1>"
+            f"<p>report_id: <code>{rid or '(空)'}</code></p>"
+            "<p>可能已被清理（服务端只保留最近若干份）。"
+            '可访问 <code>GET /reports</code> 查看最近清单，或 <code>POST /report</code> 重新生成。</p>'
+            "</body></html>"
+        ).encode("utf-8")
+        self._send_html(404, body)
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -272,16 +431,35 @@ class Handler(BaseHTTPRequestHandler):
                         kb_metrics = int(store.counts().get("kb_metrics") or 0)
                 except Exception:  # noqa: BLE001 — /health 不能因为知识库坏而失败
                     kb_metrics = -1
+            public_base, internal_base = report_bases()
             self._send(200, {
                 "success": True,
                 "service": "lineage-api",
                 "endpoints": sorted(ROUTES.keys()),
-                "get_endpoints": sorted(GET_ROUTES),
+                "get_endpoints": sorted(GET_ROUTES) + ["/report/<report_id>"],
                 "default_graph": os.path.basename(DEFAULT_GRAPH),
                 "graph_exists": os.path.exists(DEFAULT_GRAPH),
                 "kb_db": kb_db,
                 "kb_db_exists": kb_exists,
                 "kb_metrics": kb_metrics,
+                "reports_dir": str(reports_dir()),
+                "report_url_template": f"{public_base}/report/<report_id>",
+                "report_internal_url_template": f"{internal_base}/report/<report_id>",
+                "analyze_generates_report": POST_DEFAULTS["/analyze"]["with_report"],
+            })
+            return
+        if path.startswith("/report/"):
+            self._send_report(path[len("/report/"):])
+            return
+        if path in ("/report", "/reports"):
+            public_base, internal_base = report_bases()
+            self._send(200, {
+                "success": True,
+                "reports_dir": str(reports_dir()),
+                "public_base": public_base,
+                "internal_base": internal_base,
+                "count": len(list_reports(reports_dir(), limit=200)),
+                "reports": list_reports(reports_dir(), limit=20),
             })
             return
         fn = ROUTES.get(path)
@@ -300,7 +478,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {
             "success": False,
             "error": "未知路径，请用 GET " + ", ".join(sorted(GET_ROUTES))
-                     + "；POST " + ", ".join(sorted(ROUTES)),
+                     + ", /report/<report_id>；POST " + ", ".join(sorted(ROUTES)),
         })
 
     def do_POST(self):
@@ -316,6 +494,13 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send(400, {"success": False, "error": f"请求体不是合法 JSON: {e}"})
             return
+        if not isinstance(payload, dict):
+            self._send(400, {"success": False, "error": "请求体必须是 JSON 对象"})
+            return
+        # 插件只发 {"sql","dialect","with_knowledge"}：这里补齐默认值，
+        # 让它一次调用就同时拿到「分析结果 + 可点击的报告 URL」
+        for key, value in POST_DEFAULTS.get(path, {}).items():
+            payload.setdefault(key, value)
         try:
             self._send(200, fn(payload))
         except Exception as e:

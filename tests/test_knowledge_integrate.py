@@ -178,7 +178,7 @@ def test_build_knowledge_section_api_shape() -> None:
 
     assert "/analyze" in ROUTES
     assert sorted(ROUTES) == sorted([
-        "/parse", "/analyze", "/impact", "/upstream",
+        "/parse", "/analyze", "/report", "/impact", "/upstream",
         "/kb/summary", "/kb/search", "/kb/ask", "/kb/metric",
     ])
 

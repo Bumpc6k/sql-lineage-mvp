@@ -27,6 +27,7 @@
 | P3 范围（已完成） | **旁路对接 DolphinScheduler**：只读海豚 OpenAPI（不改海豚一行源码）拉取工作流 / 任务定义，解析 SQL 与 SHELL 任务里的脚本，构建 **工程 → 工作流 → 任务节点 → 表** 多层血缘；给出工作流依赖拓扑（表血缘推导 + 海豚原生依赖）、任务读 / 写表清单，反向查询「这张表被谁加工」；`ds` 子命令 + 真实演示数据 + mock/集成双层测试。仍然**零新增运行期依赖**（只用标准库 `urllib`）。 |
 | P4 范围（已完成） | **业务口径知识提炼 + 知识库**：从字段级血缘的 `expression` 提炼指标口径（聚合 / 算术 / 比率 / 条件 / 窗口），归一化成中文可读公式（`产量 = 打码量 + 跳码量 - 重码量`）；字段名 → 中文业务名（脚本注释 > 内置词典 > 命名规则 > 待确认）；从 WHERE / JOIN / 注释提炼业务规则；落进 **SQLite 知识库**（幂等 rebuild / 增量 upsert / 内容指纹），提供 `kb` 子命令（build/summary/search/show/ask/export/terms/fields）、HTTP 端点（`/kb/search`、`/kb/ask`、`/kb/summary`、`/kb/metric`）与《业务口径知识库.md》导出。仍然**零新增运行期依赖**（`sqlite3` + `urllib` + `http.server` 全是标准库）。 |
 | P5 范围（已完成） | **血缘 × 业务口径一体化（嵌进 DolphinScheduler 任务日志）**：血缘服务新增 `POST /analyze`（= `/parse` 的超集，再叠加知识库口径匹配）；DolphinScheduler 的 LINEAGE 任务插件在原有四段式血缘报告后新增 **「⑤ 业务口径」** 段 —— 直接在海豚任务实例日志里看到「本任务产出的指标口径是什么、依赖哪些上游字段、链路怎么走」，并把命中口径数 / 口径名写入 `varPool` 供下游任务引用。仍然**零新增运行期依赖**（插件是纯 JDK `HttpURLConnection`，服务端是标准库 `http.server`）。 |
+| P5.1 范围（已完成） | **任务日志精简 + 可跳转 HTML 报告**：① 插件日志的字段级血缘改成**紧凑表格**（目标字段 / 来源字段 / 加工表达式，最多 15 行，其余折叠「见完整报告」），业务口径只展开**最关键的 3 条**（按类型/置信度/依赖排序），其余口径·术语·规则各折叠一行；② 血缘服务新增 `POST /report` 与 `GET /report/<id>`，把同一份分析结果渲染成**单文件 HTML 报告**（内联 CSS/JS/SVG：表级流向、字段映射真表格 + 关键字过滤、口径卡片、上游链路 SVG），任务日志末尾打印可点击 URL；报告是附加产物，生成失败不影响血缘返回。仍然**零新增运行期依赖**（服务端纯标准库，插件纯 JDK）。 |
 | 明确不做的 | 不接图数据库（用内存图 + JSON 落盘）、不接元数据（`SELECT *` 仍无法展开）、不做动态分区 / 运行期语义分析、不做口径的语义聚类与跨层一致性校验（P4 只做「语法级」提炼）、不替代调度（只读不写、不触发实例）。 |
 
 **技术选型**：Python 3.10+ / [sqlglot](https://github.com/tobymao/sqlglot)（多方言 AST 解析，`hive` / `spark` / `doris` / `postgres` 均可切换）。
@@ -1524,11 +1525,16 @@ $ .venv/bin/python -m lineage.cli kb export --md docs/业务口径知识库.md
 
 ### 6.8 HTTP 端点（给前端 / 其他系统调）
 
-在原来的 `/parse`、`/impact`、`/upstream` 之外新增 4 个知识库端点 + 1 个一体化端点（旧端点行为不变）：
+在原来的 `/parse`、`/impact`、`/upstream` 之外新增 4 个知识库端点 + 2 个一体化端点（旧端点行为不变）：
 
 ```text
 POST /analyze                   {"sql": "...", "dialect": "hive", "with_knowledge": true}
                                 → 血缘解析（同 /parse）+ 知识库口径匹配（knowledge 段）
+                                → 默认顺带生成 HTML 报告并返回 report 段（with_report=false 可关）
+POST /report                    {"sql": "...", "dialect": "hive", "task_name": "..."}
+                                → 生成单文件 HTML 血缘报告，返回 report_id + 可点击 url
+GET  /report/<report_id>        取回该 HTML 报告（text/html; charset=utf-8）
+GET  /reports                   最近生成的报告清单（JSON）
 GET  /kb/summary                业务口径知识库概览
 POST /kb/search                 {"query": "产量", "kinds": ["metrics"], "limit": 20}
 POST /kb/ask                    {"question": "产量怎么算的", "use_llm": "auto"}
@@ -1576,10 +1582,14 @@ $ curl -s -X POST http://127.0.0.1:18080/kb/ask -H 'Content-Type: application/js
 
 $ curl -s http://127.0.0.1:18080/health
 {"success": true, "service": "lineage-api",
- "endpoints": ["/analyze", "/impact", "/kb/ask", "/kb/metric", "/kb/search", "/kb/summary", "/parse", "/upstream"],
- "get_endpoints": ["/health", "/kb/metric", "/kb/summary"],
+ "endpoints": ["/analyze", "/impact", "/kb/ask", "/kb/metric", "/kb/search", "/kb/summary", "/parse", "/report", "/upstream"],
+ "get_endpoints": ["/health", "/kb/metric", "/kb/summary", "/reports", "/report/<report_id>"],
  "default_graph": "warehouse_graph.json", "graph_exists": true,
- "kb_db": "/root/projects/sql-lineage-mvp/data/knowledge.db", "kb_db_exists": true, "kb_metrics": 75}
+ "kb_db": "/root/projects/sql-lineage-mvp/data/knowledge.db", "kb_db_exists": true, "kb_metrics": 75,
+ "reports_dir": "/root/projects/sql-lineage-mvp/reports",
+ "report_url_template": "http://localhost:18080/report/<report_id>",
+ "report_internal_url_template": "http://172.17.0.1:18080/report/<report_id>",
+ "analyze_generates_report": true}
 ```
 
 原端点回归验证（未受影响）：
@@ -1660,50 +1670,78 @@ POST /analyze
 
 **端到端落地**：`ds-plugin/` 里的 DolphinScheduler LINEAGE 任务插件（`mode=sql`）改为调 `/analyze`，
 任务日志在原有 ①表级血缘 ②字段级血缘 ③加工条件 ④加工SQL原文 之后新增 **⑤ 业务口径** 段。
-下面是海豚任务实例日志（`GET /dolphinscheduler/log/detail?taskInstanceId=2`）的**真实原文**：
+下面是海豚任务实例日志（`GET /dolphinscheduler/log/detail?taskInstanceId=<id>`）的**真实原文**
+（摘录：从报告框开始到 varPool 行为止，为便于阅读去掉了海豚自己加的 `[INFO] 时间戳 - ` 前缀）：
 
 ```text
-分析模式   : sql - SQL 血缘解析 + 业务口径匹配 (analyze SQL + knowledge base)
-血缘服务   : http://172.17.0.1:18080/analyze
-请求体     : {"sql":"-- ... 码段明细 → 产量口径明细 ...","dialect":"hive","with_knowledge":true}
+╔══════════════════════════════════════════════════════════════════╗
+║              数 据 血 缘 分 析 报 告   LINEAGE REPORT            ║
+╚══════════════════════════════════════════════════════════════════╝
+  分析模式 : SQL 解析   |   方言 : hive   |   语句数 : 1   |   耗时 : 22 ms
+  血缘服务 : http://172.17.0.1:18080/analyze
+
   ┌── ① 表级血缘 ──────────────────────────────────────────────────
+  │  数据流向：
   │      ods.ods_卷烟码段流水  ──►  cdw.dwd_卷烟产量码段明细
+  │  源表（输入 1 张）: ods.ods_卷烟码段流水
+  │  目标表（输出 1 张）: cdw.dwd_卷烟产量码段明细
+
   ┌── ② 字段级血缘（17 个字段映射）────────────────────────────────
-  │      chanliang_qty  ←  ods.ods_卷烟码段流水.dama_qty      表达式: SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty
+  │  目标表 : cdw.dwd_卷烟产量码段明细
+  │  目标字段             │ 来源字段                           │ 加工表达式                                
+  │  ──────────────────────┼────────────────────────────────────┼────────────────────────────────────────────
+  │  work_order_no        │ ods.ods_卷烟码段流水.work_order_no │ b.work_order_no AS work_order_no
+  │  plant_code           │ ods.ods_卷烟码段流水.plant_code    │ b.plant_code AS plant_code
+  │  brand_code           │ ods.ods_卷烟码段流水.brand_code    │ b.brand_code AS brand_code
+  │  batch_no             │ ods.ods_卷烟码段流水.batch_no      │ b.batch_no AS batch_no
+  │  dama_qty_total       │ ods.ods_卷烟码段流水.dama_qty      │ SUM(b.dama_qty) AS dama_qty_total
+  │  tiaoma_qty_total     │ ods.ods_卷烟码段流水.tiaoma_qty    │ SUM(b.tiaoma_qty) AS tiaoma_qty_total
+  │  chongma_qty_total    │ ods.ods_卷烟码段流水.chongma_qty   │ SUM(b.chongma_qty) AS chongma_qty_total
+  │  chanliang_qty        │ ods.ods_卷烟码段流水.chongma_qty   │ SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM…
+  │  chanliang_qty        │ ods.ods_卷烟码段流水.dama_qty      │ SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM…
+  │  chanliang_qty        │ ods.ods_卷烟码段流水.tiaoma_qty    │ SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM…
+  │  dama_rate            │ ods.ods_卷烟码段流水.chongma_qty   │ CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_…
+  │  dama_rate            │ ods.ods_卷烟码段流水.dama_qty      │ CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_…
+  │  dama_rate            │ ods.ods_卷烟码段流水.tiaoma_qty    │ CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_…
+  │  dama_cig_qty         │ ods.ods_卷烟码段流水.dama_qty      │ SUM(b.dama_qty) * 250 AS dama_cig_qty
+  │  chanliang_cig        │ ods.ods_卷烟码段流水.chongma_qty   │ (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SU…
+  │  … 其余 2 行见完整报告
+
   ┌── ③ 加工条件（过滤 / 分区）────────────────────────────────────
-  │      • b.dt = '2026-01-01'        分区过滤: dt = 2026-01-01
+  │  语句 1 : b.dt = '2026-01-01'   |   分区 dt = 2026-01-01
+
   ┌── ④ 加工 SQL 原文 ─────────────────────────────────────────────
-  │      INSERT OVERWRITE TABLE cdw.dwd_卷烟产量码段明细 PARTITION(dt = '2026-01-01') SELECT ...
+  │      INSERT OVERWRITE TABLE cdw.dwd_卷烟产量码段明细 PARTITION(dt = '2026-01-01') SELECT b.work_order_no
+  │      AS work_order_no, b.plant_code AS plant_code, b.brand_code AS brand_code, b.batch_no AS batch_no,
+  │      SUM(b.dama_qty) AS dama_qty_total, SUM(b.tiaoma_qty) AS tiaoma_qty_total, SUM(b.chongma_qty) AS
+  │      chongma_qty_total, SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty, CASE
+  │      WHEN SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) > 0 THEN ROUND(SUM(b.dama_qty) /
+  │      (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)), 6) ELSE 0 END AS dama_rate,
+  │      SUM(b.dama_qty) * 250 AS dama_cig_qty, (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)) *
+  │      250 AS chanliang_cig FROM ods.ods_卷烟码段流水 AS b WHERE b.dt = '2026-01-01' GROUP BY
+  │      b.work_order_no, b.plant_code, b.brand_code, b.batch_no
+
   ┌── ⑤ 业务口径（知识库匹配）──────────────────────────────────────
-  │  本任务产出指标的业务口径：
-  │      • 产量（chanliang_qty） = 打码量 + 跳码量 - 重码量
-  │        类型: 聚合    置信度: 0.9    目标表: cdw.dwd_卷烟产量码段明细
-  │        来源: examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql 第 1 条语句
-  │        依赖: ods.ods_卷烟码段流水.chongma_qty(重码量), ods.ods_卷烟码段流水.dama_qty(打码量), ods.ods_卷烟码段流水.tiaoma_qty(跳码量)
-  │        上游链路: cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
-  │      • 打码占比（dama_rate） = CASE WHEN 打码量 + 跳码量 - 重码量 > 0 THEN ROUND(打码量 / (打码量 + 跳码量 - 重码量), 6) ELSE 0 END
-  │        类型: 条件分支    置信度: 0.85    目标表: cdw.dwd_卷烟产量码段明细
-  │      • 产量（条）（chanliang_cig） = (打码量 + 跳码量 - 重码量) * 250
-  │        ...（共 7 条口径，最多展示 8 条）
-  │  涉及字段的中文业务名：
-  │      • chongma_qty → 重码量     • dama_qty → 打码量
-  │      • tiaoma_qty → 跳码量     • chanliang_qty → 产量
-  │      • dama_rate → 打码占比     • chanliang_cig → 产量（条）
-  │      • dama_qty_total → 打码量合计     • tiaoma_qty_total → 跳码量合计
-  │      • chongma_qty_total → 重码量合计     • dama_cig_qty → 打码量（条）
-  │      • work_order_no → 工单号     • plant_code → 生产厂编码
-  │      • brand_code → 牌号编码     • batch_no → 批次号
-  │  业务规则：
-  │      • [业务规则（注释）] 产量口径：打码量+跳码量-重码量（箱）（脚本注释）
-  │      • [分区规则] 分区/时点条件：dt = 2026-01-01
-  │      • [过滤规则] 时点/分区过滤：b.dt = '2026-01-01'
-  │  ⓘ 口径由 kb build 从加工脚本自动提炼（语法级，未做语义校验）
+  │  ★ 1. 产量（chanliang_qty） = 打码量 + 跳码量 - 重码量
+  │       类型 聚合 · 置信度 0.9 · 匹配 目标字段 · 目标表 cdw.dwd_卷烟产量码段明细
+  │       摘要 依赖 chongma_qty(重码量), dama_qty(打码量), tiaoma_qty(跳码量) · 链路 cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  │  ★ 2. 产量（条）（chanliang_cig） = (打码量 + 跳码量 - 重码量) * 250
+  │       类型 聚合 · 置信度 0.9 · 匹配 目标字段 · 目标表 cdw.dwd_卷烟产量码段明细
+  │       摘要 依赖 chongma_qty(重码量), dama_qty(打码量), tiaoma_qty(跳码量) · 链路 cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  │  ★ 3. 打码量合计（dama_qty_total） = SUM(打码量)
+  │       类型 聚合 · 置信度 0.9 · 匹配 目标字段 · 目标表 cdw.dwd_卷烟产量码段明细
+  │       摘要 依赖 dama_qty(打码量) · 链路 cdw.dwd_卷烟产量码段明细 → ods.ods_卷烟码段流水 → src.mes_码段采集接口
+  │  … 另有 4 条口径（跳码量合计、重码量合计、打码量（条））详见完整报告 · 口径由 kb build 从加工脚本自动提炼（语法级）
+  │  字段中文名 chongma_qty → 重码量 | dama_qty → 打码量 | tiaoma_qty → 跳码量 | chanliang_qty → 产量 | dama_rate → 打码占比 | chanliang_cig → 产量（条）  …（共 14 项，详见报告）
+  │  业务规则 3 条 · 示例 [业务规则（注释）] 产量口径：打码量+跳码量-重码量（箱）（脚本注释）
+
   ══════════════════════════════════════════════════════════════════
-  ✅ 血缘分析完成 | 源表 1 张 → 目标表 1 张 | 字段映射 17 个 | 业务口径命中 7 条 | 耗时 8 ms
+  ✅ 血缘分析完成 | 源表 1 张 → 目标表 1 张 | 字段映射 17 个 | 业务口径命中 7 条 | 耗时 22 ms
+  📊 完整报告（浏览器打开）: http://localhost:18080/report/rpt_20260920_210854_1342968a
+     （容器内访问用: http://172.17.0.1:18080/report/rpt_20260920_210854_1342968a）
   ══════════════════════════════════════════════════════════════════
-输出参数已写入 varPool: [lineage_mode, lineage_service_url, lineage_input_tables, lineage_output_tables,
-  lineage_input_table_count, lineage_output_table_count, lineage_kb_available, lineage_metric_count,
-  lineage_metric_names, lineage_cost_ms, lineage_report_raw]
+
+输出参数已写入 varPool: [lineage_mode, lineage_service_url, lineage_input_tables, lineage_output_tables, lineage_input_table_count, lineage_output_table_count, lineage_kb_available, lineage_metric_count, lineage_metric_names, lineage_cost_ms, lineage_report_id, lineage_report_url, lineage_report_raw]
 ```
 
 复现（一条命令跑全部，或按需单跑）：
@@ -1717,6 +1755,129 @@ bash scripts/p5_collect_degraded_evidence.sh      # 旧版服务（无 /analyze�
 .venv/bin/python scripts/p5_analyze_evidence.py   # 只打 HTTP：/analyze 的完整 curl 证据
 bash scripts/p5_regression.sh                     # 全端点回归（/parse /impact /upstream /kb/* 都打一遍）
 ```
+
+### 6.8.2 可跳转的格式化 HTML 报告：`POST /report` + `GET /report/<id>`（本轮新增）
+
+**动机**：任务日志是纯文本，字段映射一多就「读不完、看不清」。现在服务端能把同一份分析结果
+渲染成**一个单文件 HTML**（内联 CSS/JS/SVG，零外部依赖、断网可开），任务日志末尾只留一行地址：
+
+```text
+  📊 完整报告（浏览器打开）: http://localhost:18080/report/rpt_20260920_210602_1342968a
+```
+
+请求 / 响应（body 与 `/analyze` 完全一致，`task_name` 用于报告标题栏）：
+
+```bash
+$ curl -s -X POST http://127.0.0.1:18080/report -H 'Content-Type: application/json' \
+       --data-binary @/tmp/lineage_report_body.json          # 由 Python 读 SQL + json.dumps 生成
+{ "success": true,
+  "report_id": "rpt_20260920_210308_1342968a",
+  "file": "rpt_20260920_210308_1342968a.html",
+  "path": "/root/projects/sql-lineage-mvp/reports/rpt_20260920_210308_1342968a.html",
+  "size_bytes": 30351,
+  "url": "http://localhost:18080/report/rpt_20260920_210308_1342968a",
+  "internal_url": "http://172.17.0.1:18080/report/rpt_20260920_210308_1342968a",
+  "generated_at": "2026-09-20 21:03:08",
+  "stats": { "source_table_count": 1, "target_table_count": 1, "column_lineage_count": 17,
+             "kb_available": true, "metric_count": 7, "html_bytes": 30351, … } }
+
+$ curl -s -D- -o /tmp/report.html http://127.0.0.1:18080/report/rpt_20260920_210308_1342968a | grep -iE '^(HTTP|content-type)'
+HTTP/1.0 200 OK
+Content-Type: text/html; charset=utf-8          # 30351 字节（单文件，无外链）
+```
+
+报告结构（5 个区块 + 页脚）：
+
+| 区块 | 内容 |
+| --- | --- |
+| 标题栏 | 任务名 / 生成时间 / 耗时 / 方言 / 源表→目标表 / 字段映射数 / 口径命中数 / 报告 ID |
+| ① 表级血缘 | 源表 ──► 目标表 流向卡片（源表琥珀色、目标表绿色）+ 图例 |
+| ② 字段级血缘 | **真表格**：目标表 / 目标字段 / 来源表 / 来源字段 / 加工表达式 / 解析状态；zebra 条纹 + 一行内联 JS 关键字过滤（输入 `chanliang_qty` 即时筛行） |
+| ③ 业务口径 | **卡片式**：每条一个卡片 —— 公式代码块 + 类型/置信度/匹配方式徽标 + 来源脚本 + 依赖字段 chips + 上游链路面包屑；下方附字段中文名词条与业务规则 |
+| ④ 上游链路图 | **内联 SVG**：手写节点方框 + `<marker>` 箭头，左=最上游、右=本任务目标表（绿框）；没有口径链路时自动退回表级血缘画图 |
+| ⑤ 加工条件 / SQL 原文 | 过滤与分区 chips + `<pre>` 原样 SQL |
+| 页脚 | 生成时间 + 报告 ID + 「由 sql-lineage-mvp 生成」 |
+
+实现要点（`lineage/report.py`，纯标准库 `html` / `hashlib` / `pathlib`）：
+
+* `render_report(parsed, meta) -> str` 是纯函数（dict 进、HTML 出），单测直接调；`save_report()` 落盘
+  `reports/rpt_<时间戳>_<SQL 短 hash>.html` 并自动只保留最近 200 份（`prune_reports`）；
+* `report_id` 用时间戳 + SQL 短 hash，落盘前经 `safe_report_id` 清洗（防路径穿越）；
+* URL 分「宿主 / 容器」两套：`url` 给 Windows 浏览器（`localhost:18080`）、`internal_url` 给容器内任务
+  （`172.17.0.1:18080`）；可用 `LINEAGE_PUBLIC_BASE` / `LINEAGE_INTERNAL_BASE` / `LINEAGE_REPORTS_DIR` 覆盖；
+* **`POST /analyze` 默认也带报告**（HTTP 层补齐 `with_report=true`）：插件一次调用同时拿到分析结果与报告地址；
+  旧版服务 / 回退 `/parse` 时插件拿不到地址就安静略过，不报错、不影响 ①~⑤ 段；
+* 报告是**附加产物**：生成失败只写 `sys.stderr` 并把原因塞进 `report_error`，血缘接口照常返回；
+* 报告目录 `reports/` 属运行期产物，已加进 `.gitignore`（生成逻辑入仓库，产物不入库）。
+
+报告 HTML 片段抽查（真实产物，深色主题；没有做像素级截图 —— 本环境浏览器工具调用会超时，
+所以这里贴结构片段 + 自检清单作为证据）：
+
+```html
+<!-- 标题栏：任务名 / 生成时间 / 解析耗时 / 方言 / 字段映射数 / 表级规模 / 口径命中数 / 报告 ID -->
+<div class="chips">
+  <span class="chip ">任务 <b>t_lineage_产量口径</b></span>
+  <span class="chip ">生成时间 <b>2026-09-20 21:08:54</b></span>
+  <span class="chip ">解析耗时 <b>11 ms</b></span>
+  <span class="chip ">方言 <b>hive</b></span>
+  <span class="chip ">字段映射 <b>17 个</b></span>
+  <span class="chip ">表级流向 <b>1 源表 → 1 目标表</b></span>
+  <span class="chip green">业务口径 <b>命中 7 条</b></span>
+  <span class="chip purple">报告 ID <b>rpt_20260920_210854_1342968a</b></span>
+</div>
+
+<!-- ① 表级血缘：源表（琥珀）/ 目标表（绿）卡片 + 箭头 -->
+<div class="flow-row"><div class="node src">ods.ods_卷烟码段流水</div>
+  <div class="arrow">──►</div><div class="node tgt">cdw.dwd_卷烟产量码段明细</div></div>
+
+<!-- ② 字段级血缘：真表格（表头 + zebra 条纹 + data-key 供内联 JS 过滤） -->
+<table id="col-table"><thead><tr><th>#</th><th>目标表</th><th>目标字段</th><th>来源表</th>
+  <th>来源字段</th><th>加工表达式</th><th>状态</th></tr></thead><tbody>
+<tr data-key="cdw.dwd_卷烟产量码段明细 work_order_no ods.ods_卷烟码段流水 work_order_no b.work_order_no as work_order_no">
+  <td class="idx">1</td><td class="tbl">cdw.dwd_卷烟产量码段明细</td><td class="tgt">work_order_no</td>
+  <td class="tbl">ods.ods_卷烟码段流水</td><td class="col">work_order_no</td>
+  <td class="expr">b.work_order_no AS work_order_no</td><td><span class="badge ok">已解析</span></td></tr> …
+
+<!-- ③ 业务口径：卡片（公式代码块 + 类型/置信度/匹配方式徽标 + 来源 + 依赖 chips + 链路面包屑） -->
+<div class="card"><h3><span class="cn">产量</span><span class="col">chanliang_qty</span></h3>
+  <div class="tags"><span class="chip purple">聚合</span><span class="chip">置信度 <b>0.9</b></span>
+    <span class="chip">目标字段命中</span><span class="chip green">单位 箱</span></div>
+  <div class="formula">产量 = SUM(打码量) + SUM(跳码量) - SUM(重码量)</div>
+  <dl class="kv"><dt>来源脚本</dt><dd>examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql（第 1 条语句）</dd>
+    <dt>依赖字段</dt><dd><div class="deplist">… <span class="dep">ods.ods_卷烟码段流水.dama_qty<i>（打码量）</i></span> …</div></dd>
+    <dt>上游链路</dt><dd><div class="path">… <span class="pnode">cdw.dwd_卷烟产量码段明细</span> …</div></dd></dl></div>
+
+<!-- ④ 上游链路图：手写内联 SVG（节点方框 + marker 箭头） -->
+<svg viewBox="0 0 856 94" width="856" height="94" xmlns="http://www.w3.org/2000/svg">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+     orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff"/></marker></defs>
+  <line x1="536" y1="47" x2="608" y2="47" stroke="#58a6ff" stroke-width="1.6" marker-end="url(#arrow)"/> …
+
+<!-- 页脚 -->
+<footer>生成时间 2026-09-20 21:08:54 · 报告 ID rpt_20260920_210854_1342968a · 由 sql-lineage-mvp 生成（服务 http://localhost:18080/analyze）</footer>
+```
+
+`bash scripts/report_evidence.sh` 的自检输出（真实运行）：
+
+```text
+   ✅ 单文件（无 <link>）        ✅ 无 <img> 外链            ✅ 无外链 script/link/src=http
+   ✅ 内联 <script>（字段过滤）  ✅ 表级血缘段               ✅ 字段级真表格
+   ✅ 口径卡片                   ✅ 上游链路内联 SVG         ✅ 页脚署名
+   ✅ 中文正常（UTF-8 元信息）
+   报告文件大小: 30357 字节 / 149 行
+   字段映射行数: 17   口径卡片数: 7
+```
+
+一键复现（真发 HTTP，打印 JSON + HTTP 状态 + HTML 前 20 行 + 自检清单）：
+
+```bash
+bash scripts/report_evidence.sh
+```
+
+单测：`tests/test_report.py`（23 个用例：ID/清洗、渲染结构、零外链、转义、降级、口径排序、
+落盘与清理、真起 HTTP 服务验 `POST /report` → `GET /report/<id>` 与 404 分支）。
+
+---
 
 插件侧细节（参数、编译部署、UI、已知坑）见 **`ds-plugin/README.md`**；
 本节的原始证据（任务日志原文 / 端点回归 / 降级 / pytest）留档在 **`docs/p5_evidence/`**。
@@ -1977,11 +2138,13 @@ sql-lineage-mvp/
 │   ├── viz.py              # P2 可视化：Mermaid 文本 + 自包含交互式 HTML
 │   ├── ds_client.py        # P3 海豚 OpenAPI 客户端（urllib，登录/sessionId/项目/工作流/任务/脚本抽取）
 │   ├── ds_lineage.py       # P3 任务级多层血缘：工程→工作流→任务→表 + 工作流依赖推导 + 中文摘要
+│   ├── report.py           # P5.1 格式化 HTML 报告：单文件渲染（内联 CSS/JS/SVG）+ 落盘/清理 + 口径排序
 │   └── cli.py              # 命令行入口：P1 旧用法 + P2 子命令 + P3 的 ds 子命令
 ├── scripts/
 │   ├── ds_setup_demo.py    # P3 演示数据：在海豚上建项目/4 个工作流/16 个任务 + 导出定义（可重跑）
 │   ├── ds_export_table_graph.py # P3 把 ds_lineage.json 里的 table_graph 导成 P2 同构图，交给 P2 子命令分析
-│   └── ds_capture_outputs.sh # P3 重新抓一遍 README 里那些命令的真实输出（核对用）
+│   ├── ds_capture_outputs.sh # P3 重新抓一遍 README 里那些命令的真实输出（核对用）
+│   └── report_evidence.sh  # P5.1 报告端点证据：POST /report → GET /report/<id> → HTML 前 20 行 + 自检
 ├── tests/
 │   ├── test_parser.py      # 26 个用例（P1：8 种 SQL 形态 + CLI + 边界）
 │   ├── test_graph.py       # 45 个用例（图引擎：构图/上下游/路径/环路/统计/序列化）
@@ -1989,7 +2152,8 @@ sql-lineage-mvp/
 │   ├── test_viz.py         # 18 个用例（Mermaid/HTML 结构 + QuickJS 真跑内联 JS）
 │   ├── ds_mock.py          # P3 测试用的海豚 OpenAPI 模拟服务（纯标准库 http.server）
 │   ├── test_ds_client.py   # 48 个用例（客户端：登录/翻页/脚本抽取/错误处理 + 真实集成）
-│   └── test_ds_lineage.py  # 45 个用例（多层血缘构建/四类查询/依赖推导/序列化 + ds 子命令端到端）
+│   ├── test_ds_lineage.py  # 45 个用例（多层血缘构建/四类查询/依赖推导/序列化 + ds 子命令端到端）
+│   └── test_report.py      # 23 个用例（HTML 报告渲染/零外链/转义/清理 + POST /report 与 GET /report/<id> 真 HTTP 端到端）
 ├── examples/
 │   ├── *.sql               # 6 个单文件示例（P1）
 │   ├── warehouse/          # 21 个 SQL：ods/ cdw/ ads/ 三层模拟数仓（P2，含 2 个多语句文件）
@@ -2001,6 +2165,7 @@ sql-lineage-mvp/
 │   ├── ds_lineage.html     # P3：调度侧血缘的交互式 HTML（由 ds_lineage.json 的 table_graph 导出）
 │   ├── ds_lineage.mmd      # P3：调度侧血缘的 Mermaid 图
 │   └── ds_demo_workflows/  # P3 演示资产：4 个工作流定义 JSON + manifest + 每个任务的 SQL
+├── reports/                # P5.1 运行期产物：HTML 报告（只保留最近 200 份，已 .gitignore）
 ├── warehouse_graph.json    # scan 产出的全局血缘图（演示产物）
 ├── ds_lineage.json         # ds sync 产出的调度侧多层血缘（演示产物，含 table_graph）
 ├── scan_report.txt         # scan 产出的扫描报告（演示产物）
@@ -2173,14 +2338,17 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 .venv/bin/python -m pytest -q
 ```
 
-真实运行输出（**269 个用例全通过**）：
+真实运行输出（**292 个用例全通过**）：
 
 ```text
-........................................................................ [ 26%]
-........................................................................ [ 53%]
-........................................................................ [ 80%]
-.....................................................                    [100%]
-269 passed in 20.47s
+$ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+      .venv/bin/python -m pytest -o addopts="" -q
+........................................................................ [ 24%]
+........................................................................ [ 49%]
+........................................................................ [ 73%]
+........................................................................ [ 98%]
+....                                                                     [100%]
+292 passed in 22.11s
 ```
 
 分文件统计（用例数）：
@@ -2195,6 +2363,7 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 | `tests/test_ds_lineage.py` | 45 | P3 多层血缘：工程→工作流→任务→表 骨架与统计、任务读/写表、工作流依赖推导（表血缘 + 原生依赖）、内部表排除、四类查询、坏 SQL 降级为 failures、JSON 往返与落盘、中文渲染，以及 `ds` 四个只读子命令 + `ds sync`（打 mock 服务，并断言"只读：没调任何写接口"）的端到端 |
 | `tests/test_knowledge.py` | 52 | P4 口径知识库：表达式归一化 / 聚合剥离 / 中文化、中文业务名推断优先级、注释挖掘（文件头 / 行内 / 表级 COMMENT）、口径提炼（类型 / 公式 / 依赖 / 来源）、rebuild 幂等（内容指纹）、增量 upsert、孤立记录清理、检索打分、问数意图识别与无 LLM 降级、CLI 子命令、HTTP 处理函数、Markdown 导出 |
 | `tests/test_knowledge_integrate.py` | 12 | P5 血缘 × 业务口径一体化：目标字段抽取（去重 / 保序 / 容错）、口径匹配（公式 / 类型 / 置信度 / 依赖 / 链路 / 排序）、术语与业务规则、匹配不到不报错，以及 `/analyze` 是 `/parse` 超集、知识库缺失/空库/损坏/`with_knowledge=false` 四种降级 |
+| `tests/test_report.py` | 23 | P5.1 HTML 报告：报告 ID 与文件名清洗（防路径穿越）、渲染结构（标题栏 / 表级流向 / 字段真表格 / 口径卡片 / 内联 SVG / 页脚）、**零外部依赖**（无外链 script/link/img/@import）、HTML 转义（`<script>` 不落地）、空数据与知识库缺失降级、SVG 退回表级血缘、口径排序（聚合 > 比率 > …，置信度降序）、落盘 / URL 拼装 / 环境变量覆盖 / 只保留最近 N 份，以及**真起 `ThreadingHTTPServer` 验 `POST /report` → `GET /report/<id>`（200 + `text/html`）/ `/reports` 清单 / 404 分支** 与 `/analyze` 的 `report` 段 |
 
 > 汇总行（`N passed`）需要覆盖 `pytest.ini` 里的 `addopts = -q`：
 > `.venv/bin/python -m pytest -o addopts="" -q`。另外本机 shell 里预置了

@@ -44,12 +44,32 @@ import java.util.Map;
  * (default {@code http://172.17.0.1:18080}) and writes the returned lineage report
  * into the DolphinScheduler task instance log. Selected values are also exposed as
  * out-parameters ({@code varPool}) so that downstream tasks can reference them.
+ *
+ * <p>日志里只放「读得完」的部分：表级流向、字段级血缘紧凑表格（最多 15 行）、
+ * 加工条件与 SQL、最关键的 3 条业务口径；其余全部折叠成一行行的「详见完整报告」。
+ * 服务端 {@code POST /analyze} 会顺带生成单文件 HTML 报告，日志末尾打印它的
+ * 可点击地址（{@code 📊 完整报告（浏览器打开）}），字段映射真表格 / 口径卡片 /
+ * 上游链路 SVG 都在那一份报告里。
  */
 public class LineageTask extends AbstractTask {
 
     private static final Logger logger = LoggerFactory.getLogger(LineageTask.class);
 
     private static final String HEADER = "============================================================";
+
+    // ---- 日志排版参数（② 字段级表格 / ⑤ 口径折叠）----
+    /** ② 段表格列宽（按显示宽度算，CJK 占 2 列） */
+    private static final int W_TARGET = 20;
+    private static final int W_SOURCE = 34;
+    private static final int W_EXPR = 42;
+    /** ④ 段 SQL 原文按显示宽度折行（解析后的 SQL 常被压成一行，不折会刷屏） */
+    private static final int W_SQL = 100;
+    /** ② 段最多打印多少行字段映射，其余指向完整报告 */
+    private static final int MAX_FIELD_ROWS = 15;
+    /** ⑤ 段最多展开多少条业务口径（其余折叠） */
+    private static final int MAX_METRIC_CARDS = 3;
+    /** ⑤ 段字段中文名最多列几个 */
+    private static final int MAX_TERM_CELLS = 6;
 
     private final TaskExecutionContext taskExecutionContext;
     private final LineageParameters parameters;
@@ -177,6 +197,11 @@ public class LineageTask extends AbstractTask {
 
     private String buildSqlBody() {
         Map<String, Object> body = new LinkedHashMap<>();
+        // 任务名会显示在 HTML 报告的标题栏，便于一个浏览器里开多份报告时区分
+        String taskName = taskExecutionContext.getTaskName();
+        if (taskName != null && !taskName.trim().isEmpty()) {
+            body.put("task_name", taskName);
+        }
         body.put("sql", parameters.getSql());
         body.put("dialect", parameters.getDialect());
         // /analyze 需要它；老版本服务端忽略未知字段，所以同一个请求体可以两边复用
@@ -246,34 +271,30 @@ public class LineageTask extends AbstractTask {
             logger.info("  │  目标表（输出 {} 张）: {}", outputTables.size(), join(outputTables));
         }
 
-        // ---------------------------------------------------------- ② 字段级
+        // ---------------------------------------------------------- ② 字段级（紧凑表格）
         logger.info("");
         logger.info("  ┌── ② 字段级血缘（{} 个字段映射）────────────────────────────────", columnCount);
         if (columnCount > 0) {
-            Map<String, List<JsonNode>> byTarget = new LinkedHashMap<>();
-            for (JsonNode c : columnLineage) {
-                String tt = text(c.get("target_table"));
-                List<JsonNode> list = byTarget.get(tt);
-                if (list == null) {
-                    list = new ArrayList<>();
-                    byTarget.put(tt, list);
-                }
-                list.add(c);
+            if (outputTables.size() == 1) {
+                logger.info("  │  目标表 : {}", outputTables.get(0));
             }
+            logger.info("  │  {} │ {} │ {}",
+                    pad("目标字段", W_TARGET), pad("来源字段", W_SOURCE), pad("加工表达式", W_EXPR));
+            logger.info("  │  {}┼{}┼{}",
+                    repeat("─", W_TARGET + 2), repeat("─", W_SOURCE + 2), repeat("─", W_EXPR + 2));
             int shown = 0;
-            final int maxShow = 40;
-            for (Map.Entry<String, List<JsonNode>> en : byTarget.entrySet()) {
-                logger.info("  │  目标表 {} :", en.getKey());
-                for (JsonNode c : en.getValue()) {
-                    if (shown >= maxShow) {
-                        logger.info("  │      ... 其余字段已省略（共 {} 个）", columnCount);
-                        break;
-                    }
-                    logger.info("  │      {}  ←  {}.{}      表达式: {}",
-                            text(c.get("target_column")), text(c.get("source_table")),
-                            text(c.get("source_column")), text(c.get("expression")));
-                    shown++;
+            for (JsonNode c : columnLineage) {
+                if (shown >= MAX_FIELD_ROWS) {
+                    break;
                 }
+                logger.info("  │  {} │ {} │ {}",
+                        pad(clip(oneLine(text(c.get("target_column"))), W_TARGET), W_TARGET),
+                        pad(clip(oneLine(sourceField(c)), W_SOURCE), W_SOURCE),
+                        clip(oneLine(text(c.get("expression"))), W_EXPR));
+                shown++;
+            }
+            if (columnCount > shown) {
+                logger.info("  │  … 其余 {} 行见完整报告", columnCount - shown);
             }
         } else {
             logger.info("  │  (无字段级血缘)");
@@ -285,23 +306,25 @@ public class LineageTask extends AbstractTask {
         boolean anyCond = false;
         if (statements != null && statements.isArray()) {
             for (JsonNode st : statements) {
+                List<String> parts = new ArrayList<>();
                 JsonNode filters = st.get("filters");
-                if (filters != null && filters.isArray() && filters.size() > 0) {
-                    logger.info("  │  过滤条件（语句 {}）:", text(st.get("statement_index")));
+                if (filters != null && filters.isArray()) {
                     for (JsonNode f : filters) {
-                        logger.info("  │      • {}", f.asText());
-                        anyCond = true;
+                        parts.add(f.asText());
                     }
                 }
                 JsonNode pf = st.get("partition_filters");
                 if (pf != null && pf.isObject() && pf.size() > 0) {
-                    logger.info("  │  分区过滤:");
                     java.util.Iterator<Map.Entry<String, JsonNode>> it = pf.fields();
                     while (it.hasNext()) {
                         Map.Entry<String, JsonNode> e = it.next();
-                        logger.info("  │      • {} = {}", e.getKey(), text(e.getValue()));
-                        anyCond = true;
+                        parts.add("分区 " + e.getKey() + " = " + text(e.getValue()));
                     }
+                }
+                if (!parts.isEmpty()) {
+                    logger.info("  │  语句 {} : {}", text(st.get("statement_index")),
+                            joinWith(parts, "   |   "));
+                    anyCond = true;
                 }
             }
         }
@@ -326,7 +349,9 @@ public class LineageTask extends AbstractTask {
         if (sqlText != null && !sqlText.trim().isEmpty()) {
             logger.info("  ┌── ④ 加工 SQL 原文 ─────────────────────────────────────────────");
             for (String ln : sqlText.split("\\r?\\n")) {
-                logger.info("  │      {}", ln);
+                for (String piece : wrap(ln, W_SQL)) {
+                    logger.info("  │      {}", piece);
+                }
             }
         } else if (parameters.getTable() != null && !parameters.getTable().trim().isEmpty()) {
             logger.info("  ┌── ④ 分析目标表 ────────────────────────────────────────────────");
@@ -394,6 +419,14 @@ public class LineageTask extends AbstractTask {
             logger.info("  ✅ 血缘分析完成 | 源表 {} 张 → 目标表 {} 张 | 字段映射 {} 个 | 耗时 {} ms",
                     inputTables.size(), outputTables.size(), columnCount, cost);
         }
+        // 报告地址来自服务端 /analyze 的 report 段；拿不到（旧版服务 / 回退 /parse）就安静略过
+        String reportUrl = reportUrl(root);
+        if (!reportUrl.isEmpty()) {
+            logger.info("  📊 完整报告（浏览器打开）: {}", reportUrl);
+            if (internalReportUrl(root) != null && !internalReportUrl(root).isEmpty()) {
+                logger.info("     （容器内访问用: {}）", internalReportUrl(root));
+            }
+        }
         logger.info("  ══════════════════════════════════════════════════════════════════");
         logger.info("");
 
@@ -403,9 +436,12 @@ public class LineageTask extends AbstractTask {
     }
 
     /**
-     * ⑤ 业务口径：把服务端 {@code /analyze} 匹配到的知识库口径渲染成中文报告段。
+     * ⑤ 业务口径（精简版）：只展开「最关键的 3 条」，每条 3 行
+     * （口径公式 / 类型·置信度·匹配 / 依赖+链路摘要），其余口径、术语、规则各折叠一行。
      *
-     * <p>知识库不可用 / 无命中 / 服务端是旧版本，都只是多一行提示 —— ①②③④ 段不受影响。
+     * <p>顺序不依赖知识库返回顺序，而是按与 HTML 报告一致的「关键程度」排序：
+     * 类型（聚合 / 比率优先）→ 置信度降序 → 依赖字段多的靠前。
+     * 全部详情（每条口径的公式 / 来源 / 依赖 / 链路卡片）都在完整报告里。
      */
     private void printKnowledgeSection(JsonNode knowledge, boolean kbAvailable, int metricCount) {
         logger.info("");
@@ -426,12 +462,10 @@ public class LineageTask extends AbstractTask {
 
         JsonNode metrics = knowledge.get("metrics");
         if (metricCount > 0 && metrics != null && metrics.isArray()) {
-            logger.info("  │  本任务产出指标的业务口径：");
+            List<JsonNode> ranked = rankMetrics(metrics);
             int shown = 0;
-            final int maxShow = 8;
-            for (JsonNode m : metrics) {
-                if (shown >= maxShow) {
-                    logger.info("  │      ... 其余 {} 条口径已省略", metricCount - maxShow);
+            for (JsonNode m : ranked) {
+                if (shown >= MAX_METRIC_CARDS) {
                     break;
                 }
                 shown++;
@@ -442,16 +476,21 @@ public class LineageTask extends AbstractTask {
                 if (formula.isEmpty()) {
                     formula = formulaBody(cn.isEmpty() ? column : cn, opt(m.get("formula_full")));
                 }
-                logger.info("  │      • {}{} = {}",
+                logger.info("  │  ★ {}. {}{} = {}", shown,
                         cn.isEmpty() ? column : cn,
                         column.isEmpty() ? "" : "（" + column + "）",
                         formula.isEmpty() ? "(无公式)" : formula);
-                logger.info("  │        类型: {}    置信度: {}    目标表: {}",
-                        opt(m.get("metric_type")), opt(m.get("confidence")), opt(m.get("target_table")));
-                logger.info("  │        来源: {} 第 {} 条语句",
-                        opt(m.get("source_script")), opt(m.get("source_statement")));
-                logger.info("  │        依赖: {}", dependsText(m.get("depends_on"), opt(m.get("depends_text"))));
-                logger.info("  │        上游链路: {}", flatten(m.get("lineage_path")));
+                logger.info("  │       类型 {} · 置信度 {} · 匹配 {} · 目标表 {}",
+                        opt(m.get("metric_type")), opt(m.get("confidence")),
+                        opt(m.get("matched_by")), opt(m.get("target_table")));
+                logger.info("  │       摘要 {}", metricSummary(m));
+            }
+            int rest = metricCount - shown;
+            if (rest > 0) {
+                logger.info("  │  … 另有 {} 条口径（{}）详见完整报告 · 口径由 kb build 从加工脚本自动提炼（语法级）",
+                        rest, clip(metricNames(ranked, shown, 3), 56));
+            } else {
+                logger.info("  │  ⓘ 口径由 kb build 从加工脚本自动提炼（语法级，未做语义校验）");
             }
         } else {
             logger.info("  │  知识库已就绪，但本任务产出字段未匹配到已登记指标口径");
@@ -459,33 +498,264 @@ public class LineageTask extends AbstractTask {
 
         JsonNode terms = knowledge.get("terms");
         if (terms != null && terms.isArray() && terms.size() > 0) {
-            logger.info("  │  涉及字段的中文业务名：");
             List<String> cells = new ArrayList<>();
             for (JsonNode t : terms) {
-                if (cells.size() >= 16) {
-                    cells.add("...");
+                if (cells.size() >= MAX_TERM_CELLS) {
                     break;
                 }
-                cells.add("• " + opt(t.get("field")) + " → " + opt(t.get("chinese_name")));
+                cells.add(opt(t.get("field")) + " → " + opt(t.get("chinese_name")));
             }
-            for (int i = 0; i < cells.size(); i += 2) {
-                int end = Math.min(i + 2, cells.size());
-                logger.info("  │      {}", joinWith(cells.subList(i, end), "     "));
-            }
+            String tail = terms.size() > cells.size()
+                    ? "  …（共 " + terms.size() + " 项，详见报告）" : "";
+            logger.info("  │  字段中文名 {}{}", joinWith(cells, " | "), tail);
         }
 
         JsonNode rules = knowledge.get("rules");
         if (rules != null && rules.isArray() && rules.size() > 0) {
-            logger.info("  │  业务规则：");
-            int n = 0;
-            for (JsonNode r : rules) {
-                if (n++ >= 5) {
-                    break;
+            JsonNode first = rules.get(0);
+            logger.info("  │  业务规则 {} 条 · 示例 [{}] {}", rules.size(),
+                    opt(first.get("rule_type")), clip(opt(first.get("description")), 56));
+        }
+    }
+
+    /** 口径摘要（1 行）：依赖字段 + 上游链路，完整信息在 HTML 报告里 */
+    private static String metricSummary(JsonNode metric) {
+        List<String> deps = new ArrayList<>();
+        JsonNode dep = metric.get("depends_on");
+        if (dep != null && dep.isArray()) {
+            for (JsonNode d : dep) {
+                String col = opt(d.get("column"));
+                if (col.isEmpty()) {
+                    continue;
                 }
-                logger.info("  │      • [{}] {}", opt(r.get("rule_type")), opt(r.get("description")));
+                String cn = opt(d.get("chinese_name"));
+                deps.add(cn.isEmpty() ? col : col + "(" + cn + ")");
             }
         }
-        logger.info("  │  ⓘ 口径由 kb build 从加工脚本自动提炼（语法级，未做语义校验）");
+        String depText = deps.isEmpty() ? opt(metric.get("depends_text")) : joinWith(deps, ", ");
+        if (depText.isEmpty()) {
+            depText = "-";
+        }
+        return "依赖 " + clip(depText, 58) + " · 链路 " + clip(flatten(metric.get("lineage_path")), 76);
+    }
+
+    /** 折叠行里点名的口径（跳过已展开的前 shown 条，最多列出 limit 个） */
+    private static String metricNames(List<JsonNode> ranked, int shown, int limit) {
+        List<String> names = new ArrayList<>();
+        for (int i = shown; i < ranked.size() && names.size() < limit; i++) {
+            JsonNode m = ranked.get(i);
+            String name = opt(m.get("chinese_name"));
+            if (name.isEmpty()) {
+                name = opt(m.get("target_column"));
+            }
+            if (!name.isEmpty() && !names.contains(name)) {
+                names.add(name);
+            }
+        }
+        return names.isEmpty() ? "详情" : joinWith(names, "、");
+    }
+
+    /** 口径排序：类型（聚合/比率优先）→ 置信度降序 → 依赖字段数降序，稳定排序 */
+    private static List<JsonNode> rankMetrics(JsonNode metrics) {
+        List<JsonNode> list = new ArrayList<>();
+        for (JsonNode m : metrics) {
+            list.add(m);
+        }
+        final List<JsonNode> original = new ArrayList<>(list);
+        list.sort((a, b) -> {
+            int c = Integer.compare(typeRank(opt(a.get("metric_type"))), typeRank(opt(b.get("metric_type"))));
+            if (c != 0) {
+                return c;
+            }
+            c = Double.compare(confidence(b.get("confidence")), confidence(a.get("confidence")));
+            if (c != 0) {
+                return c;
+            }
+            c = Integer.compare(sizeOf(b.get("depends_on")), sizeOf(a.get("depends_on")));
+            if (c != 0) {
+                return c;
+            }
+            return Integer.compare(original.indexOf(a), original.indexOf(b));
+        });
+        return list;
+    }
+
+    private static int typeRank(String metricType) {
+        switch (metricType == null ? "" : metricType) {
+            case "聚合":
+                return 0;
+            case "比率":
+                return 1;
+            case "算术计算":
+                return 2;
+            case "条件分支":
+                return 3;
+            case "函数转换":
+                return 4;
+            case "窗口函数":
+                return 5;
+            default:
+                return 9;
+        }
+    }
+
+    private static double confidence(JsonNode node) {
+        try {
+            return node == null ? 0d : node.asDouble();
+        } catch (Exception e) {
+            return 0d;
+        }
+    }
+
+    private static int sizeOf(JsonNode node) {
+        return node != null && node.isArray() ? node.size() : 0;
+    }
+
+    /** 报告地址：优先 /analyze 的 report 段，兼容扁平字段；拿不到返回空串（安静略过） */
+    private static String reportUrl(JsonNode root) {
+        JsonNode report = root.get("report");
+        String url = report != null && report.isObject() ? opt(report.get("url")) : "";
+        return url.isEmpty() ? opt(root.get("report_url")) : url;
+    }
+
+    /** 容器内可访问的报告地址（宿主机的 172.17.0.1），拿不到返回空串 */
+    private static String internalReportUrl(JsonNode root) {
+        JsonNode report = root.get("report");
+        String url = report != null && report.isObject() ? opt(report.get("internal_url")) : "";
+        return url.isEmpty() ? opt(root.get("report_internal_url")) : url;
+    }
+
+    private static String reportId(JsonNode root) {
+        JsonNode report = root.get("report");
+        String id = report != null && report.isObject() ? opt(report.get("report_id")) : "";
+        return id.isEmpty() ? opt(root.get("report_id")) : id;
+    }
+
+    // ---------------------------------------------------------------- 表格排版
+
+    /** 显示宽度：CJK 等全角字符按 2 列算（日志按等宽字体对齐） */
+    private static int displayWidth(String value) {
+        if (value == null) {
+            return 0;
+        }
+        int width = 0;
+        for (int i = 0; i < value.length(); i++) {
+            width += value.charAt(i) > 0x2000 ? 2 : 1;
+        }
+        return width;
+    }
+
+    /** 按显示宽度右侧补空格（中文也能对齐） */
+    private static String pad(String value, int width) {
+        String v = value == null ? "" : value;
+        StringBuilder sb = new StringBuilder(v);
+        for (int i = displayWidth(v); i < width; i++) {
+            sb.append(' ');
+        }
+        return sb.toString();
+    }
+
+    /** 按显示宽度截断，超出部分用「…」收尾 */
+    private static String clip(String value, int width) {
+        String v = value == null ? "" : value;
+        if (displayWidth(v) <= width) {
+            return v;
+        }
+        StringBuilder sb = new StringBuilder();
+        int used = 0;
+        for (int i = 0; i < v.length(); i++) {
+            char c = v.charAt(i);
+            int step = c > 0x2000 ? 2 : 1;
+            if (used + step > width - 1) {
+                break;
+            }
+            sb.append(c);
+            used += step;
+        }
+        return sb.append('…').toString();
+    }
+
+    /** 按显示宽度折行：优先在空格处断开，单个超长 token（如长表达式）才硬切 */
+    private static List<String> wrap(String value, int width) {
+        List<String> out = new ArrayList<>();
+        String v = (value == null ? "" : value).trim();
+        if (v.isEmpty()) {
+            out.add("");
+            return out;
+        }
+        StringBuilder line = new StringBuilder();
+        int used = 0;
+        for (String token : v.split("\\s+")) {
+            if (token.isEmpty()) {
+                continue;
+            }
+            int tokenWidth = displayWidth(token);
+            if (tokenWidth > width) {
+                if (used > 0) {
+                    out.add(line.toString());
+                    line.setLength(0);
+                    used = 0;
+                }
+                String rest = token;
+                while (displayWidth(rest) > width) {
+                    String headPiece = head(rest, width);
+                    out.add(headPiece);
+                    rest = rest.substring(headPiece.length());
+                }
+                line.append(rest);
+                used = displayWidth(rest);
+                continue;
+            }
+            if (used > 0 && used + 1 + tokenWidth > width) {
+                out.add(line.toString());
+                line.setLength(0);
+                used = 0;
+            }
+            if (used > 0) {
+                line.append(' ');
+                used++;
+            }
+            line.append(token);
+            used += tokenWidth;
+        }
+        if (line.length() > 0) {
+            out.add(line.toString());
+        }
+        return out.isEmpty() ? java.util.Collections.singletonList("") : out;
+    }
+
+    /** 取能放进 width 显示列的最长前缀 */
+    private static String head(String value, int width) {
+        StringBuilder sb = new StringBuilder();
+        int used = 0;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            int step = c > 0x2000 ? 2 : 1;
+            if (used + step > width) {
+                break;
+            }
+            sb.append(c);
+            used += step;
+        }
+        return sb.toString();
+    }
+
+    /** 表格单元格：换行/制表压成空格，避免把日志表格撑坏 */
+    private static String oneLine(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\r", " ").replace("\n", " ").replace("\t", " ").trim();
+    }
+
+    /** 来源字段：表.字段（表名在①段出现过，这里保留全名便于直接定位） */
+    private static String sourceField(JsonNode column) {
+        String table = text(column.get("source_table"));
+        String col = text(column.get("source_column"));
+        if ("-".equals(table)) {
+            return col;
+        }
+        return table + "." + col;
     }
 
     /** 口径公式：知识库里是「名称 = 表达式」，行首已经写了名称，这里剥掉重复的前缀 */
@@ -498,25 +768,6 @@ public class LineageTask extends AbstractTask {
             }
         }
         return body;
-    }
-
-    /** 依赖字段：优先按结构化 depends_on 拼，服务端没给就退回 depends_text */
-    private static String dependsText(JsonNode deps, String fallback) {
-        if (deps == null || !deps.isArray() || deps.size() == 0) {
-            return fallback == null || fallback.isEmpty() ? "-" : fallback;
-        }
-        StringBuilder sb = new StringBuilder();
-        for (JsonNode d : deps) {
-            if (sb.length() > 0) {
-                sb.append(", ");
-            }
-            sb.append(opt(d.get("table"))).append('.').append(opt(d.get("column")));
-            String cn = opt(d.get("chinese_name"));
-            if (!cn.isEmpty()) {
-                sb.append('(').append(cn).append(')');
-            }
-        }
-        return sb.length() == 0 ? "-" : sb.toString();
     }
 
     /** 取值：缺失一律给空串（区别于 {@link #text(JsonNode)} 的 "-"） */
@@ -665,6 +916,9 @@ public class LineageTask extends AbstractTask {
         output.put("lineage_metric_count", String.valueOf(metricCount));
         output.put("lineage_metric_names", String.join(",", metricNames));
         output.put("lineage_cost_ms", String.valueOf(cost));
+        // 完整 HTML 报告地址（服务端 /analyze 的 report 段；旧版服务拿不到就留空）
+        output.put("lineage_report_id", reportId(root));
+        output.put("lineage_report_url", reportUrl(root));
         String raw = root.toString();
         output.put("lineage_report_raw", raw.length() > 4000 ? raw.substring(0, 4000) : raw);
 
