@@ -180,6 +180,8 @@ def test_build_knowledge_section_api_shape() -> None:
     assert sorted(ROUTES) == sorted([
         "/parse", "/analyze", "/analyze-workflow", "/report", "/impact", "/upstream",
         "/kb/summary", "/kb/search", "/kb/ask", "/kb/metric",
+        # P7 生成引擎（L1~L4）
+        "/generate/sql", "/generate/pipeline", "/generate/apply", "/generate/validate",
     ])
 
 

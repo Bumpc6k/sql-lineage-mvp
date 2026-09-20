@@ -12,6 +12,8 @@
 > **P1 已完成**（SQL 静态解析 + 血缘提取）、**P2 已完成**（图谱引擎 + 影响分析 + 可视化 + 目录批量扫描）、
 > **P3 已完成**（旁路对接 DolphinScheduler OpenAPI：工程 → 工作流 → 任务节点 → 表 的多层血缘）、
 > **P4 已完成**（业务口径知识提炼 + 知识库：口径提炼 / 术语推断 / 检索 / 问数 / Markdown 导出 / HTTP 端点），
+> **P5 / P6 已完成**（血缘 × 业务口径一体化 + 工作流级血缘分析与体检），
+> **P7 已完成**（生成引擎：L1 单表加工 SQL 生成 / L2 分层链路生成 / L3 一键落地 DolphinScheduler / L4 反向校验），
 > 后续规划见文末「后续规划」。
 
 ---
@@ -2210,8 +2212,465 @@ export LLM_MODEL=gpt-4o-mini
 
 ---
 
-## 7. 支持的 SQL 形态
+## 7. 生成引擎（P7，已完成）
 
+> 到这里为止，项目能「读懂」SQL 与调度；这一章做的是**反过来**：**从业务需求生成加工 SQL、
+> 拼出分层数据链路、一键落到 DolphinScheduler、再把生成结果反向校验一遍**。
+> 一句话：**从「解析工具」变成「数据开发助手」。**
+
+四层能力一览（CLI 子命令 `generate <子命令>` 与 HTTP 端点一一对应）：
+
+| 层 | 能力 | 输入 | 输出 | CLI | HTTP |
+|---|---|---|---|---|---|
+| **L1** | 单表加工 SQL 生成 | 源表 + 目标表 + 指标 + 分组维度 | 可直接跑的 `INSERT OVERWRITE ... SELECT` + 逐列依据 | `generate sql` | `POST /generate/sql` |
+| **L2** | 分层链路生成 | 业务需求（`生成产销存月报`）+ 目标分层 | `ods→dwd→dws→ads` 多段 SQL + 链路图（节点/边） | `generate pipeline` | `POST /generate/pipeline` |
+| **L3** | 一键落地调度 | L2 的链路 | DolphinScheduler 工作流定义（任务 + 依赖 + 画布坐标），可选**真调 API 创建** | `generate apply [--apply]` | `POST /generate/apply` |
+| **L4** | 反向校验 | 生成的 SQL（或 L2 的 stages） | 合并链路 + 体检（断链/孤岛/环路/跨层直连/口径一致性/与血缘图对比）+ HTML 报告 | `generate validate` | `POST /generate/validate` |
+
+设计原则（这一章最重要的一句话）：
+
+> **宁少勿假。** 生成出来的每一列都必须能追溯到**知识库口径**或**存量脚本的字段级血缘**；
+> 凡是推导出来的内容（关联键、聚合方式、新表结构…）一律写进 `warnings` 交给人工确认，
+> **绝不把猜的字段当事实输出**。
+
+模板引擎为主 + **可插拔 LLM**：不配 `LLM_API_KEY` 时全流程离线可用（LLM 只做「评审 SQL」与
+「从候选表清单里挑表」两件不产生新事实的事，编出来的表名会被逐字丢弃）。
+
+---
+
+### 7.1 L1：单表加工 SQL 生成
+
+```bash
+.venv/bin/python -m lineage.cli generate sql \
+  --source ods.ods_卷烟产量流水 \
+  --target cdw.dwd_卷烟产量明细 \
+  --metric 产量 --group-by plant_code --partition dt
+```
+
+真实输出（原样贴）：
+
+```
+========================================================================
+L1 单表加工 SQL 生成：cdw.dwd_卷烟产量明细（dwd 层）
+========================================================================
+-- =============================================================
+-- 生成器：sql-lineage-mvp generate（L1 单表加工 SQL）
+-- 目标表：cdw.dwd_卷烟产量明细（卷烟产量明细事实表，明细层）
+-- 源  表：ods.ods_卷烟产量流水（t1）
+-- 分区  ：dt = '${bizdate}'
+-- 依据  ：知识库口径公式 + 字段中文名 + 存量脚本字段血缘（见 explain）
+-- =============================================================
+INSERT OVERWRITE TABLE cdw.dwd_卷烟产量明细 PARTITION (dt = '${bizdate}')
+SELECT
+    t1.plant_code AS plant_code,  -- 生产厂编码
+    SUM(t1.output_qty) AS output_qty,  -- 产量
+FROM ods.ods_卷烟产量流水 t1
+-- 可选维表（本次未加入生成）：dim.dim_brand（牌号维表）  LEFT JOIN dim.dim_brand <别名> ON t1.brand_code = <别名>.brand_code  -- 关联键：命名规范推断：dim.dim_brand -> brand_code（**需人工确认**）
+-- 可选维表（本次未加入生成）：dim.dim_plant（生产厂维表）  LEFT JOIN dim.dim_plant <别名> ON t1.plant_code = <别名>.plant_code  -- 关联键：命名规范推断：dim.dim_plant -> plant_code（**需人工确认**）
+WHERE t1.dt = '${bizdate}'
+GROUP BY t1.plant_code
+;
+========================================================================
+生成列 2 个 | 源表 ods.ods_卷烟产量流水 | 方言 hive | 耗时 0.006s
+语法自检：✅ 通过（语句 1 条 / 源表 1 张 / 字段血缘 2 条）
+------------------------------------------------------------------------
+为什么这么生成（explain）：
+  [1] 分组维度「plant_code」-> ods.ods_卷烟产量流水.plant_code（生产厂编码）
+  [2] 指标「产量」-> output_qty = SUM(t1.output_qty)（依据口径 output_qty@ods.ods_卷烟产量流水，函数转换，来源 examples/warehouse/ods/ods_卷烟产量流水.sql）
+  [3]   · 口径依赖字段：产量 -> src.erp_生产工单明细.output_qty
+  [4]   · 聚合方式：存量表达式不含聚合，已按分组维度 plant_code 套 SUM()
+  [5]   · 表达式沿用存量脚本字段血缘：t1.output_qty（来源 cdw/dwd_卷烟产量明细.sql）
+  [6]   · 口径依据：output_qty = 产量 = CAST(产量 AS DECIMAL(18, 4))（函数转换）；来源 examples/warehouse/ods/ods_卷烟产量流水.sql 第 1 条语句
+  [7]   · 目标列 cdw.dwd_卷烟产量明细.output_qty：目标表字段中文名匹配（exact_glossary）
+  [8] 语法自检通过：解析出 1 条语句、1 张源表、2 条字段血缘
+------------------------------------------------------------------------
+需人工确认（1 项）：
+  ⚠ [1] 目标表知识库登记 12 个非分区列，本 SQL 只覆盖 2 个；缺失 10 个：brand_code, brand_name, defect_qty, defect_rate, output_qty_cig, plant_name, price_band, shift_code 等。Hive/Spark 按位置写入要求列数一致 —— 若目标表是既有表，请补齐其余列（可传 all_columns=true 让生成器按存量血缘补齐），或确认是新建表。
+========================================================================
+```
+
+生成结果**自己会回炉自检**（`ast_check`）：把 SQL 丢回 P1 的血缘引擎解析一遍，
+只有真解析出输出表才算通过：
+
+```json
+{
+  "success": true,
+  "target_table": "cdw.dwd_卷烟产量明细",
+  "columns": [
+    {"column": "plant_code", "expression": "t1.plant_code", "source": "source_field", "chinese_name": "生产厂编码"},
+    {"column": "output_qty", "expression": "SUM(t1.output_qty)", "source": "graph_expression", "chinese_name": "产量"}
+  ],
+  "ast_check": {
+    "parse_ok": true, "dialect": "hive", "statement_count": 1,
+    "input_tables": ["ods.ods_卷烟产量流水"],
+    "output_tables": ["cdw.dwd_卷烟产量明细"],
+    "table_lineage": [{"source": "ods.ods_卷烟产量流水", "target": "cdw.dwd_卷烟产量明细"}],
+    "column_lineage_count": 2, "error": ""
+  },
+  "warnings": ["目标表知识库登记 12 个非分区列，本 SQL 只覆盖 2 个；…"]
+}
+```
+
+**列表达式三档次序**（每档都在 explain 里写明出处）：
+
+| 序 | 来源 | 说明 |
+|---|---|---|
+| a | 存量脚本字段级血缘 | 目标表在血缘图里有该列的真实表达式（如 `p.output_qty * 250`），原样复用、只重映射别名 |
+| b | 知识库口径公式 | 把 `formula_full` 里的中文业务名按 `depends_on` 精确替换成 `别名.字段`（长名优先，`产量（条）` 不会被 `产量` 截断）；公式里已有聚合就直接用，否则按分组维度套 `SUM`（比率类会额外提示人工确认） |
+| c | 源字段直取 | 同名列 / 同中文名 |
+
+举个「口径复用」的例子（公司统一的码段产量口径，直接取知识库公式）：
+
+```bash
+.venv/bin/python -m lineage.cli generate sql \
+  --source ods.ods_卷烟码段流水 --target cdw.dwd_卷烟产量码段明细 --metric 产量 --json
+```
+
+```sql
+INSERT OVERWRITE TABLE cdw.dwd_卷烟产量码段明细 PARTITION (dt = '${bizdate}')
+SELECT
+    SUM(t1.dama_qty) + SUM(t1.tiaoma_qty) - SUM(t1.chongma_qty) AS chanliang_qty  -- 产量
+FROM ods.ods_卷烟码段流水 t1
+WHERE t1.dt = '${bizdate}'
+```
+
+**知识库缺失时怎么办（宁少勿假）**：
+
+* 目标表不在知识库 → 仍可生成，但 `warnings` 标注「目标表未在知识库登记：目标列名/结构无法校验」；
+* 指标既没有口径、源表也没有同名列 → **不生成该列**，只给 warning（不会编一个字段出来）；
+* 指标有口径但依赖字段不在本次源表 → 该列标 `【需人工确认】` 并把缺失依赖写进 warnings；
+* 指定分区字段得不到存量脚本印证 → 仍用它，但给出 warning；
+* 目标表列数 > 本次覆盖列数 → 明确提示「Hive 按位置写入要求列数一致」，
+  并给出解决办法（`--all-columns` 按存量血缘补齐，或确认是新建表）。
+
+---
+
+### 7.2 L2：分层链路生成
+
+```bash
+.venv/bin/python -m lineage.cli generate pipeline \
+  --requirement "生成产销存月报" --target-layer ads --max-stages 4 \
+  --json --save pipeline.json
+```
+
+真实输出（4 段链路，节选每段的头尾；完整内容见 `pipeline.json`）：
+
+```
+success=True target=ads.ads_产销存月报 mode=reuse max_stages=4
+
+----- stage 1/4  ads层 -> ads.ads_产销存月报   depends_on=['cdw.dws_产销存汇总']   external=['dim.dim_brand', 'dim.dim_plant']
+INSERT OVERWRITE TABLE ads.ads_产销存月报 PARTITION (dt = '${bizdate}')
+SELECT
+    t1.brand_code AS brand_code,  -- 牌号编码
+    t2.brand_name AS brand_name,  -- 牌号名称
+    t1.output_qty AS output_qty,  -- 产量
+    t1.plant_code AS plant_code,  -- 生产厂编码
+    t3.plant_name AS plant_name,  -- 生产厂名称
+    t2.price_band AS price_band,  -- 价格档位
+    t1.sale_amt AS sale_amt,  -- 销售额
+    ROUND(t1.sale_qty / NULLIF(t1.output_qty, 0), 4) AS sale_output_ratio,  -- 产销率
+    t1.sale_qty AS sale_qty,  -- 销量
+    t1.output_qty - t1.sale_qty AS stock_increase,  -- 库存增量
+    t1.stock_qty AS stock_qty,  -- 库存量
+FROM cdw.dws_产销存汇总 t1
+LEFT JOIN dim.dim_brand t2 ON t1.brand_code = t2.brand_code  -- 关联键：命名规范推断：dim.dim_brand -> brand_code（**需人工确认**）
+LEFT JOIN dim.dim_plant t3 ON t1.plant_code = t3.plant_code  -- 关联键：命名规范推断：dim.dim_plant -> plant_code（**需人工确认**）
+WHERE t1.dt = '${bizdate}'
+;
+
+----- stage 2/4  dws层 -> cdw.dws_产销存汇总   depends_on=['cdw.dwd_卷烟销量明细']   external=['cdw.dws_产量汇总', 'cdw.dws_库存汇总']
+INSERT OVERWRITE TABLE cdw.dws_产销存汇总 PARTITION (dt = '${bizdate}')
+SELECT
+    t1.brand_code AS brand_code,  -- 牌号编码
+    t1.total_output_qty AS output_qty,  -- 产量
+    t1.plant_code AS plant_code,  -- 生产厂编码
+    COALESCE(t2.total_sale_amt, 0) AS sale_amt,  -- 销售额
+    COALESCE(t2.total_sale_qty, 0) AS sale_qty,  -- 销量
+    COALESCE(t3.total_stock_qty, 0) AS stock_qty,  -- 库存量
+FROM cdw.dws_产量汇总 t1
+LEFT JOIN cdw.dwd_卷烟销量明细 t2 ON t1.brand_code = t2.brand_code  -- 关联键：两张表登记过的同名列 brand_code
+LEFT JOIN cdw.dws_库存汇总 t3 ON t1.brand_code = t3.brand_code  -- 关联键：两张表登记过的同名列 brand_code
+WHERE t1.dt = '${bizdate}'
+;
+
+----- stage 3/4  dwd层 -> cdw.dwd_卷烟销量明细   depends_on=['ods.ods_卷烟销量流水']   external=['dim.dim_brand']
+…（9 列，含 CASE WHEN t1.sale_qty > 0 THEN ROUND(t1.sale_amt / t1.sale_qty, 2) ELSE 0 END AS unit_price）
+
+----- stage 4/4  ods层 -> ods.ods_卷烟销量流水   depends_on=[]   external=['src.mes_销售出库明细']
+INSERT OVERWRITE TABLE ods.ods_卷烟销量流水 PARTITION (dt = '${bizdate}')
+SELECT
+    t1.brand_code AS brand_code,  -- 牌号编码
+    …
+    CAST(t1.sale_amt AS DECIMAL(18, 2)) AS sale_amt,  -- 销售额
+    CAST(t1.sale_qty AS DECIMAL(18, 4)) AS sale_qty,  -- 销量
+    t1.update_time AS update_time,  -- 更新时间
+FROM src.mes_销售出库明细 t1
+WHERE t1.dt = '${bizdate}'
+;
+
+----- pipeline 图：9 节点 / 9 边
+   cdw.dws_产销存汇总       -> ads.ads_产销存月报       (chain)
+   dim.dim_brand         -> ads.ads_产销存月报       (external)
+   dim.dim_plant         -> ads.ads_产销存月报       (external)
+   cdw.dwd_卷烟销量明细      -> cdw.dws_产销存汇总       (chain)
+   cdw.dws_产量汇总         -> cdw.dws_产销存汇总       (external)
+   cdw.dws_库存汇总         -> cdw.dws_产销存汇总       (external)
+   ods.ods_卷烟销量流水      -> cdw.dwd_卷烟销量明细      (chain)
+   dim.dim_brand         -> cdw.dwd_卷烟销量明细      (external)
+   src.mes_销售出库明细      -> ods.ods_卷烟销量流水      (external)
+```
+
+工作方式：
+
+1. **需求 → 目标表**：剥掉「生成/做/建」等动词后按表名 / 中文名匹配（本例得分 25.0 命中
+   `ads.ads_产销存月报`）；匹配不上时退给可插拔 LLM 从**候选清单**里挑（只认清单里的名字）；
+2. **目标表 → 主路径**：从血缘图逐层往上推（同层中间表会被折叠，避免出现 `dws→dws` 之外的层间跳步），
+   最多 `--max-stages` 段；
+3. **每段 SQL**：列与表达式**全部取存量脚本的字段级血缘**（边上真实出现过的表达式，只重映射别名），
+   因此「重新生成的链路」与「仓库里跑的链路」逐边一致（这正是 L4 能校验通过的前提）；
+4. **链路外依赖**：维表与不在主路径上的上游表（`cdw.dws_产量汇总`、`cdw.dws_库存汇总`、`src.*`）
+   如实列在每段的 `external_inputs` 里，并说明「假定已有调度产出」；
+5. **没匹配到现有表**（全新需求）→ 进入**新建表模式**：表名按命名规范推导（`<层>.<层>_<关键词>`）、
+   字段取上游真实列，warnings 里明确「表名与字段结构均为推导结果，落地前请人工评审 DDL」。
+
+---
+
+### 7.3 L3：一键落地 DolphinScheduler
+
+先只出 JSON（**默认行为，安全第一**）：
+
+```bash
+.venv/bin/python -m lineage.cli generate apply \
+  --pipeline-file pipeline.json \
+  --workflow-name wf_gen_产销存月报 --project-code 123 --json
+```
+
+```
+success=True created=False task_count=4
+task_codes=['91000000000000001', '91000000000000002', '91000000000000003', '91000000000000004']
+execution_order=['t1_ods_ods_卷烟销量流水', 't2_dwd_dwd_卷烟销量明细', 't3_dws_dws_产销存汇总', 't4_ads_ads_产销存月报']
+taskDefinitionJson: 4 个任务定义（taskType=SQL / type=HIVE / sqlType=1 非查询 / datasource=<id>）
+taskRelationJson:   4 条依赖（preTaskCode=0 → 后续首尾相接）
+locations:          [{"taskCode": …, "x": 240/520/800/1080, "y": 200}]   ← 链式依赖，从左到右一条线
+notes: ['本次只生成工作流 JSON（create_workflow=false，安全默认）…']
+```
+
+再加 `--apply`（或 `"create_workflow": true`）**真调海豚 API 创建**——同名工作流会**先 OFFLINE 再删除**，
+保证脚本可重复执行；创建后立刻**回读**定义：
+
+```bash
+.venv/bin/python -m lineage.cli generate apply \
+  --pipeline-file pipeline.json --project-name 血缘分析插件演示 --apply
+```
+
+```
+是否真实创建：✅ 是
+workflow_code = 184814887266880；回读任务 4 个 / 依赖 4 条
+    - t1_ods_ods_卷烟销量流水  taskType=SQL sql=787 字符  preTaskCode=[0]
+    - t2_dwd_dwd_卷烟销量明细  taskType=SQL sql=975 字符  preTaskCode=[184814887253568]
+    - t3_dws_dws_产销存汇总   taskType=SQL sql=910 字符  preTaskCode=[184814887253569]
+    - t4_ads_ads_产销存月报   taskType=SQL sql=1166 字符  preTaskCode=[184814887253570]
+  · 已删除同名旧工作流 1 个（先 OFFLINE 再删除）：184814702656064
+  · 已真实创建并回读校验：workflow_code=184814887266880，4 个任务 / 4 条依赖
+```
+
+**不经过本项目客户端**、直接用 curl 打海豚 OpenAPI 回读（证明真落库了）：
+
+```
+$ curl -s -b cookie "$BASE/projects/184812330567232/process-definition?searchVal=wf_gen"
+   code=184814887266880 name=wf_gen_产销存月报 releaseState=OFFLINE version=1 createTime=2026-09-20 22:14:48
+   total = 1
+
+$ curl -s -b cookie "$BASE/projects/184812330567232/process-definition/184814887266880"
+   processDefinition: code=184814887266880 name=wf_gen_产销存月报 projectCode=184812330567232 executionType=PARALLEL
+   任务定义 4 个：
+     - code=184814887253568 name=t1_ods_ods_卷烟销量流水   taskType=SQL datasource=1 sqlType=1 sql=787 字符（首行：-- 目标表：ods.ods_卷烟销量流水（卷烟销量贴源流水））
+     - code=184814887253569 name=t2_dwd_dwd_卷烟销量明细   taskType=SQL datasource=1 sqlType=1 sql=975 字符（首行：-- 目标表：cdw.dwd_卷烟销量明细（卷烟销量明细事实表））
+     - code=184814887253570 name=t3_dws_dws_产销存汇总    taskType=SQL datasource=1 sqlType=1 sql=910 字符（首行：-- 目标表：cdw.dws_产销存汇总（产销存汇总表））
+     - code=184814887253571 name=t4_ads_ads_产销存月报    taskType=SQL datasource=1 sqlType=1 sql=1166 字符（首行：-- 目标表：ads.ads_产销存月报（产销存月报））
+   任务依赖 4 条：
+     preTaskCode=0                -> postTaskCode=184814887253568
+     preTaskCode=184814887253568  -> postTaskCode=184814887253569
+     preTaskCode=184814887253569  -> postTaskCode=184814887253570
+     preTaskCode=184814887253570  -> postTaskCode=184814887253571
+```
+
+细节：task code 向海豚 `gen-task-codes` 申请（离线模式用占位值）；工作流定义走 **form body**
+提交（数仓 SQL 含大量中文，走 URL query 会 `HTTP 414 URI Too Long`）；SQL 任务绑定的数据源
+自动复用/创建 HIVE 数据源（不校验连通性，只给任务挂 id）。
+
+---
+
+### 7.4 L4：反向校验
+
+```bash
+.venv/bin/python -m lineage.cli generate validate --pipeline-file pipeline.json
+```
+
+真实输出：
+
+```
+========================================================================
+L4 反向校验（生成 SQL 回炉 → 血缘合并 → 体检）
+========================================================================
+✅ 校验通过：4 段 SQL / 9 条表级边 / 37 条字段血缘；error 0 / warning 0 / info 4
+校验段数：4；合并链路：9 条表级边 / 37 条字段血缘
+分层流向：dim → ads×2  dim → dwd×1  dwd → dws×1  dws → ads×1  dws → dws×2  ods → dwd×1  src → ods×1
+分层规则：✅ 无跨层直连（src→ods→dwd→dws→ads 逐层加工）
+知识库口径一致性：
+  - ads.ads_产销存月报：口径 2 条，一致 2 / 不一致 0 / 缺失列 0
+  - cdw.dws_产销存汇总：口径 3 条，一致 3 / 不一致 0 / 缺失列 0
+  - cdw.dwd_卷烟销量明细：口径 1 条，一致 1 / 不一致 0 / 缺失列 0
+  - ods.ods_卷烟销量流水：口径 2 条，一致 2 / 不一致 0 / 缺失列 0
+与 warehouse_graph.json 对比：已知边 9 / 新链路 0 / 缺失边 0
+问题清单（error 0 / warning 0 / info 4）：
+  · [external] 输入表 dim.dim_brand 是链路外依赖（stage 已声明它由既有调度产出）
+  · [external] 输入表 dim.dim_plant 是链路外依赖（stage 已声明它由既有调度产出）
+  · [external] 输入表 cdw.dws_产量汇总 是链路外依赖（stage 已声明它由既有调度产出）
+  · [external] 输入表 cdw.dws_库存汇总 是链路外依赖（stage 已声明它由既有调度产出）
+------------------------------------------------------------------------
+体检报告：http://localhost:18080/report/rpt_20260920_221448_64d80dd4
+========================================================================
+```
+
+校验项与级别：
+
+| 类型 | 判定 | 级别 |
+|---|---|---|
+| `parse` | 每段 SQL 能否被血缘引擎解析、是否解析出输出表 | **error** |
+| `cycle` | 合并后的链路是否成环（`LineageGraph.detect_cycles`） | **error** |
+| `layer_rule` | 是否跨层直连（分层差 > 1；维表是侧表，不参与判定） | **error** |
+| `dangling` | 产出表在链路内无人消费（且不是终点层） | warning |
+| `orphan` | 输入表在链路内无上游（且不是源系统层） | info/warning |
+| `external` | 输入表是 stage 明确声明的「链路外依赖」 | info |
+| `kb_metric` | 已登记口径是否都在生成 SQL 里出现、表达式是否与口径一致 | warning |
+| `graph_diff` | 与 `warehouse_graph.json` 逐边对比：新链路 / 缺失链路 | info/warning |
+
+**它真的会拦下问题**——把一条 `ods → ads` 的跨层直连 SQL 丢进去：
+
+```
+$ python -m lineage.cli generate validate --sql-file 跨层直连.sql --no-report --json
+exit=1
+passed=False
+  [error/layer_rule] 跨层直连：ods.ods_卷烟产量流水（贴源层）→ ads.ads_跨层直连演示（应用层），跳过中间层
+  [info/kb_metric] 产出表 ads.ads_跨层直连演示 在知识库里没有登记口径（新表或尚未提炼）
+  [info/graph_diff] 1 条边是血缘图里没有的新链路：ods.ods_卷烟产量流水→ads.ads_跨层直连演示
+```
+
+体检报告复用工作流级 HTML 报告模板（单文件、零外链），额外渲染「分层规则违规」区块：
+
+```
+$ curl -s -o /dev/null -w "%{http_code} %{size_download} %{content_type}\n" \
+    http://localhost:18080/report/rpt_20260920_221448_64d80dd4
+200 43316 text/html; charset=utf-8
+```
+
+---
+
+### 7.5 HTTP 端点（给前端 / 其他系统调）
+
+```bash
+# L1：单表加工 SQL
+curl -s -X POST http://localhost:18080/generate/sql -H 'Content-Type: application/json' -d '{
+  "source_tables": ["ods.ods_卷烟产量流水"],
+  "target_table": "cdw.dwd_卷烟产量明细",
+  "metrics": ["产量"], "dialect": "hive", "partition_field": "dt", "group_by": ["plant_code"]
+}'
+
+# L2：分层链路
+curl -s -X POST http://localhost:18080/generate/pipeline -H 'Content-Type: application/json' -d '{
+  "requirement": "生成产销存月报", "target_layer": "ads", "dialect": "hive", "max_stages": 4
+}'
+
+# L3：落地（create_workflow=true 才真建）
+curl -s -X POST http://localhost:18080/generate/apply -H 'Content-Type: application/json' -d '{
+  "pipeline": {…L2 的返回…}, "project_code": 184812330567232,
+  "workflow_name": "wf_gen_产销存月报", "create_workflow": false, "env": "hive"
+}'
+
+# L4：反向校验（pipeline / stages / sql_list / sql_file 任选其一）
+curl -s -X POST http://localhost:18080/generate/validate -H 'Content-Type: application/json' -d '{
+  "pipeline": {…L2 的返回…}, "name": "wf_gen_产销存月报"
+}'
+```
+
+`GET /health` 的 `endpoints` 里会列出这 4 个端点（实测）：
+
+```
+"endpoints": ["/analyze", "/analyze-workflow", "/generate/apply", "/generate/pipeline",
+              "/generate/sql", "/generate/validate", "/impact", "/kb/ask", "/kb/metric",
+              "/kb/search", "/kb/summary", "/parse", "/report", "/upstream"]
+```
+
+四个端点都**不抛异常给调用方**：内部异常一律包成 `{"success": false, "error": "...", "traceback": "..."}`，
+HTTP 状态码保持 200（与 `/analyze`、`/analyze-workflow` 一致的约定）。
+
+---
+
+### 7.6 可插拔 LLM 与降级矩阵
+
+| 场景 | 行为 |
+|---|---|
+| 没配 `LLM_API_KEY` | 纯模板生成，`llm.used=false` 并提示「已使用纯模板生成（离线可用）」 |
+| 配了 key | L1/L2 结果附 `llm.notes`（评审要点，**不改写 SQL**）；L2 需求匹配不上时用 LLM 从候选清单挑表 |
+| LLM 超时 / 报错 | 静默跳过，结果与离线模式完全一致 |
+| `--no-llm` / `"use_llm": false` | 强制模板模式 |
+
+约束是硬的：LLM 返回的表名必须**逐字命中候选清单**才会被采纳（`llm.pick_tables` 会过滤掉编造的名字），
+LLM 的建议只进 `llm.notes`，**不会**回写进 `sql` 字段。
+
+---
+
+### 7.7 代码结构与本阶段新增
+
+```
+lineage/generate/
+├── __init__.py      # 包导出（四层入口 + 底座）
+├── spec.py          # 公共底座：知识库只读视图 / 血缘图索引 / 分层规则 / 证据收集 / SQL 自检
+├── sql_builder.py   # L1 单表加工 SQL 生成（模板引擎核心，L2 复用其渲染器）
+├── pipeline.py      # L2 分层链路生成（需求 → 目标表 → 主路径 → 多段 SQL + 链路图）
+├── apply.py         # L3 链路 → DolphinScheduler 工作流（默认只出 JSON，--apply 才真建）
+├── validate.py      # L4 反向校验 + 体检报告
+└── llm.py           # 可插拔 LLM（评审 / 候选筛选，无 key 自动跳过）
+tests/test_generate.py   # 50 个用例：四层能力 + HTTP 端点 + CLI + LLM 降级 + 底座工具
+```
+
+测试：
+
+```bash
+env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+  .venv/bin/python -m pytest -o addopts="" -q
+# 362 passed in 25.85s      ← P1~P6 的 312 个用例 + P7 新增 50 个
+```
+
+---
+
+### 7.8 本阶段限制（如实说明）
+
+1. **生成 SQL 的「可直接运行」分两种情况**：
+   * 目标表是**新建表**（或本次列数覆盖全表）→ 语法通过自检，落库执行前只需确认字段类型；
+   * 目标是**既有表**且只覆盖部分列 → Hive/Spark 按位置写入要求列数一致，需要 `--all-columns`
+     补齐或人工裁剪（生成器会明确报出缺失列，不会假装没问题）；
+   * 真实执行还需要数仓侧的表 / 库存在，本项目**不连数据库**，只做静态生成与静态校验。
+2. **关联键靠推断**：血缘图不保存 `ON` 条件，所以维表关联键按「两表登记过的同名列」或
+   `dim_plant → plant_code` 命名规范推断，SQL 行尾注释 `**需人工确认**`，warnings 里也会点出来。
+   要完全确定，可用 `joins` 参数显式指定 `ON` 条件。
+3. **聚合方式**：口径公式自带聚合函数时原样复用；否则按分组维度套 `SUM`（比率类提示人工确认是否
+   应先算比率再平均）。知识库没有登记聚合方式时会 warning，不会猜 `COUNT`/`AVG`。
+4. **L2 链路是「主路径 + 链路外依赖」**：为避免生成一个跟现实不符的假 DAG，同一层只沿字段映射最多的
+   那条上游展开；其它上游（含同级中间表）如实列为 `external_inputs`。需求匹配不到现有表时会
+   进入新建表模式，表结构是推导结果，**必须人工评审**。
+5. **L3 只创建工作流定义**：不建定时、不跑实例、不建表；同名工作流会被删除重建（先 OFFLINE），
+   所以工作流名请用本工具自己的命名前缀（`wf_gen_*`），避免误删人工维护的工作流。
+6. **L4 的口径一致性是「写法级」比对**：把中文业务名换成真实列名后做归一化字符串比对，
+   `ROUND(x, 4)` 与 `ROUND(x, 2)` 这类语义差异能发现，但「等价改写」（如 `COALESCE(x,0)` 与
+   `IFNULL(x,0)`）会报成「写法不同，请复核」——宁可多提醒，不做语义等价推断。
+7. **方言**：生成默认 Hive 语法（与 `warehouse_graph.json` / 示例仓库一致）；其它方言可传
+   `dialect`，但**只有 Hive 的示例仓库做过端到端验证**。
+
+---
+
+## 8. 支持的 SQL 形态
 | # | 形态 | 示例片段 | 解析结果 |
 | --- | --- | --- | --- |
 | 1 | `INSERT [INTO\|OVERWRITE] TABLE ... SELECT` | `INSERT OVERWRITE TABLE dws.t PARTITION (dt='2026-01-01') SELECT ...` | `task_type=INSERT_SELECT`，输出表 + 分区过滤 |
@@ -2227,8 +2686,7 @@ export LLM_MODEL=gpt-4o-mini
 
 ---
 
-## 8. 输出 JSON 结构
-
+## 9. 输出 JSON 结构
 **顶层（一次解析的聚合报告）**
 
 | 字段 | 类型 | 说明 |
@@ -2264,10 +2722,8 @@ export LLM_MODEL=gpt-4o-mini
 
 ---
 
-## 9. 架构说明
-
-### 9.1 代码结构
-
+## 10. 架构说明
+### 10.1 代码结构
 ```
 sql-lineage-mvp/
 ├── lineage/
@@ -2279,7 +2735,15 @@ sql-lineage-mvp/
 │   ├── ds_client.py        # P3 海豚 OpenAPI 客户端（urllib，登录/sessionId/项目/工作流/任务/脚本抽取）
 │   ├── ds_lineage.py       # P3 任务级多层血缘：工程→工作流→任务→表 + 工作流依赖推导 + 中文摘要
 │   ├── report.py           # P5.1 格式化 HTML 报告：单文件渲染（内联 CSS/JS/SVG）+ 落盘/清理 + 口径排序
-│   └── cli.py              # 命令行入口：P1 旧用法 + P2 子命令 + P3 的 ds 子命令
+│   ├── workflow.py         # P6 工作流级血缘：拉工作流 → 批量解析 → 合并 → 链路质量体检 → 报告
+│   ├── generate/           # P7 生成引擎（L1 SQL 生成 / L2 分层链路 / L3 落地海豚 / L4 反向校验）
+│   │   ├── spec.py         #   公共底座：知识库只读视图 / 血缘图索引 / 分层规则 / 证据收集 / SQL 自检
+│   │   ├── sql_builder.py  #   L1 单表加工 SQL 生成（模板引擎核心）
+│   │   ├── pipeline.py     #   L2 分层链路生成（需求 → 目标表 → 主路径 → 多段 SQL + 链路图）
+│   │   ├── apply.py        #   L3 链路 → DolphinScheduler 工作流（默认只出 JSON）
+│   │   ├── validate.py     #   L4 反向校验 + 体检报告
+│   │   └── llm.py          #   可插拔 LLM（评审 / 候选筛选，无 key 自动跳过）
+│   └── cli.py              # 命令行入口：P1 旧用法 + P2 子命令 + P3 的 ds + P4 的 kb + P7 的 generate
 ├── scripts/
 │   ├── ds_setup_demo.py    # P3 演示数据：在海豚上建项目/4 个工作流/16 个任务 + 导出定义（可重跑）
 │   ├── ds_export_table_graph.py # P3 把 ds_lineage.json 里的 table_graph 导成 P2 同构图，交给 P2 子命令分析
@@ -2293,6 +2757,7 @@ sql-lineage-mvp/
 │   ├── ds_mock.py          # P3 测试用的海豚 OpenAPI 模拟服务（纯标准库 http.server）
 │   ├── test_ds_client.py   # 48 个用例（客户端：登录/翻页/脚本抽取/错误处理 + 真实集成）
 │   ├── test_ds_lineage.py  # 45 个用例（多层血缘构建/四类查询/依赖推导/序列化 + ds 子命令端到端）
+│   ├── test_generate.py    # 50 个用例（P7：L1~L4 四层能力 + HTTP 端点 + CLI + LLM 降级）
 │   └── test_report.py      # 23 个用例（HTML 报告渲染/零外链/转义/清理 + POST /report 与 GET /report/<id> 真 HTTP 端到端）
 ├── examples/
 │   ├── *.sql               # 6 个单文件示例（P1）
@@ -2315,8 +2780,7 @@ sql-lineage-mvp/
 └── README.md
 ```
 
-### 9.2 P2 数据流
-
+### 10.2 P2 数据流
 ```
 SQL 脚本目录
   │  scan_directory()            递归 *.sql，跳过 __pycache__/.venv/.git ...
@@ -2339,8 +2803,7 @@ warehouse_graph.json ──► CLI 子命令（upstream/impact/path/cycle/stats�
                         viz.to_html()     ──► docs/lineage.html（内联 JS 力导向交互图）
 ```
 
-### 9.3 P1 解析流程（`SqlLineageParser.analyze_statement`）
-
+### 10.3 P1 解析流程（`SqlLineageParser.analyze_statement`）
 ```
 SQL 文本
   │  sqlglot.parse(sql, read=dialect)
@@ -2375,8 +2838,7 @@ AST 语句列表 ──► ① 语句分类 _classify()
 * **递归深度保护**：`MAX_DEPTH=8`，防止自引用 CTE / 异常 SQL 造成死循环。
 * **纯函数式解析**：`SqlLineageParser` 无状态（除 dialect 配置），可安全复用、并发放大。
 
-### 9.4 P3 数据流（调度侧血缘）
-
+### 10.4 P3 数据流（调度侧血缘）
 ```
 DolphinScheduler（只读 OpenAPI）
   │  POST /login                      → sessionId
@@ -2403,10 +2865,8 @@ DsLineage（工程 → 工作流 → 任务 → 表 + 依赖边 + 表级图）
 
 ---
 
-## 10. 示例文件（烟草行业数仓场景）
-
-### 10.1 单文件示例（P1）
-
+## 11. 示例文件（烟草行业数仓场景）
+### 11.1 单文件示例（P1）
 | 文件 | 场景 | 覆盖形态 |
 | --- | --- | --- |
 | `examples/01_ods_to_dwd_ctas.sql` | ODS 卷烟产量 → DWD 明细（清洗 + 单位换算） | CTAS、单表、分区过滤、字段重命名 |
@@ -2416,8 +2876,7 @@ DsLineage（工程 → 工作流 → 任务 → 表 + 依赖边 + 表级图）
 | `examples/05_pipeline_multi_statement.sql` | ODS 烟叶采购 → DWD → DWS → ADS 供应链 | 一个文件 3 条语句、窗口函数、完整链路 |
 | `examples/06_adhoc_select.sql` | 临时取数查询 | 纯 SELECT（无输出表） |
 
-### 10.2 目录示例（P2：`examples/warehouse/`，21 个 SQL 文件 / 24 条语句）
-
+### 11.2 目录示例（P2：`examples/warehouse/`，21 个 SQL 文件 / 24 条语句）
 模拟一个真实烟草数仓的三层目录（`ods/` `cdw/` `ads/`），覆盖产量、销量、库存、税利、烟叶采购、设备六大主题：
 
 | 目录 | 文件数 | 内容 |
@@ -2439,8 +2898,7 @@ src.erp_生产工单明细        (源系统接口表)
   → ads.ads_经营指标驾驶舱    (ads/ads_经营指标驾驶舱.sql 第 2 条语句)
 ```
 
-### 10.3 问题样例（P2：`examples/warehouse_issues/`）
-
+### 11.3 问题样例（P2：`examples/warehouse_issues/`）
 | 文件 | 用途 |
 | --- | --- |
 | `01_cycle_demo.sql` | 故意构造循环依赖（`ads.ads_销量修正结果` ⇄ `dwd.dwd_销量回写池`），演示 `cycle` 子命令告警 |
@@ -2472,23 +2930,23 @@ ods.ods_烟叶采购 -> dwd.dwd_烟叶采购明细 -> dws.dws_烟叶采购供应
 
 ---
 
-## 11. 测试
-
+## 12. 测试
 ```bash
 .venv/bin/python -m pytest -q
 ```
 
-真实运行输出（**312 个用例全通过**）：
+真实运行输出（**362 个用例全通过**）：
 
 ```text
 $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
       .venv/bin/python -m pytest -o addopts="" -q
-........................................................................ [ 23%]
-........................................................................ [ 46%]
-........................................................................ [ 69%]
-........................................................................ [ 92%]
-........................                                                 [100%]
-312 passed in 23.67s
+........................................................................ [ 19%]
+........................................................................ [ 39%]
+........................................................................ [ 59%]
+........................................................................ [ 79%]
+........................................................................ [ 99%]
+..                                                                       [100%]
+362 passed in 25.85s
 ```
 
 分文件统计（用例数）：
@@ -2504,6 +2962,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 | `tests/test_knowledge.py` | 52 | P4 口径知识库：表达式归一化 / 聚合剥离 / 中文化、中文业务名推断优先级、注释挖掘（文件头 / 行内 / 表级 COMMENT）、口径提炼（类型 / 公式 / 依赖 / 来源）、rebuild 幂等（内容指纹）、增量 upsert、孤立记录清理、检索打分、问数意图识别与无 LLM 降级、CLI 子命令、HTTP 处理函数、Markdown 导出 |
 | `tests/test_knowledge_integrate.py` | 12 | P5 血缘 × 业务口径一体化：目标字段抽取（去重 / 保序 / 容错）、口径匹配（公式 / 类型 / 置信度 / 依赖 / 链路 / 排序）、术语与业务规则、匹配不到不报错，以及 `/analyze` 是 `/parse` 超集、知识库缺失/空库/损坏/`with_knowledge=false` 四种降级 |
 | `tests/test_report.py` | 23 | P5.1 HTML 报告：报告 ID 与文件名清洗（防路径穿越）、渲染结构（标题栏 / 表级流向 / 字段真表格 / 口径卡片 / 内联 SVG / 页脚）、**零外部依赖**（无外链 script/link/img/@import）、HTML 转义（`<script>` 不落地）、空数据与知识库缺失降级、SVG 退回表级血缘、口径排序（聚合 > 比率 > …，置信度降序）、落盘 / URL 拼装 / 环境变量覆盖 / 只保留最近 N 份，以及**真起 `ThreadingHTTPServer` 验 `POST /report` → `GET /report/<id>`（200 + `text/html`）/ `/reports` 清单 / 404 分支** 与 `/analyze` 的 `report` 段 |
+| `tests/test_generate.py` | 50 | **P7 生成引擎**：L1 模板拼接（分区 / 聚合 / `GROUP BY` / 目标列覆盖率 / `all_columns` 补齐 / 显式 JOIN 覆盖）、知识库口径复用（`产量 = 打码量 + 跳码量 − 重码量` → 真实列名）、知识库缺失与指标无法解析时的降级（只给 warnings、不编字段）、生成 SQL 必须能被血缘引擎回解；L2 四段链路（层序 / 段间依赖 / 链路外依赖 / 段数上限 / 新建表模式）；L3 工作流 JSON 结构（任务 / 依赖 / 画布坐标）、默认不创建、打 `tests/ds_mock.py` 真创建 + 回读、同名工作流先删后建、海豚不可达降级；L4 校验通过（9 条边与 `warehouse_graph.json` 完全一致、口径全一致）+ 跨层直连 / 环路 / 断链孤岛 / 口径缺失 / 解析失败五类问题检出 + HTML 报告落盘与渲染；`/generate/*` 四个 HTTP 处理函数与路由注册；CLI 四个子命令的 `--json` 输出与退出码；可插拔 LLM（未配 key 走模板、注入假客户端时只评审不改写 SQL、编造的表名被丢弃） |
 | `tests/test_workflow.py` | 20 | **P6 工作流级血缘**：起 `tests/ds_mock.py` 的模拟海豚，验证「登录 → 拉工作流定义 → 批量解析（`sql` + SHELL 里多语句）→ 合并表级/字段级/任务级血缘 → 全链路 chain」；任务类型过滤、按名定位与 `scope=project` 全项目分析、四类质量体检（断链 / 孤岛 / 环路 / 未登记口径）；降级五连（缺目标 / 找不到工作流 / 密码错 / 连不上海豚 / 知识库关掉或不存在）；纯函数单测（`_longest_chain` 优先 ods 起点、`_find_cycles` 检出环、`_stitch_chain` 拼全局血缘、`_quality` 环+缺口径）；报告工作流模式（工作流概览 / 任务清单 / 链路质量体检 / 来源任务列 / 全链路图，且仍零外链）**与单任务报告未回归**；以及真起 `ThreadingHTTPServer` 验 `POST /analyze-workflow` 与 `/health` 端点清单 |
 
 > 汇总行（`N passed`）需要覆盖 `pytest.ini` 里的 `addopts = -q`：
@@ -2533,10 +2992,8 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 
 ---
 
-## 12. 已知限制（如实说明）
-
-### 12.1 字段级血缘（P1 继承）
-
+## 13. 已知限制（如实说明）
+### 13.1 字段级血缘（P1 继承）
 字段级血缘是 **语法级推导**，不依赖元数据，因此以下情况无法 100% 准确：
 
 1. **`SELECT *` 无法展开**：没有表结构（DDL / 元数据）就不知道 `*` 包含哪些列，只输出一条 `source_column="*"`、`resolved=false` 的记录。
@@ -2549,8 +3006,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 8. **不做语义校验**：不校验表是否存在、字段是否存在、类型是否匹配；不做函数语义展开（`SUM(a.qty)` 只记到 `a.qty`，不下推更细粒度）。
 9. **方言差异**：以 `hive` / `spark` 为主；`doris` / `postgres` 等已验证可跑通示例，但个别方言特性（如 Doris 的 `INSERT INTO ... WITH LABEL`）未必覆盖。
 
-### 12.2 图引擎与扫描（P2）
-
+### 13.2 图引擎与扫描（P2）
 1. **环路只报强连通分量级**：`detect_cycles()` 用 Tarjan SCC 找"哪里成环"，每个 SCC 再给一条示例环路；
    **不枚举一个 SCC 内所有简单环**（那是指数级问题，实践中也不需要）。
 2. **链路枚举有上限**：`upstream/downstream` 默认最多列 50 条链路（`--max-paths`），
@@ -2572,8 +3028,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 9. **HTML 未做浏览器端自动化测试**：开发环境是无图形界面的 WSL，用 QuickJS + DOM 桩执行内联 JS 做等价验证
    （算法与渲染调用是真跑的），但**没有**真浏览器端到端测试（如 Playwright）。
 
-### 12.3 DolphinScheduler 集成（P3）
-
+### 13.3 DolphinScheduler 集成（P3）
 1. **只覆盖任务参数里的脚本**：血缘来源是 `taskParams.sql` / `taskParams.rawScript` 里的文本。
    如果 SQL 是「从资源中心引用的 `.sql` 文件」「写在存储过程里」「由 Python 任务动态拼出来的」，
    拿不到文本就没有血缘（当前实现会把这些任务记为「无 SQL」，**不会**编造）。
@@ -2595,8 +3050,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 8. **未做增量 / 增量对比**：每次 `ds sync` 是全量拉取（几十个工作流量级没问题），
    没做「上一次血缘 vs 这一次血缘」的 diff 与告警（这也是 P4 的一个候选）。
 
-### 12.4 血缘 × 业务口径一体化（P5）
-
+### 13.4 血缘 × 业务口径一体化（P5）
 1. **匹配是「名字级」的，不是「语义级」的**：`/analyze` 拿 `(目标表, 目标字段)` 去 `kb_metrics`
    做大小写不敏感的精确匹配，再兜底取「目标表上的其余口径」。所以：
    口径库里没有登记的字段就一条都匹配不到（返回空数组，不猜、不编）；
@@ -2615,8 +3069,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 
 ---
 
-## 13. 后续规划
-
+## 14. 后续规划
 | 阶段 | 能力 | 说明 |
 | --- | --- | --- |
 | P1（已完成） | SQL 静态解析 + 表级/字段级血缘 + 过滤条件 + JSON/文本输出 + 单元测试 | 面向「单个 SQL 文件 / 一次解析」的血缘 |
@@ -2627,6 +3080,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 | P4.2 **智能问数** | NL → SQL 生成 → 用血缘/口径做**口径合规校验** → 结果解释与溯源（这条数来自哪几张表、什么口径、哪个调度任务产出的） | 最终形态：数据资产智能运营平台；P3 提供的「表 → 工作流 / 任务」映射可以做到「数不对时直接定位到调度节点」 |
 | **P5「血缘 × 业务口径」一体化（已完成）** | 血缘服务新增 `POST /analyze`（`/parse` 超集 + 知识库口径匹配，字段级命中 / 输出表兜底 / 术语 / 规则 / 上游链路，全降级不报错）；DolphinScheduler LINEAGE 任务插件（`ds-plugin/`）改调 `/analyze`，任务日志新增「⑤ 业务口径」段，出参加 `lineage_metric_count` / `lineage_metric_names` | 把「有血缘」推进到「有口径」：调度日志一眼看到本任务产出的指标怎么算、依赖谁、上游链路怎么走。实现见第 6.8.1 节 + `ds-plugin/README.md` |
 | **P6 工作流级血缘（已完成）** | 第二个任务类型 `LINEAGE_DAG` + 服务端 `POST /analyze-workflow`：挂在工作流尾部即可，运行时自动拉本工作流全部任务脚本批量解析，输出任务清单 / 全链路图谱 / 跨任务字段血缘 / 口径汇总 / 链路质量体检，并生成工作流级 HTML 报告；报告页支持「工作流模式」，单任务报告不受影响 | 把「一条 SQL 的血缘」升级为「一条调度链路（工作流）的血缘 + 体检」，且**历史工作流零改造**（原有 N 个任务一行不改，只加 1 个尾节点）。实现见第 6.8.3 节 + `ds-plugin/README.md` 第 7 章 |
+| **P7 生成引擎（已完成）** | 从业务需求**反向生成**数据链路：L1 单表加工 SQL 生成（知识库口径 + 存量字段血缘 → `INSERT OVERWRITE ... SELECT`，逐列 explain 依据、缺失即 warnings）；L2 分层链路生成（需求关键词 → 目标层表 → 逐层多段 SQL + 链路图）；L3 一键落地 DolphinScheduler（任务定义 + 依赖 + 画布坐标，默认只出 JSON，`--apply` 真调 API 创建并回读）；L4 反向校验（生成 SQL 过血缘引擎 → 断链/孤岛/环路/跨层直连/口径一致性/与血缘图对比 + HTML 体检报告）。模板引擎为主 + 可插拔 LLM，零新增运行期依赖 | 把项目的定位从「解析工具」推进到「数据开发助手」：看懂存量链路之后，能按需求**产出**新链路并自证正确性。实现见第 7 章 |
 | 可选工程化 | 图数据库替换内存图（Neo4j / NebulaGraph）、增量扫描（按文件 mtime 差分更新图）、**调度侧血缘 diff 与 CI 巡检**（`cycle`、`ds sync` 退出码已可直接接流水线）、调度变量替换后再解析 | 规模与稳定性工程 |
 
 > P2 特意**没有**引入图数据库和前端框架：演示环境可能没有外网/没有依赖安装权限，
@@ -2635,8 +3089,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 
 ---
 
-## 14. 环境说明
-
+## 15. 环境说明
 * 开发/验证环境：WSL2 Ubuntu 22.04，Python 3.11.15（venv），sqlglot 30.18.0，pytest 9.1.1，quickjs 1.19.4（可选，用于真跑 HTML 内联 JS）
 * **P3 调度侧环境**：Docker 里的 `apache/dolphinscheduler-standalone-server:3.2.2`
   （容器名 `ds-standalone`，`-p 12345:12345`），账号 `admin / dolphinscheduler123`；

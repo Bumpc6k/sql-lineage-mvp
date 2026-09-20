@@ -14,6 +14,12 @@
   提供 ``POST /analyze-workflow`` —— 拉取**一整个工作流**的全部任务脚本批量解析，合并成
   工作流级血缘（跨任务表级链路 / 任务级依赖 / 跨任务字段血缘），再做断链·孤岛·环路·未登记口径
   四类链路质量体检，并落一份工作流级 HTML 报告（``lineage.report`` 的「工作流模式」）。
+* **P7 生成引擎**（``lineage.generate``，**按需导入**、不在本文件里 eager import）：
+  反过来从业务需求**生成**加工 SQL 与数据链路 —— L1 单表加工 SQL 生成（知识库口径 + 存量字段
+  血缘 → ``INSERT OVERWRITE ... SELECT``，逐列 explain 依据）、L2 分层链路生成（ods→dwd→dws→ads）、
+  L3 一键落地 DolphinScheduler、L4 反向校验（生成 SQL 过血缘引擎 → 断链/孤岛/环路/跨层直连/
+  口径一致性体检 + HTML 报告）。CLI：``generate sql|pipeline|apply|validate``；
+  HTTP：``/generate/sql|pipeline|apply|validate``。
 """
 
 from .ds_client import DsApiError, DsAuthError, DsClient, DsConnectionError, extract_scripts

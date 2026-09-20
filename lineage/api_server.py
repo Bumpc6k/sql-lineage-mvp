@@ -28,6 +28,23 @@
   POST /kb/search                 {"query": "产量", "kinds": ["metrics"], "limit": 20} → 知识检索
   POST /kb/ask                    {"question": "产量怎么算的", "use_llm": "auto"} → 问数（口径/血缘/术语）
   GET  /kb/metric?name=产量        指标口径详情（公式 + 依赖 + 血缘链路）
+  POST /generate/sql              {"source_tables": ["ods.ods_卷烟产量流水"],
+                                   "target_table": "cdw.dwd_卷烟产量明细",
+                                   "metrics": ["产量"], "group_by": ["plant_code"],
+                                   "partition_field": "dt", "dialect": "hive"}
+                                  → L1 单表加工 SQL 生成（知识库口径 → INSERT OVERWRITE ... SELECT），
+                                    每一列都带 explain 依据，无法确认的部分进 warnings
+  POST /generate/pipeline         {"requirement": "生成产销存月报", "target_layer": "ads",
+                                   "max_stages": 4, "dialect": "hive"}
+                                  → L2 分层链路生成（ods→dwd→dws→ads 多段 SQL + 链路图）
+  POST /generate/apply            {"pipeline": {...L2 返回...}, "project_code": 123,
+                                   "workflow_name": "wf_gen_产销存月报", "create_workflow": false,
+                                   "env": "hive"}
+                                  → L3 转成 DolphinScheduler 工作流定义；create_workflow=true 时
+                                    真实调海豚 API 创建（同名先 OFFLINE 再删除）并回读校验
+  POST /generate/validate         {"pipeline": {...} 或 "stages": [...] 或 "sql_list": [...]}
+                                  → L4 反向校验：生成的 SQL 过血缘引擎 → 合并链路 → 体检
+                                    （断链/孤岛/环路/跨层直连/口径一致性/与血缘图对比）+ HTML 报告
 """
 import argparse
 import json
@@ -62,6 +79,12 @@ from lineage.knowledge import (  # noqa: E402
     knowledge_unavailable,
 )
 from lineage.workflow import analyze_workflow  # noqa: E402
+from lineage.generate import (  # noqa: E402
+    apply_pipeline,
+    generate_pipeline,
+    generate_sql,
+    validate_generation,
+)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_GRAPH = os.path.join(PROJECT_ROOT, "warehouse_graph.json")
@@ -377,6 +400,38 @@ def handle_analyze_workflow(payload: dict) -> dict:
                 "traceback": traceback.format_exc()[-1500:]}
 
 
+# --------------------------------------------------------------------------- #
+# P7：生成引擎端点（L1 单表加工 SQL / L2 分层链路 / L3 落地海豚 / L4 反向校验）
+# --------------------------------------------------------------------------- #
+def _generate(payload: dict, fn) -> dict:
+    """生成引擎端点的统一包装：内部异常也返回可读的业务错误（HTTP 一律 200）。"""
+    try:
+        return fn(payload)
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": f"{type(e).__name__}: {e}",
+                "traceback": traceback.format_exc()[-1500:]}
+
+
+def handle_generate_sql(payload: dict) -> dict:
+    """``POST /generate/sql``：L1 单表加工 SQL 生成。"""
+    return _generate(payload, generate_sql)
+
+
+def handle_generate_pipeline(payload: dict) -> dict:
+    """``POST /generate/pipeline``：L2 分层链路生成。"""
+    return _generate(payload, generate_pipeline)
+
+
+def handle_generate_apply(payload: dict) -> dict:
+    """``POST /generate/apply``：L3 链路转 DolphinScheduler 工作流（默认只出 JSON）。"""
+    return _generate(payload, apply_pipeline)
+
+
+def handle_generate_validate(payload: dict) -> dict:
+    """``POST /generate/validate``：L4 反向校验 + 体检报告。"""
+    return _generate(payload, validate_generation)
+
+
 ROUTES = {
     "/parse": handle_parse,
     "/analyze": handle_analyze,
@@ -388,6 +443,10 @@ ROUTES = {
     "/kb/search": handle_kb_search,
     "/kb/ask": handle_kb_ask,
     "/kb/metric": handle_kb_metric,
+    "/generate/sql": handle_generate_sql,
+    "/generate/pipeline": handle_generate_pipeline,
+    "/generate/apply": handle_generate_apply,
+    "/generate/validate": handle_generate_validate,
 }
 
 #: 支持 GET 的端点（其余为 POST）

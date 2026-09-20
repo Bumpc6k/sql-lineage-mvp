@@ -506,6 +506,18 @@ def _section_workflow(workflow: Dict[str, Any], parsed: Dict[str, Any]) -> str:
     quality_html += _items("dangling_outputs", "global_downstream", "→")
     quality_html += _items("orphan_inputs", "global_upstream", "←")
     quality_html += _items("missing_knowledge")
+    # 生成引擎（L4 反向校验）专用：分层规则违规（跨层直连）逐条列出
+    layer_rules = list(workflow.get("layer_rules") or [])
+    if layer_rules:
+        chips = "".join(
+            f'<span class="dep">{_esc(_text(item.get("source")))} → {_esc(_text(item.get("target")))}</span>'
+            for item in layer_rules[:8]
+        )
+        quality_html += (
+            '<div class="deplist" style="margin-top:10px">'
+            f'<span class="badge warn">⚠ 分层规则违规 {len(layer_rules)} 条'
+            f'（跨层直连，应逐层加工）</span>{chips}</div>'
+        )
 
     chain_html = (
         '<div class="path" style="margin-top:6px">' + _path_html(chain) + "</div>"
