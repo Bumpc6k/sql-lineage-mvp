@@ -1,0 +1,120 @@
+[Skip to content](https://github.com/WeBankFinTech/DataSphereStudio#start-of-content)
+
+You signed in with another tab or window. [Reload](https://github.com/WeBankFinTech/DataSphereStudio) to refresh your session.You signed out in another tab or window. [Reload](https://github.com/WeBankFinTech/DataSphereStudio) to refresh your session.You switched accounts on another tab or window. [Reload](https://github.com/WeBankFinTech/DataSphereStudio) to refresh your session.Dismiss alert
+
+{{ message }}
+
+[WeBankFinTech](https://github.com/WeBankFinTech)/ **[DataSphereStudio](https://github.com/WeBankFinTech/DataSphereStudio)** Public
+
+- [Notifications](https://github.com/login?return_to=%2FWeBankFinTech%2FDataSphereStudio) You must be signed in to change notification settings
+- [Fork\\
+1k](https://github.com/login?return_to=%2FWeBankFinTech%2FDataSphereStudio)
+- [Star\\
+3.3k](https://github.com/login?return_to=%2FWeBankFinTech%2FDataSphereStudio)
+
+
+master
+
+[**17** Branches](https://github.com/WeBankFinTech/DataSphereStudio/branches) [**14** Tags](https://github.com/WeBankFinTech/DataSphereStudio/tags)
+
+[Go to Branches page](https://github.com/WeBankFinTech/DataSphereStudio/branches)[Go to Tags page](https://github.com/WeBankFinTech/DataSphereStudio/tags)
+
+Go to file
+
+Code
+
+Open more actions menu
+
+## Latest commit
+
+[![htyredc](https://avatars.githubusercontent.com/u/49626898?v=4&size=40)](https://github.com/htyredc)[htyredc](https://github.com/WeBankFinTech/DataSphereStudio/commits?author=htyredc)
+
+[Merge pull request](https://github.com/WeBankFinTech/DataSphereStudio/commit/4af60cc6f5aea4c41434d489ccab6ea35e735d33) [#1149](https://github.com/WeBankFinTech/DataSphereStudio/pull/1149) [from WeDataSphere/master](https://github.com/WeBankFinTech/DataSphereStudio/commit/4af60cc6f5aea4c41434d489ccab6ea35e735d33)
+
+Open commit detailsfailure
+
+11 months agoOct 14, 2025
+
+[4af60cc](https://github.com/WeBankFinTech/DataSphereStudio/commit/4af60cc6f5aea4c41434d489ccab6ea35e735d33) · 11 months agoOct 14, 2025
+
+## History
+
+[12,523 Commits](https://github.com/WeBankFinTech/DataSphereStudio/commits/master/)
+
+Open commit details
+
+[View commit history for this file.](https://github.com/WeBankFinTech/DataSphereStudio/commits/master/) 12,523 Commits
+
+## Folders and files
+
+| Name | Name | Last commit message | Last commit date |
+| --- | --- | --- | --- |
+| [.github](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/.github ".github") | [.github](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/.github ".github") |  |  |
+| [assembly](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/assembly "assembly") | [assembly](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/assembly "assembly") |  |  |
+| [conf](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/conf "conf") | [conf](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/conf "conf") |  |  |
+| [db](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/db "db") | [db](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/db "db") |  |  |
+| [dss-appconn](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-appconn "dss-appconn") | [dss-appconn](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-appconn "dss-appconn") |  |  |
+| [dss-apps](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-apps "dss-apps") | [dss-apps](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-apps "dss-apps") |  |  |
+| [dss-commons](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-commons "dss-commons") | [dss-commons](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-commons "dss-commons") |  |  |
+| [dss-framework](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-framework "dss-framework") | [dss-framework](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-framework "dss-framework") |  |  |
+| [dss-git](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-git "dss-git") | [dss-git](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-git "dss-git") |  |  |
+| [dss-orchestrator](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-orchestrator "dss-orchestrator") | [dss-orchestrator](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-orchestrator "dss-orchestrator") |  |  |
+| [dss-server](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-server "dss-server") | [dss-server](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-server "dss-server") |  |  |
+| [dss-standard](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-standard "dss-standard") | [dss-standard](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/dss-standard "dss-standard") |  |  |
+| [images](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/images "images") | [images](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/images "images") |  |  |
+| [k8s](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/k8s "k8s") | [k8s](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/k8s "k8s") |  |  |
+| [next-web](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/next-web "next-web") | [next-web](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/next-web "next-web") |  |  |
+| [plugins](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/plugins "plugins") | [plugins](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/plugins "plugins") |  |  |
+| [sbin](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/sbin "sbin") | [sbin](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/sbin "sbin") |  |  |
+| [web](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/web "web") | [web](https://github.com/WeBankFinTech/DataSphereStudio/tree/master/web "web") |  |  |
+
+[... middle omitted — see footer ...]
+
+
+[github.com/WeBankFinTech/DataSphereStudio-Doc](https://github.com/WeBankFinTech/DataSphereStudio-Doc)
+
+### Topics
+
+[airflow](https://github.com/topics/airflow) [atlas](https://github.com/topics/atlas) [azkaban](https://github.com/topics/azkaban) [dataworks](https://github.com/topics/dataworks) [davinci](https://github.com/topics/davinci) [dolphinscheduler](https://github.com/topics/dolphinscheduler) [flink](https://github.com/topics/flink) [governance](https://github.com/topics/governance) [griffin](https://github.com/topics/griffin) [hadoop](https://github.com/topics/hadoop) [hive](https://github.com/topics/hive) [hue](https://github.com/topics/hue) [kettle](https://github.com/topics/kettle) [linkis](https://github.com/topics/linkis) [spark](https://github.com/topics/spark) [supperset](https://github.com/topics/supperset) [tableau](https://github.com/topics/tableau) [visualis](https://github.com/topics/visualis) [workflow](https://github.com/topics/workflow) [zeppelin](https://github.com/topics/zeppelin)
+
+### Resources
+
+[Readme](https://github.com/WeBankFinTech/DataSphereStudio#readme-ov-file)
+
+[Apache-2.0 license](https://github.com/WeBankFinTech/DataSphereStudio#Apache-2.0-1-ov-file)
+
+[Activity](https://github.com/WeBankFinTech/DataSphereStudio/activity)
+
+[Custom properties](https://github.com/WeBankFinTech/DataSphereStudio/custom-properties)
+
+### Stars
+
+**3.3k** stars
+
+### Watchers
+
+**177** watching
+
+### Forks
+
+[**1.0k** forks](https://github.com/WeBankFinTech/DataSphereStudio/forks)
+
+[Report repository](https://github.com/contact/report-content?content_url=https%3A%2F%2Fgithub.com%2FWeBankFinTech%2FDataSphereStudio&report=WeBankFinTech+%28user%29)
+
+## Releases
+
+## Packages
+
+## Used by
+
+## Contributors
+
+## Languages
+
+You can’t perform that action at this time.
+
+──────── [TRUNCATED] ────────
+Showing 5,940 chars (head) + 1,796 chars (tail) of 29,054 total clean characters.
+Full text saved to: /root/.hermes/cache/web/github.com-5d3103c040.md
+To read the omitted middle: read_file path="/root/.hermes/cache/web/github.com-5d3103c040.md" offset=70 limit=200  (the file is the complete page; raise/lower offset to page through it).
+─────────────────────────────

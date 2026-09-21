@@ -1,0 +1,298 @@
+Loading \[MathJax\]/jax/output/CommonHTML/config.js
+
+[用户6070864](https://cloud.tencent.com/developer/user/6070864)
+
+作者相关精选
+
+## 元数据管理平台对比预研 Atlas VS Datahub VS Openmetadata
+
+关注作者
+
+[_腾讯云_](https://cloud.tencent.com/?from=20060&from_column=20060)
+
+[_开发者社区_](https://cloud.tencent.com/developer)
+
+[文档](https://cloud.tencent.com/document/product?from=20702&from_column=20702) [建议反馈](https://cloud.tencent.com/voc/?from=20703&from_column=20703) [控制台](https://console.cloud.tencent.com/?from=20063&from_column=20063)
+
+登录/注册
+
+[首页](https://cloud.tencent.com/developer)
+
+学习
+
+活动
+
+专区
+
+圈层
+
+工具
+
+[MCP广场![](https://qccommunity.qcloudimg.com/image/new.png)](https://cloud.tencent.com/developer/mcp)
+
+文章/答案/技术大牛搜索
+
+搜索关闭
+
+发布
+
+用户6070864
+
+[社区首页](https://cloud.tencent.com/developer) > [专栏](https://cloud.tencent.com/developer/column) >元数据管理平台对比预研 Atlas VS Datahub VS Openmetadata
+
+# 元数据管理平台对比预研 Atlas VS Datahub VS Openmetadata
+
+发布于 2024-01-04 23:54:10
+
+发布于 2024-01-04 23:54:10
+
+8.3K0
+
+举报
+
+文章被收录于专栏：[实时流式计算](https://cloud.tencent.com/developer/column/79937)实时流式计算
+
+关联问题
+
+换一批
+
+[元数据管理平台Atlas的特点是什么？](https://copilot.tencent.com/chat?s=%E5%85%83%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E5%B9%B3%E5%8F%B0Atlas%E7%9A%84%E7%89%B9%E7%82%B9%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F&gwzcw.9271036.9271036.9271036&utm_medium=cpc&utm_id=gwzcw.9271036.9271036.9271036)
+
+[Datahub在元数据管理方面有哪些优势？](https://copilot.tencent.com/chat?s=Datahub%E5%9C%A8%E5%85%83%E6%95%B0%E6%8D%AE%E7%AE%A1%E7%90%86%E6%96%B9%E9%9D%A2%E6%9C%89%E5%93%AA%E4%BA%9B%E4%BC%98%E5%8A%BF%EF%BC%9F&gwzcw.9271036.9271036.9271036&utm_medium=cpc&utm_id=gwzcw.9271036.9271036.9271036)
+
+[Openmetadata与Atlas和Datahub相比有何独特之处？](https://copilot.tencent.com/chat?s=Openmetadata%E4%B8%8EAtlas%E5%92%8CDatahub%E7%9B%B8%E6%AF%94%E6%9C%89%E4%BD%95%E7%8B%AC%E7%89%B9%E4%B9%8B%E5%A4%84%EF%BC%9F&gwzcw.9271036.9271036.9271036&utm_medium=cpc&utm_id=gwzcw.9271036.9271036.9271036)
+
+大家好，我是独孤风。元数据管理平台层出不穷，但目前主流的还是Atlas、Datahub、Openmetadata三家，那么我们该如何选择呢？
+
+本文就带大家对比一下,这三个平台优势劣势。要了解元数据管理平台，先要从架构说起。
+
+**元数据管理的架构与开源方案**
+
+下面介绍元数据管理的架构实现，不同的架构都对应了不同的开源实现。
+
+下图描述了第一代元 [数据架构](https://cloud.tencent.com/developer/techpedia/1639?from_column=20065&from=20065)。它通常是一个经典的单体前端（可能是一个 Flask 应用程序），连接到主要存储进行查询（通常是 MySQL/Postgres），一个用于提供搜索查询的搜索索引（通常是 Elasticsearch），并且对于这种架构的第 1.5 代，也许一旦达到关系数据库的“递归查询”限制，就使用了处理谱系（通常是 Neo4j）图形查询的图形索引。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/c3e06432a41c2fcccb22bbbb49703ce3.png)
+
+很快，第二代的架构出现了。单体应用程序已拆分为位于元数据存储数据库前面的服务。该服务提供了一个 API，允许使用推送机制将元数据写入系统。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/7d0417f377e08a7c1940d78a6eed8080.png)
+
+第三代架构是基于事件的元数据管理架构，客户可以根据他们的需要以不同的方式与元数据数据库交互。
+
+元数据的低延迟查找、对元数据属性进行全文和排名搜索的能力、对元数据关系的图形查询以及全扫描和分析能力。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/c79b149f1f610fed70b641c684940c5a.png)
+
+Datahub 就是采用的这种架构。
+
+下图是当今元数据格局的简单直观表示：
+
+（包含部分非开源方案）
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/a07bdb519dbc4200308dfeec0d35a9a9.png)
+
+### **Apache Atlas**
+
+Atlas是Hadoop的数据治理和元数据框架。Atlas于2015年7月开始在Hortonworks进行孵化。
+
+官网地址为：https://atlas.apache.org/
+
+源码地址为：https://github.com/apache/atlas
+
+目前标星1.7K，最新稳定版本2.3.0。
+
+开发语言后端主要为Java，前端功能主要为JS实现。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/71b44b59d45a913c26d00d076a9755b4.png)
+
+特性
+
+- Atlas支持各种Hadoop和非Hadoop元数据类型
+- 提供了丰富的REST API进行集成
+- 对数据血缘的追溯达到了字段级别，这种技术还没有其实类似框架可以实现
+- 对权限也有很好的控制
+
+Atlas包括以下组件：
+
+- 采用Hbase存储元数据
+- 采用Solr实现索引
+- Ingest/Export 采集导出组件 Type System类型系统 Graph Engine图形引擎 共同构成Atlas的核心机制
+- 所有功能通过API向用户提供，也可以通过Kafka消息系统进行集成
+- Atlas支持各种源获取元数据：Hive，Sqoop，Storm。。。
+- 还有优秀的UI支持
+
+Atlas是Hadoop生态的嫡系，并且天然的集成在Ambari中（不过版本较低，建议自己安装）。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/f5c807d39fe8177513d71ef536ada763.png)
+
+Atlas对Hive的支持极好，对Spark也有一定的支持。
+
+如果熟悉Atlas的API，也可以很好的扩展。
+
+但由于社群活跃度一般，Atlas后期更新乏力。
+
+页面也还是老样子，新版本的页面并不完善，所以还有有很大的局限性。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/e7e2ae7460f7305eb9118d1f273f8b24.png)
+
+### **DataHub (LinkedIn）**
+
+LinkedIn开源出来的，原来叫做WhereHows 。经过一段时间的发展datahub于2020年2月在Github开源。
+
+官网地址为：https://datahubproject.io/
+
+源码地址为：https://github.com/linkedin/datahub
+
+目前标星8.8K，最新稳定版本0.12.0。
+
+开发语言为Java和Python。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/ca006835e7c4aba6c834b0fe1c182bf1.png)
+
+DataHub是由LinkedIn的数据团队开源的一款提供元数据搜索与发现的工具。
+
+提到LinkedIn，不得不想到大名鼎鼎的Kafka，Kafka就是LinkedIn开源的。LinkedIn开源的Kafka直接影响了整个实时计算领域的发展，而LinkedIn的数据团队也一直在探索数据治理的问题，不断努力扩展其基础架构，以满足不断增长的大数据生态系统的需求。随着数据的数量和丰富性的增长，数据科学家和工程师要发现可用的数据资产，了解其出处并根据见解采取适当的行动变得越来越具有挑战性。为了帮助增长的同时继续扩大生产力和数据创新，创建了通用的元数据搜索和发现工具DataHub。
+
+由于背后有商业化的规划，并且社区活跃，近两年Datahub的更新异常活跃。也将自己的定位为基于现代数据栈的元数据平台。DataHub实现了端到端的数据发现，数据可观察性和数据治理。并且为开发人员提供了丰富的扩展接口，其目的就是应对不断变化的数据生态。事实证明，元数据管理就应该这样去建设。DataHub提供了跨数据库、 [数据仓库](https://cloud.tencent.com/developer/techpedia/1534?from_column=20065&from=20065)、数据湖、 [数据可视化](https://cloud.tencent.com/developer/techpedia/1535?from_column=20065&from=20065) 工具的搜索与发现功能。实现端到端的全流程数据血缘的构建。DataHub是实时的元数据捕捉框架，可以实时感应元数据的变化。同时支持标签，术语表，业务域等元数据的管理。DataHub还提供了丰富的权限支持。在最新的DataHub版本中，可以在页面上去进行元数据的获取操作。DataHub支持的数据源非常丰富，如Tableai、PowerBI、Superset等数据可视化工具。也支持Airflow、Spark、ES、Kafka、Hive、Mysql、Oracle等大数据组件的元数据的获取。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/9dae29ebfc282be26b1b22407496ad33.png)
+
+Datahub的页面经过最新的改版，规划也较为合理，美观。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/06ff743f60d80e3b0fcdd49bff705374.png)
+
+### **Openmatadata**
+
+OpenMetadata是一个用于数据治理的一体化平台，可以帮助我们发现，协作，并正确的获取数据。
+
+OpenMetadata提供了数据发现、数据血缘、数据质量、数据探查、数据治理和团队协作的一体化平台。它是发展最快的开源项目之一，拥有充满活力的社区，并被各行业垂直领域的众多公司采用。OpenMetadata 由基于开放元数据标准和API 的集中式元数据存储提供支持，支持各种数据服务的连接器，可实现端到端元数据管理，让您可以自由地释放数据资产的价值。
+
+官网地址：https://open-metadata.org/
+
+源码地址：https://github.com/open-metadata/OpenMetadata
+
+目前标星3.4K,最新版本为1.2.3。
+
+主要开发语言，后端为Java，前端为TS。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/8e9f9bfe075aa74cce26ae5fc3d2d4b0.png)
+
+其UI非常美观，其操作和使用逻辑，也符合业务人员的习惯。
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/b6ab27f671dd1d89764f4f5fb705ac9f.png)
+
+![](https://developer.qcloudimg.com/http-save/yehe-6070864/d25b9c2a38a7b22a2ef5950936a5d51a.png)
+
+### **优缺点对比**
+
+**Datahub:**
+
+优势:
+
+强大的数据发现和搜索功能，方便用户快速定位所需数据。
+
+提供数据质量元数据，帮助用户理解和信任数据。
+
+支持多种数据源，包括传统的关系数据库和现代的数据湖。
+
+社区活跃，不断有新功能和改进加入。
+
+劣势: 初学者可能会觉得界面和配置相对复杂。
+
+在某些情况下，集成新的数据源可能需要额外的开发工作。
+
+**Atlas:**
+
+优势:
+
+与Apache Hadoop生态系统深度集成，特别适合Hadoop用户。
+
+提供强大的数据血缘和分类功能，有助于数据治理。
+
+支持自定义的元数据类型和模型。
+
+开源，有较大的社区支持和贡献。
+
+劣势:
+
+主要针对Hadoop生态系统，可能不适合非Hadoop环境。
+
+用户界面和用户体验不如一些商业产品。
+
+**OpenMetadata:**
+
+优势:
+
+设计现代且用户友好，易于使用。
+
+强调社交元数据管理，如用户评分、评论和讨论。
+
+提供丰富的API，便于与其他系统集成。
+
+持续更新和改进，反映了最新的数据管理趋势。
+
+劣势:
+
+相比Datahub和Atlas，社区相对较小，可能在某些特定功能上支持有限。
+
+作为较新的平台，可能还在某些方面需要时间来成熟。
+
+### **如何选择？**
+
+毫无疑问，从活跃度和发展趋势来看，Datahub都是目前最炙手可热的元数据管理平台。Openmatadata更有数据治理、数据资产管理平台的样子。而Atlas和Hadoop联系紧密，也有自己优势。
+
+那么我们该如何选择呢？首先应该明确需求。
+
+
+[... middle omitted — see footer ...]
+
+- [语音识别](https://cloud.tencent.com/product/asr?from=20064&from_column=20064)
+
+### 更多推荐
+
+- [数据安全](https://cloud.tencent.com/solution/data_protection?from=20064&from_column=20064)
+- [负载均衡](https://cloud.tencent.com/product/clb?from=20064&from_column=20064)
+- [短信](https://cloud.tencent.com/product/sms?from=20064&from_column=20064)
+- [文字识别](https://cloud.tencent.com/product/ocr?from=20064&from_column=20064)
+- [云点播](https://cloud.tencent.com/product/vod?from=20064&from_column=20064)
+- [大数据](https://cloud.tencent.com/product/bigdata-class?from=20064&from_column=20064)
+- [小程序开发](https://cloud.tencent.com/solution/la?from=20064&from_column=20064)
+- [网站监控](https://cloud.tencent.com/product/tcop?from=20064&from_column=20064)
+- [数据迁移](https://cloud.tencent.com/product/cdm?from=20064&from_column=20064)
+
+Copyright © 2013 - 2026 Tencent Cloud. All Rights Reserved. 腾讯云 版权所有
+
+[深圳市腾讯计算机系统有限公司](https://qcloudimg.tencent-cloud.cn/raw/986376a919726e0c35e96b311f54184d.jpg) ICP备案/许可证号： [粤B2-20090059](https://beian.miit.gov.cn/#/Integrated/index)![](https://qcloudimg.tencent-cloud.cn/raw/eed02831a0e201b8d794c8282c40cf2e.png) [粤公网安备44030502008569号](https://beian.mps.gov.cn/#/query/webSearch?code=44030502008569)
+
+[腾讯云计算（北京）有限责任公司](https://qcloudimg.tencent-cloud.cn/raw/a2390663ee4a95ceeead8fdc34d4b207.jpg) 京ICP证150476号 \|  [京ICP备11018762号](https://beian.miit.gov.cn/#/Integrated/index)
+
+[问题归档](https://cloud.tencent.com/developer/ask/archives.html) [专栏文章](https://cloud.tencent.com/developer/column/archives.html) [快讯文章归档](https://cloud.tencent.com/developer/news/archives.html) [关键词归档](https://cloud.tencent.com/developer/information/all.html) [开发者手册归档](https://cloud.tencent.com/developer/devdocs/archives.html) [开发者手册 Section 归档](https://cloud.tencent.com/developer/devdocs/sections_p1.html)
+
+登录 后参与评论
+
+1
+
+目录
+
+100
+
+推荐
+
+[首页](https://cloud.tencent.com/developer)
+
+[MCP广场![](https://qccommunity.qcloudimg.com/image/new.png)](https://cloud.tencent.com/developer/mcp)
+
+[返回腾讯云官网](https://cloud.tencent.com/?from=20060&from_column=20060)
+
+[首页](https://cloud.tencent.com/developer)
+
+[MCP广场![](https://qccommunity.qcloudimg.com/image/new.png)](https://cloud.tencent.com/developer/mcp)
+
+[返回腾讯云官网](https://cloud.tencent.com/?from=20060&from_column=20060)
+
+──────── [TRUNCATED] ────────
+Showing 6,700 chars (head) + 2,243 chars (tail) of 28,468 total clean characters.
+Full text saved to: /root/.hermes/cache/web/cloud.tencent.com-f5890a49ab.md
+To read the omitted middle: read_file path="/root/.hermes/cache/web/cloud.tencent.com-f5890a49ab.md" offset=247 limit=200  (the file is the complete page; raise/lower offset to page through it).
+─────────────────────────────

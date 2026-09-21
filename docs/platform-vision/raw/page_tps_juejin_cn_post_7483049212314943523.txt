@@ -1,0 +1,288 @@
+# DataWorks ：Data+AI 一体化开发实战图谱
+
+[阿里云大数据AI技术](https://juejin.cn/user/2414974667341287/posts)
+
+2025-03-18
+
+530
+
+阅读8分钟
+
+
+关注
+
+在数字经济时代，企业正面临数据规模指数级增长与AI应用场景爆发式增长的双重挑战，企业数据工程师也面临着双重挑战：既要应对PB级数据处理需求，又要驾驭AI工程化落地的复杂性。
+
+阿里云DataWorks作为国内领先的一站式智能数据开发治理平台，内置阿里巴巴十余年大数据建设方法论，为数据仓库、数据湖、OpenLake湖仓一体数据架构提供Data+AI数据架构开发、数据分析与主动式数据资产治理服务。通过数据开发Data Studio 个人开发环境实例支持Python开发、Notebook分析与Git集成，同时支持丰富多样的插件生态，实现了实时离线一体化、湖仓一体化、大数据AI一体化，助力“Data+AI”全生命周期的数据管理。
+
+自2009年起，DataWorks不断对阿里巴巴数据体系进行产品化沉淀，服务于政务、金融、零售、互联网、汽车、制造等行业，使数以万计的客户信赖并选择DataWorks进行数字化升级和价值创造。
+
+## DataWorks 数据开发核心能力全景图
+
+### 一、AI原生开发环境
+
+#### 智能算力调度
+
+- **支持CPU/GPU混合资源池化调度：** DataWorks Serverless资源组支持配置 **CPU** 类型和 **GPU** 类型的资源。以免运维、按需付费、弹性伸缩的Serverless架构，将大数据处理与AI开发能力无缝融合。开发者在创建个人开发环境时，可以按需选择个人开发环境实例的资源规格，以支持进行高性能的计算工作。
+
+![](https://intranetproxy.alipay.com/skylark/lark/0/2025/png/14771/1741835638849-3b3f6cf0-8cd7-416c-88e6-3f5e11e941a8.png)
+
+#### 全栈开发支持
+
+- **深度集成阿里云DSW，提供AI原生的Python开发环境：** 在个人开发环境下，Data Studio支持Python语言的智能生成、一键纠错、注释生成及代码解释等能力，开发效率翻倍，同时支持Python的可视化断点调试、代码即时运行以及发布到调度系统，实现了Python的全流程开发闭环。
+
+#### Notebook交互式编程
+
+- **提供交互式、灵活且可复用的数据处理和分析环境 Notebook：** 增强了数据开发与分析过程中的直观性、模块化和交互性，帮助您更轻松地进行数据处理、探索、可视化和模型构建。
+
+![](https://intranetproxy.alipay.com/skylark/lark/0/2025/png/233238/1741430866012-2398c099-3a9f-4929-a373-ef530838f798.png)
+
+#### 跨域智能编排
+
+- **深度集成阿里云人工智能平台 PAI：** 数据开发 Data Studio支持PAI Flow节点，突破性实现可视化通过拖拽式编排大数据算子服务来构建PAI Flow节点，创新打造可无缝衔接MaxCompute、Hologres、PAI Flow节点等的WorkFlow，通过统一编排，打通数据处理与模型训练双闭环，自动生成全域数据血缘图谱，完整覆盖从特征工程到模型部署的智能链路。
+
+![](https://intranetproxy.alipay.com/skylark/lark/0/2025/png/14771/1741841653370-c035cb70-47e3-4129-ade2-ef05a77225aa.png)
+
+### 二、智能开发矩阵
+
+DataWorks Copilot，作为一站式智能数据开发治理平台 DataWorks 的智能助手，借助AI推理和自然语言处理能力，在代码开发场景下，帮助开发者根据自然语言快速完成多种代码相关操作，包括 SQL/Python 代码的生成、续写、改写、优化、解释及代码纠错/测试用例生成等功能。作为数据开发的智能引擎，能够根据上下文快速理解业务需求，在企业专属领域知识库的加持下，DataWorks Copilot让开发者能够轻松、高效、便捷地完成数据ETL及数据分析工作，节省时间和精力，据调研统计，DataWorks Copilot 可平均为数据开发和分析工作效率提升35%。
+
+![](https://intranetproxy.alipay.com/skylark/lark/0/2025/png/14771/1741849985656-66ad572f-bd41-462e-b23c-eadcf912a41c.png)
+
+#### 代码补全
+
+- DataWorks Copilot代码补全能力，可对您正在编写的SQL进行智能代码补全。
+
+#### 代码生成
+
+- 您可通过自然语言表达您的业务需求，DataWorks Copilot会将自然语言指令自动转换成SQL/Python语句。
+
+#### 代码改写
+
+- 您可通过自然语言对已有代码进行修改，只需要用自然语言说出您的要求，DataWorks Copilot就会对指定的代码进行改写；
+
+#### 代码纠错
+
+- 在DataWorks中，在代码执行前，您可以主动对已有代码进行错误检查；在代码运行出错后，也可以通过一键纠错，发起对代码错误的纠正。DataWorks Copilot会告诉您当前代码运行出错的原因以及修正后的代码。
+
+#### 代码解释
+
+- DataWorks Copilot可对您指定的代码内容进行解释，提升代码的可读性，方便您快速学习和理解代码。
+
+#### 生成注释
+
+- 您可以对指定的代码生成注释，提升代码的完整性及可读性。
+
+#### 代码问答
+
+- 您可以用自然语言提出对SQL语法或者MaxCompute函数的相关问题，DataWorks Copilot会给出解释和用法示例，帮助您加深对SQL语法及函数的理解。
+
+DataWorks Copilot在官方默认的模型基础上，深度对接 DeepSeek-R1 系列模型，支持用户在Copilot Chat对话时，自由选择所需模型。
+
+以下示例为在DeepSeek-R1 系列模型的加持下，DataWorks Copilot 新增实现的SQL优化与SQL测试功能。
+
+#### 代码优化
+
+- 在DataWorks Copilot Chat窗口中，您可以对指定的代码发起SQL优化，如引入JOIN结合多表等方式简化代码逻辑，提升代码运行效率，一定程度降低数据库的负载。
+
+#### 代码测试
+
+- 在DataWorks Copilot Chat窗口中，您可以对指定的代码生成测试用例。DataWorks Copilot会为您生成完整的代码测试报告，包含单元测试、代码性能、边界条件验证等多角度，并生成测试代码，您可据此逐步验证任务代码的每个部分是否按预期工作。
+
+### 三、Agent智能应用
+
+DataWorks Copilot 同时提供覆盖数据集成、数据开发、数据分析和数据治理等全链路的AI Agent服务，为开发者和企业用户提供智能化产品体验，以高效完成 DataWorks 产品操作。
+
+#### AI可视化建表
+
+- 在Data Studio-数据目录中，借助DataWorks Copilot建表助手，您只需输入表名关键字即可完成表的创建。也可一键触发，智能推荐字段名称和字段描述的补全。
+
+#### 数据开发Agent
+
+- 在Data Studio-数据开发中，借助DataWorks Copilot发布助手，您可一键生成上线发布描述，提高发布效率。
+
+![](https://intranetproxy.alipay.com/skylark/lark/0/2025/png/14771/1741855718322-eff21442-4382-43e2-b648-06deda570fd3.png)
+
+#### 查询结果可视化图表及见解生成
+
+- 在DataWorks-数据开发/数据分析中，借助DataWorks Copilot智能图表助手，您可一键生成基于查询结果的可视化图表及数据见解。
+
+#### 智能数据洞察
+
+DataWorks数据洞察能够基于AI模型计算，智能分析海量数据的特征、分布、异常、关联及趋势，高效生成数据见解和可视化图表。您可以使用数据洞察了解数据分布，创建数据卡片，并组合成数据报告。
+
+#### 智能诊断专家
+
+DataWorks运维中心的智能诊断正式对接Qwen、DeepSeek-R1（671B）模型。当任务运行异常时，您只需点击运行诊断，大模型即可秒级提取日志中的关键信息、提供错误分析、解决建议，并推荐错误修复的快捷操作，让AI成为您的运维助手。![](https://intranetproxy.alipay.com/skylark/lark/0/2025/png/202018/1741784440295-a1041cfa-4117-41e5-92ac-a63e746be076.png)
+
+#### 数据质量规则
+
+DataWorks的数据质量规则模板可以帮助用户建设数据质量，在离线表上定义相关的规则。为优化手动配置规则的工作量，DataWorks的智能助手 DataWorks Copilot 推出了数据质量规则推荐功能，您可以使用这一功能，自动生成合适的数据质量规则，减少手动配置规则的时间和复杂性，提升数据质量工作效率，一键优化对核心表的数据质量保障。
+
+- 智能推荐数据质量规则：用户可以通过一键唤起Copilot的能力，基于DataWorks中完整的元数据信息，快速生成适用于特定数据表或业务场景的数据质量规则
+- 支持多种数据源类型：该功能支持常见的大数据引擎（如MaxCompute、E-MapReduce、Hologres等），并能够根据不同的数据源特性生成适配的规则
+- 多维度质量校验：推荐的规则覆盖数据质量的多个维度，包括完整性、准确性、有效性、一致性、唯一性和及时性，确保全面监控数据问题
+
+#### 数据服务API
+
+DataWorks数据服务能够借助Copilot智能助手进行快捷API封装，极速定义请求参数和返回参数。
+
+* * *
+
+## 即刻行动
+
+登录DataWorks体验智能开发，开启您的智能数据工程之旅 → [体验入口](https://link.juejin.cn/?target=https%3A%2F%2Fdata.aliyun.com%2F "https://data.aliyun.com/")
+
+更多案例，请进入 [DataWorks Gallery](https://link.juejin.cn/?target=https%3A%2F%2Fdataworks.console.aliyun.com%2Fgallery "https://dataworks.console.aliyun.com/gallery") 进行体验。
+
+标签：
+
+[大数据](https://juejin.cn/tag/%E5%A4%A7%E6%95%B0%E6%8D%AE) [数据分析](https://juejin.cn/tag/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90)
+
+话题：
+
+[每天一个知识点](https://juejin.cn/theme/detail/7243698841848348730?contentType=1)
+
+评论 0
+
+![avatar](https://lf-web-assets.juejin.cn/obj/juejin-web/xitu_juejin_web/58aaf1326ac763d8a1054056f3b7f2ef.svg)
+
+0/ 1000
+
+标点符号、链接等不计算在有效字数内
+
+
+Ctrl + Enter
+
+
+发送
+
+
+登录 / 注册即可发布评论！
+
+暂无评论数据
+
+![](https://lf-web-assets.juejin.cn/obj/juejin-web/xitu_juejin_web/c12d6646efb2245fa4e88f0e1a9565b7.svg)点赞
+
+
+[... middle omitted — see footer ...]
+
+
+[DataWorks Data Agent 实战课堂（五）：AI 多模态智能数据处理](https://juejin.cn/post/7675540232993652755 "DataWorks Data Agent 实战课堂（五）：AI 多模态智能数据处理")
+
+[DataWorks Data Agent实操，通过本次实操可以看到 DataWorks 数据集成 Agent 能力覆盖了 AI 数据处理任务的核心生命周期。](https://juejin.cn/post/7675540232993652755)
+
+- [阿里云大数据AI技术](https://juejin.cn/user/2414974667341287)
+
+- 1月前
+
+
+- 49
+- 点赞
+
+- 评论
+
+
+[人工智能](https://juejin.cn/tag/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD "人工智能") [Agent](https://juejin.cn/tag/Agent "Agent")
+
+![DataWorks Data Agent 实战课堂（五）：AI 多模态智能数据处理](https://p9-xtjj-sign.byteimg.com/tos-cn-i-73owjymdk6/22c466ba81334db39ec6d10b52cbbfdb~tplv-73owjymdk6-jj-mark-v1:0:0:0:0:5o6Y6YeR5oqA5pyv56S-5Yy6IEAg6Zi_6YeM5LqR5aSn5pWw5o2uQUnmioDmnK8=:q75.awebp?rk3s=f64ab15b&x-expires=1790609978&x-signature=a1WdDj3SSsSwg%2B9RZYv7%2Ba6cvjY%3D)
+
+收藏成功！
+
+已添加到「」， 点击更改
+
+- 微信
+![](https://juejin.cn/post/7483049212314943523)微信扫码分享
+
+- 新浪微博
+- QQ
+
+![image](https://lf-web-assets.juejin.cn/obj/juejin-web/xitu_juejin_web/img/cartoon.31472f0.png)
+
+AI代码助手上线啦
+
+选中代码，体验AI替你一键快速解读代码
+
+立即体验
+
+APP内打开
+
+- ![下载掘金APP](https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2ad212d53ccd44569d10317171664bae~tplv-k3u1fbpfcp-jj:90:0:0:0:q75.avis)下载APP
+
+
+
+
+
+
+
+
+
+
+下载APP
+- ![微信扫一扫](https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9f4933cc8fdb411cba89904f14a3ec0a~tplv-k3u1fbpfcp-jj:90:0:0:0:q75.avis)微信扫一扫
+
+
+
+
+
+
+
+
+
+
+微信公众号
+- [新浪微博](https://weibo.com/xitucircle)
+
+![](https://lf-web-assets.juejin.cn/obj/juejin-web/xitu_juejin_web/img/MaskGroup.13dfc4f.png)选择你感兴趣的技术方向
+
+后端
+
+
+前端
+
+
+Android
+
+
+iOS
+
+
+人工智能
+
+
+开发工具
+
+
+代码人生
+
+
+阅读
+
+
+跳过
+
+上一步
+
+至少选择1个分类
+
+
+![](https://lf-web-assets.juejin.cn/obj/juejin-web/xitu_juejin_web/8867e249c23a7c0ea596c139befc04d7.svg)
+
+温馨提示
+
+当前操作失败，如有疑问，可点击申诉
+
+前往申诉我知道了
+
+沉浸阅读
+
+
+确定屏蔽该用户
+
+屏蔽后，对方将不能关注你、与你产生任何互动，无法查看你的主页
+
+──────── [TRUNCATED] ────────
+Showing 5,199 chars (head) + 1,739 chars (tail) of 15,457 total clean characters.
+Full text saved to: /root/.hermes/cache/web/juejin.cn-34bf26d9e7.md
+To read the omitted middle: read_file path="/root/.hermes/cache/web/juejin.cn-34bf26d9e7.md" offset=167 limit=200  (the file is the complete page; raise/lower offset to page through it).
+─────────────────────────────

@@ -1,0 +1,73 @@
+# tencentmusic/supersonic
+URL: https://github.com/tencentmusic/supersonic
+
+# tencentmusic/supersonic
+
+SuperSonic is the next-generation AI+BI platform that unifies Chat BI (powered by LLM) and Headless BI (powered by semantic layer) paradigms.
+
+- Stars: 5030
+- Forks: 1001
+- Watchers: 5030
+- Open issues: 333
+- License: Other
+- Default branch: master
+- Created: 2023-06-12T07:23:28Z
+
+## Languages
+
+- Batchfile
+- CSS
+- Dockerfile
+- EJS
+- HTML
+- Java
+- JavaScript
+- Less
+- Python
+- Shell
+- TypeScript
+
+## Top Contributors
+
+- jerryjzhang (535 contributions)
+- lexluo09 (463 contributions)
+- lxwcodemonkey (283 contributions)
+- sevenliu1896 (152 contributions)
+- williamhuanliu (92 contributions)
+- jipeli (74 contributions)
+- daikon12 (64 contributions)
+- mainmainer (43 contributions)
+- QuantumBear (25 contributions)
+- zyclove (19 contributions)
+
+---
+
+## README
+
+ä¸­æç | æ¥æ¬èªç | Docs
+
+Java CI
+
+# SuperSonic
+
+SuperSonic is the next-generation AI+BI platform that unifies **Chat BI** (powered by LLM) and **Headless BI** (powered by semantic layer) paradigms. This unification ensures that Chat BI has access to the same curated and governed semantic data models as traditional BI. Furthermore, the implementation of both paradigms benefit from each other:
+
+- Chat BI's Text2SQL gets augmented with context-retrieval from semantic models.
+- Headless BI's query interface gets extended with natural language API.
+
+ 
+
+SuperSonic provides a **Chat BI interface** that empowers users to query data using natural language and visualize the results with suitable charts. To enable such experience, the only thing necessary is to build logical semantic models (definition of metric/dimension/tag, along with their meaning and relationships) through a **Headless BI interface**. Meanwhile, SuperSonic is designed to be extensible and composable, allowing custom implementations to be added and configured with Java SPI.
+
+ 
+
+## Motivation
+
+The emergence of Large Language Model (LLM) like ChatGPT is reshaping the way information is retrieved, leading to a new paradigm in the field of data analytics known as Chat BI. To implement Chat BI, both academia and industry are primarily focused on harnessing the power of LLMs to convert natural language into SQL, commonly referred to as Text2SQL or NL2SQL. While some approaches show promising results, their **reliability** falls short for large-scale real-world applications.
+
+Meanwhile, another emerging paradigm called Headless BI, which focuses on constructing unified semantic data models, has garnered significant attention. Headless BI is implemented through a universal semantic layer that exposes consistent data semantics via an open API.
+
+From our perspective, the integration of Chat BI and Headless BI has the potential to enhance the Text2SQL generation in two dimensions:
+
+1. Incorporate data semantics (such as business terms, column values, etc.) into the prompt, enabling LLM to better understand the semantics and **reduce hallucination**.
+2. Offload the generation of advanced SQL syntax (such as join, formula, etc.) from

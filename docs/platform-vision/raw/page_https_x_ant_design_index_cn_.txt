@@ -1,0 +1,12 @@
+# AI 体验新秩序
+## Ant Design 团队匠心呈现 RICH 设计范式，打造卓越 AI 界面解决方案，引领智能新体验。
+[开始使用](https://x.ant.design/components/introduce-cn)[设计语言](https://x.ant.design/docs/spec/introduce-cn)
+
+...
+
+## AI 设计语言与研发框架
+[![thumbnails](https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*poTnSZrI7-oAAAAAAAAAAAAADgCCAQ/fmt.webp)RICH 设计指南意图、角色、会话、混合
+UI](https://x.ant.design/docs/spec/introduce-cn)[![thumbnails](https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*Off_QYoo0GIAAAAAAAAAAAAADgCCAQ/fmt.webp)组件设计指引全局样式、设计模式](https://x.ant.design/docs/spec/hybrid-ui-design-cn)[![thumbnails](https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*AhrTT6K2vU0AAAAAAAAAAAAADgCCAQ/f
+mt.webp)组件库Ant Design of React / Angular / Vue](https://x.ant.design/components/overview-cn)[![https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*dUzuRJes4pUAAAAAAAAAAAAADgCCAQ/original](https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*dUzuRJes4pUAAAAAAAAAAAAADgCCAQ/original)Ant Design企业级 UI 设计语言和 React
+组件库](https://ant.design/)[![https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*rzh3RoWC9zAAAAAAAAAAAAAADgCCAQ/original](https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*rzh3RoWC9zAAAAAAAAAAAAAADgCCAQ/original)Ant Design MobileAnt Design移动端 UI
+组件库](https://mobile.ant.design/)[![https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*9MFyQ77L6E4AAAAAAAAAAAAADgCCAQ/fmt.webp](https://mdn.alipayobjects.com/huamei_iwk9zp/afts/img/A*9MFyQ77L6E4AAAAAAAAAAAAADgCCAQ/fmt.webp)AntV全新一代数据可视化解决方案](https://antv.vision/)

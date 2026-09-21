@@ -1,0 +1,195 @@
+# Chat UI Platform Selection Guide: Open WebUI vs LobeChat vs LibreChat
+
+A three-way comparison of open-source Chat UI platforms — Open WebUI (142k Stars), LobeChat, and LibreChat — across deployment, RAG, multi-model, user management, and extensibility.
+
+AgentList Team · 2026年6月22日
+
+Chat UIOpen WebUILobeChatLibreChat自托管开源大模型界面
+
+The open-source Chat UI landscape has settled into a de facto Big Three: [Open WebUI](/en/projects/open-webui-open-webui/) (142k Stars), LobeChat (79k Stars), and [LibreChat](/en/projects/danny-avila-LibreChat/) (40k Stars). All three offer self-hosted LLM chat interfaces, but their architectural philosophies differ fundamentally.
+
+The right choice isn't about "which has more features" — it's about "which design philosophy matches your needs." An Ollama power user, a multi-model switcher, and an enterprise team leader will each arrive at a different answer.
+
+This article provides a systematic comparison across five dimensions — deployment, RAG, multi-model support, user management, and extensibility — with concrete deployment commands and configuration examples.
+
+## At a Glance
+
+| Dimension | [Open WebUI](/en/projects/open-webui-open-webui/) | LobeChat | [LibreChat](/en/projects/danny-avila-LibreChat/) |
+|---|---|---|---|
+| Stars | 142k | 79k | 40k |
+| Tech Stack | SvelteKit 5 + FastAPI + SQLAlchemy 2 + ChromaDB | Next.js + TypeScript + Lobe-UI | Node.js + React + Express + MongoDB |
+| License | Custom (NOASSERTION) | Custom (NOASSERTION) | MIT |
+| Deployment | Single Docker container | Docker / Vercel | Docker Compose (~5 containers) |
+| Default DB | SQLite / PostgreSQL | PostgreSQL | MongoDB + Redis + MeiliSearch |
+| Core Positioning | Best Ollama companion, RAG out-of-the-box | Multi-model switching, plugin ecosystem, mobile-friendly | Enterprise multi-user, multi-agent, feature-complete |
+| Acquisition | Independent | Independent | Acquired by ClickHouse in Nov 2025 |
+
+## Open WebUI: The Official-Grade Ollama Companion
+
+Originally named Ollama Web UI, [Open WebUI](/en/projects/open-webui-open-webui/) was purpose-built for Ollama. It has since evolved into a fully featured self-hosted AI platform.
+
+### Architecture
+
+```
+SvelteKit 5 (frontend) + FastAPI (backend) + SQLAlchemy 2 (ORM) + ChromaDB (vector store)
+```
+
+A decoupled frontend-backend architecture. Unlike LobeChat and [LibreChat](/en/projects/danny-avila-LibreChat/)'s full-JS approach, [Open WebUI](/en/projects/open-webui-open-webui/)'s Python backend gives it a natural advantage when integrating with the Python AI toolchain (LangChain, LlamaIndex, ChromaDB).
+
+### One-Command Deploy
+
+```bash
+docker run -d -p 3000:8080 \
+  -v open-webui:/app/backend/data \
+  --name open-webui \
+  --restart always \
+  ghcr.io/open-webui/open-webui:main
+```
+
+Visit `http://localhost:3000` after startup — it auto-detects Ollama instances on the same network.
+
+### Key Features
+
+**Built-in RAG**: The most out-of-the-box RAG among the three. Upload documents — they are automatically chunked, vectorized, and stored in ChromaDB (or optionally Milvus/Qdrant). Supports PDF, Word, CSV, code files, and more.
+
+**RBAC**: Role-based access control (Admin/User/Pending) with email registration and OAuth (Google, GitHub, Microsoft, OpenID Connect). Model access and usage quotas can be set per user group.
+
+**MCP Tools**: Via the `mcpo` project, [Open WebUI](/en/projects/open-webui-open-webui/) loads MCP servers as tools.
+
+**Pipelines**: Write Python functions to intercept and modify requests/responses — useful for content filtering, custom prompt injection, and sensitive data redaction.
+
+**Voice/Video**: Built-in speech input and video call capabilities.
+
+**Model Builder**: Create and customize models via the Ollama Modelfile directly from the Web UI.
+
+### Best For
+
+- Users who primarily run Ollama for local models
+- Teams needing out-of-the-box RAG
+- Developers who prefer the Python ecosystem
+- Scenarios requiring custom pipelines
+
+## LobeChat: The Multi-Model Switching Benchmark
+
+LobeChat's design philosophy is "model first." Its core interaction is rapidly switching between AI providers, letting each model do what it does best.
+
+### Architecture
+
+```
+Next.js (frontend + SSR) + TypeScript + Lobe-UI component library + PostgreSQL
+```
+
+Pure TypeScript full-stack architecture using Next.js App Router and PostgreSQL (via Drizzle ORM). Can be deployed as a static frontend (Serverless mode) or with a database for persistence.
+
+### Deployment
+
+**Vercel One-Click Deploy**:
+
+```bash
+# Fork the repo, import to Vercel, set environment variables
+# Minimum: one AI provider API key
+```
+
+**Docker (Database mode)**:
+
+```bash
+docker run -d -p 3210:3210 \
+  -e DATABASE_URL=postgresql://user:pass@host:5432/lobechat \
+  -e KEY_VAULTS_SECRET=your-secret-key \
+  lobehub/lobe-chat-database
+```
+
+### Key Features
+
+**Agent Marketplace**: The richest agent template marketplace among the three. One-click install community-contributed agent presets including role settings, knowledge bases, and toolchains.
+
+**Plugin System**: Plugins defined via OpenAPI Schema. The plugin marketplace covers categories like search, image generation, code execution, and data queries.
+
+**MCP Marketplace**: Added in 2025, allowing users to browse and install MCP servers directly from the UI.
+
+**Artifacts**: Similar to Claude Artifacts — LLM-generated code or documents render in a dedicated panel with live preview.
+
+**Multi-AI Providers**: The widest coverage:
+
+- OpenAI (GPT-4o, GPT-4.1 series)
+- Anthropic (Claude Sonnet 4, Haiku 3.5)
+- Google (Gemini 2.5 Pro/Flash)
+- DeepSeek (DeepSeek-V3, DeepSeek-R1)
+- Ollama (all local models)
+- Qwen
+- Azure OpenAI, AWS Bedrock, Groq, Together AI, Perplexity
+Mix different models in a single conversation — route simple tasks to low-cost models and complex ones to flagship models.
+
+**TTS / STT**: Built-in speech synthesis and recognition, supporting OpenAI TTS, ElevenLabs, and local models.
+
+**Knowledge Base**: Upload documents to build a knowledge base for vector-search-enhanced conversations.
+
+### Best For
+
+- Users leveraging multiple AI providers (OpenAI + Claude + local)
+- Teams seeking agent templates and plugin ecosystems
+- Mobile-friendly experience (excellent PWA support)
+- Code preview via Artifacts
+
+## LibreChat: The Enterprise Multi-User Choice
+
+[LibreChat](/en/projects/danny-avila-LibreChat/) is the most feature-complete of the three, with enterprise capabilities that far exceed the other two. Its acquisition by ClickHouse in November 2025 brought significant additional resources.
+
+### Architecture
+
+```
+Node.js + React (frontend) + Express (backend) + MongoDB + Redis + MeiliSearch
+```
+
+
+[... middle omitted — see footer ...]
+
+
+### Choose Open WebUI if…
+
+- Ollama is your primary inference backend
+- RAG is your core use case
+- You want Python pipelines for request interception
+- You prefer single-container deployment
+
+### Choose LobeChat if…
+
+- You frequently switch between AI providers
+- You rely on agent templates and plugin ecosystem
+- You need mobile-friendly experience
+- You like Artifacts code preview
+
+### Choose LibreChat if…
+
+- You deploy for teams/enterprise (100+ users)
+- SAML/OIDC/LDAP SSO is required
+- You need token usage tracking and audit logs
+- You want Code Interpreter for data analysis
+- Your ops team knows MongoDB
+
+## Summary
+
+All three projects have found differentiated positioning:
+
+- **[Open WebUI](/en/projects/open-webui-open-webui/)** is the best frontend for the Ollama ecosystem, with RAG and pipelines as its moat
+- **LobeChat** sets the benchmark for multi-model switching, with a leading plugin and agent template ecosystem
+- **[LibreChat](/en/projects/danny-avila-LibreChat/)** is the most feature-complete enterprise choice, with outstanding auth, audit, and multi-agent capabilities
+There is no "best" Chat UI — only the best fit for your use case. A pragmatic suggestion: start with [Open WebUI](/en/projects/open-webui-open-webui/) (5-minute deploy), experience the core chat workflow, then decide if you need to migrate based on feature gaps.
+
+The good news: all three projects follow the OpenAI-compatible API standard. Switching frontends primarily involves migrating user data and configuration — your underlying models and backend services can stay the same.
+
+## Projects in this article
+
+[### Open WebUI
+151.7k ⭐
+Open WebUI is a feature-rich, user-friendly self-hosted AI platform supporting Ollama and OpenAI-compatible APIs, with RAG, agents, and MCP capabilities.](/en/projects/open-webui-open-webui/)[### Lobe Chat
+82.4k ⭐
+Lobe Chat is an open-source ChatGPT-style chat application with a plugin system and multi-model support, suitable as an agent conversation interface.](/en/projects/lobehub-lobe-chat/)[### LibreChat
+43.0k ⭐
+LibreChat is an enhanced open-source ChatGPT clone featuring Agents, MCP tools, multi-model support, code interpreter, AI search, and more.](/en/projects/danny-avila-LibreChat/)
+
+──────── [TRUNCATED] ────────
+Showing 6,656 chars (head) + 2,236 chars (tail) of 12,129 total clean characters.
+Full text saved to: /root/.hermes/cache/web/agentlist.top-939295ca4e.md
+To read the omitted middle: read_file path="/root/.hermes/cache/web/agentlist.top-939295ca4e.md" offset=144 limit=200  (the file is the complete page; raise/lower offset to page through it).
+─────────────────────────────

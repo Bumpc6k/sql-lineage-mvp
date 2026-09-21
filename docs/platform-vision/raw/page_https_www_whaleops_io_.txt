@@ -1,0 +1,114 @@
+# WhaleOps | WhaleStudio Data Engineering Agentic Control Plane
+URL: https://www.whaleops.io/
+
+WhaleOps | WhaleStudio Data Engineering Agentic Control Plane
+
+# Move at AI Speed Keep Data Engineering Under Control
+
+WhaleStudio Data Engineering Agentic Control Plane enables AI agents like Codex and Claude Code to safely build, run and govern enterprise data workflows.
+
+ Apache DolphinScheduler
+
+ Apache SeaTunnel
+
+## Make your data engineering AI-callable, human-reviewable and enterprise-governed.
+
+Platform Intro
+
+WhaleOps Overview
+
+A quick introduction to WhaleOps and its DataOps platform capabilities.
+
+### DataAgent Build
+
+Build data Ingestion/ETL/Workflows with AI, not by hand.
+
+- Connect Data Sources
+- Build Sync Pipelines
+- Generate SQL Workflows
+- Convert Snowflake SQL
+- Auto-Generate DAGs & Mappings
+- Generate Job Configs
+- Run on SeaTunnel & DolphinScheduler
+
+### DataAgent Control
+
+Keep AI-generated data workflows safe, governed, and reversible.
+
+- RBAC & Access Control
+- Project Isolation
+- Data Source Policies
+- Production Protection
+- Human Approval
+- Version Control
+- Automatic Rollback
+- Failure Recovery
+
+### DataAgent Observe
+
+Make every AI action visible, explainable, and recoverable.
+
+- DAG Execution Status
+- Task Instances
+- Log Analysis
+- Data Sync Progress
+- SQL Execution Tracking
+- Downstream Impact Analysis
+- Agent Execution Trace
+- Human Review History
+
+### Enable self-healing systems
+
+Enable self-healing data workflows.
+
+- Task Instance Analysis
+- Error Explanation
+- Repair Suggestions
+- Automatic Fix Application
+- Failed Node Retry
+- Downstream Impact Analysis
+- Recovery & Audit Logs
+- Agent Execution Trace
+- Retry or Rollback Recommendations
+
+## One platform for end-to-end data workflows with AI agent
+
+WhaleStudio unifies orchestration, integration, governance, and operations so teams can launch reliable data products with less tool sprawl.
+
+### WhaleStudio Platform
+
+Unify orchestration, integration, and governance so teams ship reliable data products faster with less operational overhead.
+
+Faster Launches Lower Ops Load Enterprise Scale
+
+ Explore WhaleStudio 
+
+Launch Faster
+
+Standardize workflow design and delivery so new data products reach production with less coordination overhead.
+
+Connect More Sources
+
+Bring databases, warehouses, lakes, and streaming systems into one operating model with broader connector coverage.
+
+All-in-One
+
+Replace fragmented tooling with one platform for orchestration, integration, governance, and operational control.
+
+Shorten Time to Value
+
+Turn new reporting, AI, and operational requests into production-ready workflows faster.
+
+Automate Operations
+
+Reduce manual intervention with centralized scheduling, monitoring, alerting, and SLA management.
+
+Scale with Confidence
+
+Add lineage, auditability, and operational discipline as teams, data volume, and compliance needs grow.
+
+## Built for Real-World Data & AI Challenges
+
+### AI/ML Pipeline Orchestration
+
+Coordinated complex ML pipelines across data preparation, training, and deployment workflows. Enabled reliable, end-to-end scheduling and in
