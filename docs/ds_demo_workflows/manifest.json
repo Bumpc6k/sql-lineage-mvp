@@ -1,5 +1,5 @@
 {
-  "note": "由 scripts/ds_setup_demo.py 从真实 DolphinScheduler 实例导出（GET /process-definition/{code}）",
+  "note": "由 demos/ds_setup_demo.py 从真实 DolphinScheduler 实例导出（GET /process-definition/{code}）",
   "base_url": "http://localhost:12345/dolphinscheduler",
   "project": {
     "name": "烟草数仓演示",

@@ -14,10 +14,10 @@ from typing import Dict, List
 
 import pytest
 
-from lineage.graph import LineageGraph, build_graph
-from lineage.parser import SqlLineageParser
-from lineage.scan import scan_directory
-from lineage.viz import (
+from lineage_core.graph import LineageGraph, build_graph
+from lineage_core.parser import SqlLineageParser
+from lineage.collect.scan import scan_directory
+from lineage.render.viz import (
     LAYER_COLORS,
     LAYER_LABELS,
     graph_to_viz_data,

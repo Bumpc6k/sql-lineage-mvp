@@ -1,0 +1,239 @@
+# -*- coding: utf-8 -*-
+# 血缘服务对外 HTTP 契约 —— 由 tools/gen_openapi.py 从真实路由表生成，请勿手改
+# 生成命令: python3 tools/gen_openapi.py   （路由表来源: apps/lineage-api/lineage/serve/api_server.py）
+openapi: "3.0.3"
+info:
+  title: LINEAGE 服务（血缘分析 / 业务口径 / 链路生成）
+  version: "1.0.0"
+  description: |
+    这是**独立部署单元** apps/lineage-api 的对外接口，也是 apps/web 前端的唯一耦合面。
+    契约规则：只允许**追加**字段/端点；破坏性变更必须升 /v2 并保留旧版一段时间。
+    调用方：① apps/web 前端  ② apps/ds-plugin（海豚插件，走容器内 172.17.0.1:18080）
+servers:
+  - url: http://localhost:18080
+    description: 宿主机直连（浏览器 / 前端 dev）
+  - url: http://172.17.0.1:18080
+    description: 容器内访问宿主（海豚任务用）
+paths:
+  /analyze:
+    post:
+      summary: 单脚本血缘分析 + 业务口径
+      description: 带知识库口径命中的分析，是 LINEAGE 任务调用的主端点
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /analyze-workflow:
+    post:
+      summary: 工作流级血缘分析
+      description: 按工作流身份拉取全部任务脚本再合并解析，是 LINEAGE_DAG 任务调用的主端点
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /generate/apply:
+    post:
+      summary: 把链路落到海豚
+      description: 建/改海陵工作流（apply）
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /generate/pipeline:
+    post:
+      summary: 生成分层链路
+      description: 给定需求描述，产出多阶段 pipeline（可接 LLM 做模糊需求）
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /generate/sql:
+    post:
+      summary: 生成加工 SQL
+      description: 给定源表/目标表/指标/分组，套模板生成 SQL（确定性）
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /generate/validate:
+    post:
+      summary: 反向校验
+      description: 把生成的 SQL 再解析一遍，与预期血缘比对
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /health:
+    get:
+      summary: 服务健康检查
+      description: 存活探针：给容器/运维用，不校验参数
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+  /impact:
+    post:
+      summary: 下游影响面
+      description: 给一张表，返回受影响的下游表/字段
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /kb/ask:
+    post:
+      summary: 口径问答
+      description: 自然语言问口径；LLM 可插拔（未配置时走确定性回答）
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /kb/metric:
+    post:
+      summary: 口径详情
+      description: 按指标码取口径定义与来源
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+    get:
+      summary: 口径详情
+      description: 按指标码取口径定义与来源
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+  /kb/search:
+    post:
+      summary: 知识库检索
+      description: 按关键词检索口径与术语
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /kb/summary:
+    post:
+      summary: 知识库概览
+      description: 口径/字段/规则的数量统计
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+    get:
+      summary: 知识库概览
+      description: 口径/字段/规则的数量统计
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+  /parse:
+    post:
+      summary: SQL 血缘解析（单个脚本）
+      description: 输入 SQL + 方言，输出表级/字段级血缘与语句数
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /report:
+    post:
+      summary: 生成单文件 HTML 报告
+      description: POST 分析结果 -> 落盘 HTML -> 返回可点击 URL
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /reports:
+    get:
+      summary: 报告列表
+      description: 列出已生成的报告
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+  /upstream:
+    post:
+      summary: 上游溯源
+      description: 给一张表，返回它的上游链路
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例

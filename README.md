@@ -18,6 +18,54 @@
 
 ---
 
+## 0. 模块化布局（3 个可独立部署单元 + 1 个共享内核）
+
+整个仓库按「**谁能独立部署、谁能独立维护**」切成单元。单元之间**只允许通过契约耦合**（HTTP 接口 / CLI 参数 / 磁盘产物），
+不允许 `import` 对方内部代码；这条规则由 `tools/check_layering.py` 强制，并作为用例随 `pytest` 一起跑（`tests/test_layering.py`）。
+
+```
+sql-lineage-mvp/
+├── apps/                                        ← 可独立部署的“应用”
+│   ├── lineage-api/                             【单元②】血缘服务 + CLI（Python）
+│   │   ├── lineage/
+│   │   │   ├── serve/    api_server.py            HTTP 18 个端点 + 报告托管（服务入口）
+│   │   │   ├── cli/      main.py common.py graph_cmds.py ds_cmds.py kb_cmds.py generate_cmds.py
+│   │   │   │                                      命令行入口（按功能族拆 5 个模块，共 1458 行）
+│   │   │   ├── ds/       client.py lineage.py workflow.py    海豚 OpenAPI 适配（**唯一出网处**）
+│   │   │   ├── knowledge/ 口径/术语/规则 + 可插拔 LLM 问答（SQLite 知识库）
+│   │   │   ├── generate/  需求 → SQL/链路（模板确定性生成 + 可插拔 LLM）
+│   │   │   ├── render/   report.py viz.py        HTML 报告 / Mermaid / 力导向图
+│   │   │   ├── collect/  scan.py                 目录批量采集
+│   │   │   └── __init__.py                       对外门面（冻结：外部调用方只认它）
+│   │   └── ...
+│   ├── ds-plugin/                               【单元③】海豚插件（Java + 前端补丁，可整体替换）
+│   │   ├── java/ frontend/ deploy/ verify/       见 apps/ds-plugin/README.md 第 1 章
+│   └── web/                                     【单元①】独立前端模块（规划中：成熟后原样投产）
+├── packages/
+│   └── lineage-core/lineage_core/               共享内核：parser.py script_parser.py graph.py（**纯函数：无 IO / 无网络 / 无库**）
+├── contracts/
+│   └── openapi.yaml                             单元①/③ 与 ② 之间的唯一契约（由真实路由生成：`python3 tools/gen_openapi.py`）
+├── ops/         环境与运维脚本（prep_ds_demo.sh / start-lineage-api.sh / restart_lineage_api.sh）
+├── demos/       演示数据脚本（ds_setup_demo.py / ds_add_script_workflow.py …）
+├── evidence/    证据采集脚本（verify 输出归档、回归脚本）
+├── tools/       仓库级工具（check_layering.py 分层守卫 / gen_openapi.py 契约生成）
+├── tests/       441 个用例（pytest.ini 的 pythonpath 同时挂 apps/lineage-api 与 packages/lineage-core）
+└── docs/ reports/ data/                         文档 / 报告产物 / 知识库 DB
+```
+
+**每个单元都能单独起停、单独重跑**：
+
+| 单元 | 单独启动 | 单独验证 | 依赖谁 |
+| --- | --- | --- | --- |
+| ② lineage-api | `bash ops/start-lineage-api.sh`（tmux `lineage-api`，:18080） | `.venv/bin/python -m pytest`（441 用例） | 只依赖 `packages/lineage-core` |
+| ③ ds-plugin | `bash apps/ds-plugin/java/build.sh` + `bash apps/ds-plugin/deploy/deploy_ui.sh` | `bash apps/ds-plugin/verify/verify.sh`、`verify/verify_ldf_form.py`… | 通过 **HTTP** 调 ②，不 import 任何 Python |
+| ① web（规划中） | 独立 `npm run dev`（:5173） | 前端自己的单测/E2E | 通过 **HTTP** 调 ②，按 `contracts/openapi.yaml` 生成客户端 |
+
+**开发期路径注入**：`.venv` 里有两个 `.pth`（`lineage_core_path.pth` → `packages/lineage-core`、`lineage_units_path.pth` → `apps/lineage-api`），
+因此 `python -m lineage.cli` / `import lineage_core` 在仓库根目录就能用；上线部署改成 `PYTHONPATH` 即可，与代码无关。
+
+---
+
 ## 1. 项目定位
 
 | 项 | 说明 |
@@ -733,7 +781,7 @@ curl -s -X POST http://localhost:12345/dolphinscheduler/login \
 ### 5.3 造演示数据：4 个工作流 / 16 个任务（可重跑）
 
 ```bash
-.venv/bin/python scripts/ds_setup_demo.py
+.venv/bin/python demos/ds_setup_demo.py
 ```
 
 真实输出：
@@ -797,7 +845,7 @@ docs/ds_demo_workflows/
 > 实测能稳定建出「4 任务 / 长中文 SQL」的工作流。
 >
 > 想重新抓一遍本节里所有命令的真实输出（用于核对 README）：
-> `bash scripts/ds_capture_outputs.sh`。
+> `bash evidence/ds_capture_outputs.sh`。
 
 ### 5.4 一条命令拉取 + 解析 + 出图：`ds sync`
 
@@ -1069,7 +1117,7 @@ $ .venv/bin/python -m lineage.cli ds sync --base-url http://127.0.0.1:1/dolphins
 
 ```bash
 # ① 把调度侧血缘里的表级图单独导出（产物与 P2 的 scan --graph-out 同构）
-.venv/bin/python scripts/ds_export_table_graph.py ds_lineage.json /tmp/ds_table_graph.json
+.venv/bin/python demos/ds_export_table_graph.py ds_lineage.json /tmp/ds_table_graph.json
 
 # ② 用 P2 的能力继续分析：统计 / 下游影响 / 交互式可视化
 .venv/bin/python -m lineage.cli stats  --graph /tmp/ds_table_graph.json
@@ -1118,7 +1166,7 @@ $ .venv/bin/python -m lineage.cli ds sync --base-url http://127.0.0.1:1/dolphins
 
 `docs/ds_lineage.html` 已随仓库提交（调度侧血缘的交互图，离线双击即开），`docs/ds_lineage.mmd` 可直接贴进 Markdown。
 注意：**别把 `ds_lineage.json` 直接传给 P2 的 `--graph`** —— 它是多层血缘文件，
-要分析表级图请先用 `scripts/ds_export_table_graph.py` 导出 `table_graph`。
+要分析表级图请先用 `demos/ds_export_table_graph.py` 导出 `table_graph`。
 
 ### 5.7 与 P2 图谱能力的关系
 
@@ -1606,7 +1654,7 @@ $ curl -s -X POST http://127.0.0.1:18080/upstream -H 'Content-Type: application/
 ```
 
 > 原始（未截断）的 curl 输出见 `docs/p4_evidence/16_http.txt`；
-> 本节的其它输出也都留了原文：`docs/p4_evidence/`（可用 `bash scripts/kb_collect_evidence.sh` 一键重跑）。
+> 本节的其它输出也都留了原文：`docs/p4_evidence/`（可用 `bash evidence/kb_collect_evidence.sh` 一键重跑）。
 
 ---
 
@@ -1671,7 +1719,7 @@ POST /analyze
 | 插件端服务还是旧版本（无 `/analyze`） | 插件自动回退 `POST /parse` 并在日志里写明原因 |
 | `mode=impact` / `mode=upstream` | 走 `/impact` / `/upstream`，**不打印**第 ⑤ 段，汇总行也不带「业务口径命中」——与改造前一致 |
 
-**端到端落地**：`ds-plugin/` 里的 DolphinScheduler LINEAGE 任务插件（`mode=sql`）改为调 `/analyze`，
+**端到端落地**：`apps/ds-plugin/` 里的 DolphinScheduler LINEAGE 任务插件（`mode=sql`）改为调 `/analyze`，
 任务日志在原有 ①表级血缘 ②字段级血缘 ③加工条件 ④加工SQL原文 之后新增 **⑤ 业务口径** 段。
 下面是海豚任务实例日志（`GET /dolphinscheduler/log/detail?taskInstanceId=<id>`）的**真实原文**
 （摘录：从报告框开始到 varPool 行为止，为便于阅读去掉了海豚自己加的 `[INFO] 时间戳 - ` 前缀）：
@@ -1750,13 +1798,13 @@ POST /analyze
 复现（一条命令跑全部，或按需单跑）：
 
 ```bash
-bash scripts/p5_verify_all.sh                     # 全量：编译部署 → 恢复演示环境 → sql 模式 → impact 回归 → 降级 → 端点 → pytest
+bash evidence/p5_verify_all.sh                     # 全量：编译部署 → 恢复演示环境 → sql 模式 → impact 回归 → 降级 → 端点 → pytest
 bash /usr/local/bin/prep-ds-demo.sh               # 恢复海豚演示环境（重启后内存库清空，插件 jar 已在容器里）
-.venv/bin/python ds-plugin/verify_knowledge.py    # 建流 → 上线 → 运行 → 拉日志 → 断言 ①~⑤ 全部出现
-.venv/bin/python ds-plugin/verify_impact_mode.py  # mode=impact 回归（第 ⑤ 段不出现，与改造前一致）
-bash scripts/p5_collect_degraded_evidence.sh      # 旧版服务（无 /analyze）→ 插件回退 /parse 的真实日志
-.venv/bin/python scripts/p5_analyze_evidence.py   # 只打 HTTP：/analyze 的完整 curl 证据
-bash scripts/p5_regression.sh                     # 全端点回归（/parse /impact /upstream /kb/* 都打一遍）
+.venv/bin/python apps/apps/ds-plugin/verify/verify_knowledge.py    # 建流 → 上线 → 运行 → 拉日志 → 断言 ①~⑤ 全部出现
+.venv/bin/python apps/apps/ds-plugin/verify/verify_impact_mode.py  # mode=impact 回归（第 ⑤ 段不出现，与改造前一致）
+bash evidence/p5_collect_degraded_evidence.sh      # 旧版服务（无 /analyze）→ 插件回退 /parse 的真实日志
+.venv/bin/python evidence/p5_analyze_evidence.py   # 只打 HTTP：/analyze 的完整 curl 证据
+bash evidence/p5_regression.sh                     # 全端点回归（/parse /impact /upstream /kb/* 都打一遍）
 ```
 
 ### 6.8.2 可跳转的格式化 HTML 报告：`POST /report` + `GET /report/<id>`（本轮新增）
@@ -1860,7 +1908,7 @@ Content-Type: text/html; charset=utf-8          # 30351 字节（单文件，无
 <footer>生成时间 2026-09-20 21:08:54 · 报告 ID rpt_20260920_210854_1342968a · 由 sql-lineage-mvp 生成（服务 http://localhost:18080/analyze）</footer>
 ```
 
-`bash scripts/report_evidence.sh` 的自检输出（真实运行）：
+`bash evidence/report_evidence.sh` 的自检输出（真实运行）：
 
 ```text
    ✅ 单文件（无 <link>）        ✅ 无 <img> 外链            ✅ 无外链 script/link/src=http
@@ -1874,7 +1922,7 @@ Content-Type: text/html; charset=utf-8          # 30351 字节（单文件，无
 一键复现（真发 HTTP，打印 JSON + HTTP 状态 + HTML 前 20 行 + 自检清单）：
 
 ```bash
-bash scripts/report_evidence.sh
+bash evidence/report_evidence.sh
 ```
 
 单测：`tests/test_report.py`（23 个用例：ID/清洗、渲染结构、零外链、转义、降级、口径排序、
@@ -1882,7 +1930,7 @@ bash scripts/report_evidence.sh
 
 ---
 
-插件侧细节（参数、编译部署、UI、已知坑）见 **`ds-plugin/README.md`**；
+插件侧细节（参数、编译部署、UI、已知坑）见 **`apps/ds-plugin/README.md`**；
 本节的原始证据（任务日志原文 / 端点回归 / 降级 / pytest）留档在 **`docs/p5_evidence/`**。
 
 ---
@@ -1985,17 +2033,19 @@ HTTP 200  text/html; charset=utf-8  48773
 | `cycles` 环路 | 表级依赖图 DFS 找环（最多报 5 个） | 工作流原生 DAG 不会成环、字段级也不成环，它防的是「脚本读了自己写的表」这类**数据层环** |
 | `missing_knowledge` 未登记口径 | 产出表不在知识库 `kb_metrics` 里 | 提醒「这条链路还没人维护口径」 |
 
-**端到端落地**：`ds-plugin/` 里的 `LineageDagTask`（请求体只带工作流身份 + 解析范围），
-`ds-plugin/verify_dag.py` 一条命令跑完「建流 → 上线 → 运行 → 拉日志全文」；
-真实任务日志（五段式报告全文）、参数表、UI 可见性做法（侧边栏 / 类型表 / 节点设置弹窗 4 处补丁）
-与已知限制见 **`ds-plugin/README.md` 第 7 章**。插件加载日志：
+**端到端落地**：`apps/ds-plugin/` 里的 `LineageDagTask`（请求体只带工作流身份 + 解析范围），
+`apps/apps/ds-plugin/verify/verify_dag.py` 一条命令跑完「建流 → 上线 → 运行 → 拉日志全文」；
+真实任务日志（五段式报告全文）、参数表、UI 可见性做法（侧边栏 / 类型表 / 节点设置弹窗 4 处补丁，
+以及 LINEAGE_DAG 的**专属节点表单** `LDF` —— 只留解析范围/任务类型/子工作流/服务地址四项，
+不再复用 SQL 表单；外加保存白名单里补的一行，让表单里填的值真能写进 `taskParams`）
+与已知限制见 **`apps/ds-plugin/README.md` 第 7 章**。插件加载日志：
 
 ```text
 o.a.d.p.t.a.TaskPluginManager:[65] - Registered task plugin: LINEAGE_DAG - LineageDagTaskChannelFactory
 o.a.d.p.t.a.TaskPluginManager:[65] - Registered task plugin: LINEAGE - LineageTaskChannelFactory
 ```
 
-任务日志摘录（完整见 `ds-plugin/README.md`）：
+任务日志摘录（完整见 `apps/ds-plugin/README.md`）：
 
 ```text
 ╔══════════════════════════════════════════════════════════════════╗
@@ -2019,6 +2069,9 @@ o.a.d.p.t.a.TaskPluginManager:[65] - Registered task plugin: LINEAGE - LineageTa
   （P5.1 报告阶段同样如此）。给出的是可复现的**结构性证据**：4 个前端 bundle 在服务端 HTTP 200 且含
   补丁串、与镜像原版逐一 diff 只有 1 行差异、补丁片段在 QuickJS 里真跑能落进侧边栏渲染的 `Universal`
   分类、`dynamic-task-type-config.yaml` + `lineage-dag.json` 都已进容器且可 200 取到。
+  **LINEAGE_DAG 的节点表单额外做了「渲染函数真跑」验证**（`apps/apps/ds-plugin/verify/verify_ldf_form.py`：把 bundle 里的
+  表单函数 `LDF` 原样抽出来在 QuickJS 里执行，再把返回的 `json` 喂给真实渲染管线 `We()` —— 17 个 element
+  全部渲染成功，无 sql/数据源字段；同一套断言跑 SQL 表单 `Rr` 会 17 项 FAIL，证明断言不空转）。
   **请 Ctrl+Shift+R 硬刷新后在浏览器里确认一次。**
 * 演示环境没有真实 HIVE 数据源 ⇒ SQL 任务必然 FAILURE ⇒ 海豚**不会提交失败上游的下游任务**，
   所以「尾部串联」的节点在本环境会被跳过（插件读的是**定义**、不是执行结果，两种挂法报告完全一致；
@@ -2684,6 +2737,21 @@ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u AL
 
 另外还支持：多语句文件（逐条产出结果）、窗口函数（`ROW_NUMBER() OVER (...)` 的来源字段可解析）、`GROUP BY` / `HAVING` / `QUALIFY`、`LIMIT`、内联注释（输出时自动剥离）。
 
+> **复杂 SQL 的能力边界有独立实测报告**：**[`docs/复杂SQL解析能力矩阵.md`](docs/复杂SQL解析能力矩阵.md)**
+> —— 19 个真实风格复杂 Hive SQL（多层 CTE / 窗口 / 5 表 JOIN / 相关子查询 / UNION ALL /
+> LATERAL VIEW / 多插入 / 动态分区 / CTAS / GROUPING SETS / 中文标识符 / MERGE …）
+> 的**真实解析结果**（✅ 12 / ⚠️ 5 / ❌ 2）、每个失败样本的原始输出、以及可执行的改进建议。
+
+### 8.1 暂不支持的 SQL 形态（实测确认，详见能力矩阵）
+
+| 形态 | 实测行为 | 说明 |
+| --- | --- | --- |
+| Hive 多插入 `FROM src INSERT OVERWRITE a SELECT ... INSERT OVERWRITE b SELECT ...` | ❌ `parse_sql` 抛 `ValueError` | sqlglot 的 hive / spark / spark2 / databricks / presto / trino 方言**全部**不支持该语法 |
+| `MERGE INTO t USING s ON ... WHEN MATCHED ...` | ❌ `task_type=OTHER`，无血缘 | sqlglot 能解析成 `exp.Merge`，但 `_classify` 还没有该分支 |
+| `CREATE TABLE a LIKE b` / 显式列定义建表 | ⚠️ 目标表未识别（`output_tables` 为空） | `_classify` 只认 CTAS |
+| 相关子查询（`WHERE EXISTS` / `IN (SELECT ...)` / 标量子查询）里的表 | ⚠️ 不进 `input_tables` | 表级血缘可能漏表；标量子查询输出列会被误记成常量 |
+| `LATERAL VIEW explode(...)` 展开出的列 | ⚠️ `resolved=false` | 如实标注，不编造来源 |
+
 ---
 
 ## 9. 输出 JSON 结构
@@ -2998,13 +3066,15 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 
 1. **`SELECT *` 无法展开**：没有表结构（DDL / 元数据）就不知道 `*` 包含哪些列，只输出一条 `source_column="*"`、`resolved=false` 的记录。
 2. **多表同名字段未加限定符**：如 `SELECT id FROM a JOIN b`，语法上无法判断 `id` 属于 `a` 还是 `b`，输出 `source_table=null` + `resolved=false`。
-3. **标量子查询**：输出表达式中嵌套的子查询（如 `SELECT (SELECT max(x) FROM t2) AS m`）内部列**不**参与该字段解析，避免串错层级 —— 目前直接跳过，不产出血缘。
+3. **标量子查询**：输出表达式中嵌套的子查询（如 `SELECT (SELECT max(x) FROM t2) AS m`）内部列**不**参与该字段解析，避免串错层级。⚠️ **实测发现**：此时输出列会被误记成 `source_column="(常量)"` + `resolved=true`（编造了「常量」结论），并且子查询里的表不进 `input_tables`；正确做法应是标 `resolved=false`（详见 `docs/复杂SQL解析能力矩阵.md` 样本 04 与改进建议 P0-2 / P1-1）。
 4. **列位置插入语义**：`INSERT INTO t SELECT ...`（不带列清单）按表结构位置对齐，无元数据时只能按表达式顺序推断目标列名。
 5. **动态分区**：`PARTITION (dt)`（运行时确定分区值）只记录到 `output_tables`，不会进 `partition_filters`。
 6. **同名 CTE 覆盖 / 未引用 CTE**：同名 CTE 以先出现者为准；未被引用的 CTE 不计入输入表（视为死代码）。
 7. **UDTF / LATERAL VIEW / explode / UDTF 输出**：尽力而为，可能解析不到展开出的列。
 8. **不做语义校验**：不校验表是否存在、字段是否存在、类型是否匹配；不做函数语义展开（`SUM(a.qty)` 只记到 `a.qty`，不下推更细粒度）。
 9. **方言差异**：以 `hive` / `spark` 为主；`doris` / `postgres` 等已验证可跑通示例，但个别方言特性（如 Doris 的 `INSERT INTO ... WITH LABEL`）未必覆盖。
+10. **Hive 多插入语句不支持**：`FROM src INSERT OVERWRITE a SELECT ... INSERT OVERWRITE b SELECT ...` 会让 `parse_sql` 抛 `ValueError`（sqlglot 所有方言都不支持该语法），**整段脚本血缘全丢**；工作流级分析里只会记一条 `errors`。改进建议见能力矩阵 P0-1。
+11. **`MERGE INTO` 未归类**：能解析成 `exp.Merge` 但落到 `task_type=OTHER`，不出任何血缘；`CREATE TABLE ... LIKE ...` 的目标表也未识别。改进建议见能力矩阵 P1-2 / P1-3。
 
 ### 13.2 图引擎与扫描（P2）
 1. **环路只报强连通分量级**：`detect_cycles()` 用 Tarjan SCC 找"哪里成环"，每个 SCC 再给一条示例环路；
@@ -3044,9 +3114,9 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 5. **工程内同名/跨工程同名**：表节点按 `库.表` 全限定名去重；跨工程同名表会合并成一个节点
    （真实场景里这通常是对同一份数据的加工，但如果两个工程各建了一套同名表，需要靠分层/项目字段人工区分）。
 6. **单实例 MySQL 之外的存储未验证**：只对接了海豚 OpenAPI，与海豚用什么库（H2 / MySQL / PG）无关；
-   但演示实例是 standalone + H2 内存库，**容器重启数据即丢**（重跑 `scripts/ds_setup_demo.py` 即可）。
+   但演示实例是 standalone + H2 内存库，**容器重启数据即丢**（重跑 `demos/ds_setup_demo.py` 即可）。
 7. **写接口只用于演示数据**：`DsClient` 里有 `create_project` / `create_process_definition` 等写方法，
-   但只被 `scripts/ds_setup_demo.py`（造演示数据）使用；`ds sync` 及相关 CLI **全程只读**（有测试断言）。
+   但只被 `demos/ds_setup_demo.py`（造演示数据）使用；`ds sync` 及相关 CLI **全程只读**（有测试断言）。
 8. **未做增量 / 增量对比**：每次 `ds sync` 是全量拉取（几十个工作流量级没问题），
    没做「上一次血缘 vs 这一次血缘」的 diff 与告警（这也是 P4 的一个候选）。
 
@@ -3078,8 +3148,8 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 | P4.0 **DDL / Hive Metastore 元数据接入** | 解析建表 DDL（或直接调 Hive Metastore / HMS Thrift 接口）拿到表结构 → 展开 `SELECT *`、按列位置对齐 `INSERT INTO`、多表同名字段消歧、补字段类型与注释 | 把 `resolved=false` 的比例压下来，让字段级血缘从「语法级」升级到「结构级」；与 P3 叠加后，调度侧也能出列级资产地图 |
 | P4.1 **口径提炼与知识层（已完成）** | 对字段的 `expression` 做语义归纳（同类表达式识别：聚合 / 算术 / 比率 / 条件 / 窗口），自动生成口径公式（中文可读）+ 字段中文业务名 + 业务规则，落进 SQLite 知识库（`kb build`）；提供关键词检索、口径溯源、自然语言问数（规则模式 + 可插拔 LLM）、Markdown 知识文档导出（`docs/业务口径知识库.md`）与 HTTP 端点 | 从「血缘关系」升级到「口径知识」；P1 的字段级 `expression` + P2 的血缘图 + P3 的调度侧字段级血缘都是这一步的输入。实现见第 6 章 |
 | P4.2 **智能问数** | NL → SQL 生成 → 用血缘/口径做**口径合规校验** → 结果解释与溯源（这条数来自哪几张表、什么口径、哪个调度任务产出的） | 最终形态：数据资产智能运营平台；P3 提供的「表 → 工作流 / 任务」映射可以做到「数不对时直接定位到调度节点」 |
-| **P5「血缘 × 业务口径」一体化（已完成）** | 血缘服务新增 `POST /analyze`（`/parse` 超集 + 知识库口径匹配，字段级命中 / 输出表兜底 / 术语 / 规则 / 上游链路，全降级不报错）；DolphinScheduler LINEAGE 任务插件（`ds-plugin/`）改调 `/analyze`，任务日志新增「⑤ 业务口径」段，出参加 `lineage_metric_count` / `lineage_metric_names` | 把「有血缘」推进到「有口径」：调度日志一眼看到本任务产出的指标怎么算、依赖谁、上游链路怎么走。实现见第 6.8.1 节 + `ds-plugin/README.md` |
-| **P6 工作流级血缘（已完成）** | 第二个任务类型 `LINEAGE_DAG` + 服务端 `POST /analyze-workflow`：挂在工作流尾部即可，运行时自动拉本工作流全部任务脚本批量解析，输出任务清单 / 全链路图谱 / 跨任务字段血缘 / 口径汇总 / 链路质量体检，并生成工作流级 HTML 报告；报告页支持「工作流模式」，单任务报告不受影响 | 把「一条 SQL 的血缘」升级为「一条调度链路（工作流）的血缘 + 体检」，且**历史工作流零改造**（原有 N 个任务一行不改，只加 1 个尾节点）。实现见第 6.8.3 节 + `ds-plugin/README.md` 第 7 章 |
+| **P5「血缘 × 业务口径」一体化（已完成）** | 血缘服务新增 `POST /analyze`（`/parse` 超集 + 知识库口径匹配，字段级命中 / 输出表兜底 / 术语 / 规则 / 上游链路，全降级不报错）；DolphinScheduler LINEAGE 任务插件（`apps/ds-plugin/`）改调 `/analyze`，任务日志新增「⑤ 业务口径」段，出参加 `lineage_metric_count` / `lineage_metric_names` | 把「有血缘」推进到「有口径」：调度日志一眼看到本任务产出的指标怎么算、依赖谁、上游链路怎么走。实现见第 6.8.1 节 + `apps/ds-plugin/README.md` |
+| **P6 工作流级血缘（已完成）** | 第二个任务类型 `LINEAGE_DAG` + 服务端 `POST /analyze-workflow`：挂在工作流尾部即可，运行时自动拉本工作流全部任务脚本批量解析，输出任务清单 / 全链路图谱 / 跨任务字段血缘 / 口径汇总 / 链路质量体检，并生成工作流级 HTML 报告；报告页支持「工作流模式」，单任务报告不受影响 | 把「一条 SQL 的血缘」升级为「一条调度链路（工作流）的血缘 + 体检」，且**历史工作流零改造**（原有 N 个任务一行不改，只加 1 个尾节点）。实现见第 6.8.3 节 + `apps/ds-plugin/README.md` 第 7 章 |
 | **P7 生成引擎（已完成）** | 从业务需求**反向生成**数据链路：L1 单表加工 SQL 生成（知识库口径 + 存量字段血缘 → `INSERT OVERWRITE ... SELECT`，逐列 explain 依据、缺失即 warnings）；L2 分层链路生成（需求关键词 → 目标层表 → 逐层多段 SQL + 链路图）；L3 一键落地 DolphinScheduler（任务定义 + 依赖 + 画布坐标，默认只出 JSON，`--apply` 真调 API 创建并回读）；L4 反向校验（生成 SQL 过血缘引擎 → 断链/孤岛/环路/跨层直连/口径一致性/与血缘图对比 + HTML 体检报告）。模板引擎为主 + 可插拔 LLM，零新增运行期依赖 | 把项目的定位从「解析工具」推进到「数据开发助手」：看懂存量链路之后，能按需求**产出**新链路并自证正确性。实现见第 7 章 |
 | 可选工程化 | 图数据库替换内存图（Neo4j / NebulaGraph）、增量扫描（按文件 mtime 差分更新图）、**调度侧血缘 diff 与 CI 巡检**（`cycle`、`ds sync` 退出码已可直接接流水线）、调度变量替换后再解析 | 规模与稳定性工程 |
 
@@ -3093,7 +3163,7 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
 * 开发/验证环境：WSL2 Ubuntu 22.04，Python 3.11.15（venv），sqlglot 30.18.0，pytest 9.1.1，quickjs 1.19.4（可选，用于真跑 HTML 内联 JS）
 * **P3 调度侧环境**：Docker 里的 `apache/dolphinscheduler-standalone-server:3.2.2`
   （容器名 `ds-standalone`，`-p 12345:12345`），账号 `admin / dolphinscheduler123`；
-  3.2.2 standalone 用 **H2 内存库**，容器重启演示数据即丢 —— 重跑 `scripts/ds_setup_demo.py` 即可重建（脚本幂等）。
+  3.2.2 standalone 用 **H2 内存库**，容器重启演示数据即丢 —— 重跑 `demos/ds_setup_demo.py` 即可重建（脚本幂等）。
   检查容器：`docker ps | grep dolphinscheduler`；查看配置：`docker exec ds-standalone grep -n h2 /opt/dolphinscheduler/conf/application.yaml`
 * 依赖安装：`-i https://pypi.tuna.tsinghua.edu.cn/simple`（国内源）
 * **本项目环境的 pip 踩坑**：环境里预置了 `HTTP(S)_PROXY/ALL_PROXY=socks5h://127.0.0.1:10808` 但没有装 `PySocks`，
@@ -3108,3 +3178,240 @@ $ env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u 
   **实际运行环境为 Python 3.11.15 venv**（3.10 运行时未实测，代码未使用 3.11 独有语法）
 * 运行期依赖只有 `sqlglot` 一个：图引擎、扫描、可视化都是标准库实现（`json` / `collections` / `dataclasses`），
   HTML 里的布局与交互是原生 canvas JS，不依赖 d3 / vis.js / 任何 CDN —— 断网环境也能完整演示。
+
+---
+
+## 16. 脚本解析能力（Shell / Python 内嵌 SQL，本轮新增）
+
+> 对应能力边界实测报告：**[`docs/复杂SQL解析能力矩阵.md`](docs/复杂SQL解析能力矩阵.md)**
+> （19 个复杂 Hive SQL 样本的真实解析结果：✅ 12 / ⚠️ 5 / ❌ 2 + 可执行改进建议）
+
+### 16.1 为什么要有它
+
+数仓的加工逻辑**只有一半写在 SQL 任务里**，另一半藏在脚本里：
+
+```bash
+# Shell 任务：SQL 被 hive -e / beeline -f / heredoc / shell 变量包着
+hive -e "INSERT OVERWRITE TABLE ods.ods_卷烟产量流水 PARTITION (dt = '${DT}') SELECT ..."
+beeline -e "$SQL_STOCK"
+hive <<EOF
+INSERT OVERWRITE TABLE ods.ods_税利上缴流水 PARTITION (dt = '${DT}') SELECT ...;
+EOF
+```
+```python
+# Python(PySpark) 任务：SQL 是三引号字符串 / f-string / 变量
+SQL_ADS = """INSERT OVERWRITE TABLE ads.ads_经营指标明细 PARTITION (dt='2026-01-01') SELECT ..."""
+spark.sql(SQL_ADS)
+spark.sql(f"""... WHERE dt = '{DT}'""")
+```
+
+把这类脚本**整段丢给 sqlglot**，要么语法报错，要么把 `echo` / `import` 当垃圾语句，血缘不可用。
+`lineage/script_parser.py` 先做**内嵌 SQL 提取**（纯标准库正则 + 手写字符串扫描，**零新增第三方依赖**），
+再把每条内嵌 SQL 交给原有的 `SqlLineageParser`，最后合并成脚本级血缘。
+
+### 16.2 支持的脚本形态
+
+| 类型 | 形态 | 提取方式 | `source_hint` 示例 |
+| --- | --- | --- | --- |
+| Shell | `hive -e "..."` / `hive -e '...'` | 读引号串（支持跨行、转义） | `hive -e 第 17 行` |
+| Shell | `beeline -e` / `spark-sql -e` / `impala-shell -q` / `mysql -e` / `psql -c` | 同上 | `beeline -e 第 6 行` |
+| Shell | `hive -f etl/x.sql` / `beeline -f` | 记文件引用；`--resolve-files` 时可读本地文件 | `spark-sql -f etl/ods_设备运行工况.sql` |
+| Shell | heredoc：`hive <<EOF ... EOF`（含 `<<-EOF` / `<<'EOF'`） | 按 tag 配对取正文 | `hive heredoc <<EOF 第 46 行` |
+| Shell | 变量内嵌：`SQL="..."` + `hive -e "$SQL"` | 变量表 + 引用解析（跨行引号串也认） | `beeline -e "$SQL_STOCK"（变量 SQL_STOCK 定义于第 36 行）` |
+| Python | `spark.sql("...")` / `spark.sql( 三引号 )` | 定位调用点后读字符串字面量 | `spark.sql() 第 52 行` |
+| Python | `spark.sql(f"""...{DT}...""")` | f-string 占位符中和成 `0` 再解析 | `spark.sql() 第 41 行` |
+| Python | `spark.sql(SQL_VAR)` | 回溯脚本内的变量赋值 | `spark.sql(SQL_ADS) 第 38 行（变量定义于第 24 行）` |
+| Python | `pd.read_sql(...)` / `pd.read_sql_query(...)` | 读第一个字符串参数 | `pd.read_sql() 第 63 行` |
+| Python | `sqlalchemy.text("...")` / `text("...")` | 同上（只认真的像 SQL 的） | `text() 第 68 行` |
+| Python | 模块级三引号 SQL 常量 | 扫全量字符串字面量，**以 SQL 语句开头**的才算 | `python 字符串字面量 第 24 行` |
+
+**明确不提取**（避免「把注释/散文当 SQL」）：`#` 注释与文档字符串里的 `spark.sql(...)`、
+注释里的 `hive <<EOF`、`echo "INSERT ..."` 这种纯文本、`show databases` 之类的非 DML/DDL。
+
+### 16.3 快速上手：`parse-script` 子命令
+
+```bash
+env -u http_proxy -u https_proxy .venv/bin/python -m lineage.cli parse-script \
+    examples/scripts/etl_ods_每日抽取.sh
+```
+
+真实输出（节选）：
+
+```text
+========================================================================
+脚本内嵌 SQL 血缘报告  kind=shell  dialect=hive
+========================================================================
+来源脚本: examples/scripts/etl_ods_每日抽取.sh
+提取到内嵌 SQL: 3 条 / 解析出语句: 4 条
+
+[SQL 1] 位置: hive -e 第 17 行
+    | INSERT OVERWRITE TABLE ods.ods_卷烟产量流水 PARTITION (dt = '${DT}')
+    | SELECT a.work_order_no AS work_order_no,
+    |        a.plant_code    AS plant_code,
+    | ...（共 15 行）
+  语句数: 2   输出表: ods.ods_卷烟产量流水, ods.ods_成品库存快照
+  输入表: src.erp_生产工单明细, src.wms_库存快照
+
+[SQL 2] 位置: beeline -e "$SQL_STOCK"（变量 SQL_STOCK 定义于第 36 行）
+  说明: SQL 来自 shell 变量展开
+    | INSERT OVERWRITE TABLE ods.ods_库存基线 PARTITION (dt = '${DT}')
+    | SELECT c.plant_code AS plant_code, SUM(c.stock_qty) AS stock_qty
+    | FROM src.wms_库存快照 c WHERE c.dt = '${DT}' GROUP BY c.plant_code;
+  语句数: 1   输出表: ods.ods_库存基线
+
+[SQL 3] 位置: hive heredoc <<EOF 第 46 行
+    | INSERT OVERWRITE TABLE ods.ods_税利上缴流水 PARTITION (dt = '${DT}')
+    | SELECT t.tax_no AS tax_no, ... FROM src.erp_税利上缴 t WHERE t.dt = '${DT}';
+  语句数: 1   输出表: ods.ods_税利上缴流水
+
+[SQL 4] 位置: spark-sql -f etl/ods_设备运行工况.sql
+  说明: SQL 在外部文件里，脚本内没有正文，未解析
+  (无正文，未解析)
+
+表级血缘:
+  src.erp_生产工单明细  -->  ods.ods_卷烟产量流水
+  src.erp_税利上缴  -->  ods.ods_税利上缴流水
+  src.wms_库存快照  -->  ods.ods_库存基线
+  src.wms_库存快照  -->  ods.ods_成品库存快照
+
+字段级血缘 (13 条):
+  ods.ods_卷烟产量流水.work_order_no  <-  src.erp_生产工单明细.work_order_no   [a.work_order_no AS work_order_no]
+  ...
+```
+
+PySpark 脚本（`examples/scripts/etl_dws_pyspark.py`，`--output json` 的摘要）：
+
+```text
+kind python | sql_count 5 | stmt 5
+ - spark.sql(SQL_DWS_SALES) 第 38 行（变量定义于第 24 行）
+ - spark.sql() 第 41 行
+ - spark.sql() 第 52 行
+ - pd.read_sql() 第 63 行
+ - text() 第 68 行
+in: ['ods.ods_卷烟产量流水', 'ods.ods_卷烟销量流水', 'cdw.dws_产销存汇总', 'dim.dim_plant', 'ods.ods_税利上缴流水']
+out: ['cdw.dws_产销存汇总', 'cdw.dws_产量日汇总', 'ads.ads_经营指标明细']
+cols: 15
+hints: ['spark.sql() 第 41 行：f-string 占位符 {DT} 的值需运行时才知道，已按 0 替换后解析，该列血缘可能不精确']
+```
+
+其他开关：`--kind auto|sql|shell|python`（强制类型）、`--task-type SHELL`（任务类型兜底）、
+`--resolve-files`（读 `hive -f xxx.sql` 的本地文件）、`--output json --save out.json`。
+
+### 16.4 Python API
+
+```python
+from lineage.script_parser import detect_script_kind, extract_sqls, parse_script, parse_script_file
+
+detect_script_kind(text, task_type="SHELL")     # -> 'sql' | 'shell' | 'python' | 'unknown'
+extract_sqls(text, "shell")                     # -> ([{sql, source_hint, line, note, ...}], [未解析提示])
+r = parse_script_file("examples/scripts/etl_ods_每日抽取.sh")
+print(r["kind"], r["sql_count"], r["table_lineage"], r["column_lineage_count"])
+```
+
+`parse_script` 返回结构：
+
+```python
+{
+  "kind": "shell",                 # 实际使用的脚本类型
+  "detected_kind": "shell",        # 内容判定结果（task_type 只做兜底）
+  "sql_count": 3,                  # 提取到的内嵌 SQL 片段数
+  "statement_count": 4,            # 解析出的 SQL 语句数（一条片段可含多语句）
+  "sqls": [{"sql": ..., "source_hint": ..., "line": ..., "note": ..., "placeholders": [...],
+            "parse": {...}, "error": None}],
+  "statements": [...],             # 每条语句的完整血缘结果（带 source_hint）
+  "input_tables": [...], "output_tables": [...],
+  "table_lineage": [{"source": ..., "target": ..., "via": [source_hint, ...]}],
+  "column_lineage": [...],         # 每条都带 source_hint，可溯源到脚本的哪一段
+  "unresolved_hints": [...],       # 提取不到 / 无法静态求值的如实记录（不编造）
+  "errors": [...]
+}
+```
+
+### 16.5 工作流级集成（`LINEAGE_DAG` / `POST /analyze-workflow`）
+
+`lineage/workflow.py::_parse_tasks` 现在**按脚本类型分发**：
+
+| 脚本类型 | 处理方式 |
+| --- | --- |
+| `sql` | 直接走 `SqlLineageParser.parse_sql`（原行为不变） |
+| `shell` / `python` | 先 `parse_script` 提取内嵌 SQL，再逐条解析；提取不到但整段像 SQL 时兜底直解 |
+
+另外对 SHELL / PYTHON 任务改用 **未清洗的 `rawScript`**：`ds_client.normalize_script` 会把整段脚本
+截成第一条 `hive -e "..."` 的正文（后面的 `beeline` / heredoc / `spark-sql` 全丢），拿它做工作流级
+分析会漏血缘。
+
+返回的 task 节点新增三个字段：
+
+```json
+{
+  "name": "t_dws_脚本加工", "type": "SHELL",
+  "script_kind": "shell",          // 实际按什么类型解析的
+  "sql_count": 3,                  // 提取到的内嵌 SQL 条数（SQL 任务=语句数）
+  "unresolved_hints": ["第 31 行 beeline -f etl/dws_设备效率汇总.sql：SQL 在外部文件里，脚本内无正文…"],
+  "statement_count": 3, "output_tables": ["cdw.dws_产销存汇总", "cdw.dws_库存基线", "cdw.dws_税利汇总"]
+}
+```
+
+工作流概览（`workflow`）也新增 `sql_count` / `script_kinds`（各类型任务数）/ `unresolved_hint_count`。
+
+**真实海豚实测**（`demos/ds_add_script_workflow.py` 建工作流 `wf_脚本解析实测`：
+SQL + SHELL + PYTHON 三任务，跑 `analyze_workflow`）：
+
+```text
+[工作流] 已创建 wf_脚本解析实测（project=184813938012736, code=184817747990080）
+==============================================================================
+工作流 wf_脚本解析实测  任务 3 个 / 解析成功 3 个  语句 6 条  SQL 面 6 条
+脚本类型分布 {'python': 1, 'shell': 1, 'sql': 1}
+------------------------------------------------------------------------------
+[t_dwd_产量明细] type=SQL script_kind=sql sql_count=1 语句=1 字段=4
+  输入表: dim.dim_plant, ods.ods_卷烟产量流水
+  输出表: cdw.dwd_卷烟产量明细
+------------------------------------------------------------------------------
+[t_dws_脚本加工] type=SHELL script_kind=shell sql_count=3 语句=3 字段=9
+  输入表: ods.ods_卷烟产量流水, ods.ods_卷烟销量流水, ods.ods_成品库存快照, ods.ods_税利上缴流水
+  输出表: cdw.dws_产销存汇总, cdw.dws_库存基线, cdw.dws_税利汇总
+  ! 未解析: 第 31 行 beeline -f etl/dws_设备效率汇总.sql：SQL 在外部文件里，脚本内无正文…
+------------------------------------------------------------------------------
+[t_ads_pyspark] type=PYTHON script_kind=python sql_count=2 语句=2 字段=5
+  输入表: cdw.dws_产销存汇总, cdw.dws_库存基线, dim.dim_plant
+  输出表: ads.ads_库存日报, ads.ads_经营指标明细
+  ! 未解析: spark.sql() 第 18 行：f-string 占位符 {DT} 的值需运行时才知道，已按 0 替换后解析…
+------------------------------------------------------------------------------
+表级血缘 9 条 / 字段级血缘 18 条
+工作流内链路: ods.ods_卷烟产量流水 -> cdw.dws_产销存汇总 -> ads.ads_经营指标明细
+```
+
+> SHELL 任务里的 3 条（`hive -e` 多语句 + `beeline -e "$SQL_VAR"` + heredoc）、
+> PYTHON 任务里的 2 条（`spark.sql(变量)` + `spark.sql(f-string)`）都被正确提取并解析；
+> 外部 SQL 文件引用与 f-string 占位符如实进了 `unresolved_hints`，**没有编造血缘**。
+
+复现：
+
+```bash
+.venv/bin/python demos/ds_add_script_workflow.py          # 建工作流 + 跑工作流级分析
+bash evidence/script_regression.sh                           # HTTP 层回归（/analyze、/analyze-workflow、/generate/*）
+```
+
+### 16.6 示例与测试
+
+| 文件 | 内容 |
+| --- | --- |
+| `examples/scripts/etl_ods_每日抽取.sh` | 真实风格 Shell 脚本：`hive -e` 多语句 + shell 变量 SQL + heredoc + `spark-sql -f` 外部文件 |
+| `examples/scripts/etl_dws_pyspark.py` | 真实风格 PySpark 脚本：三引号变量 + f-string + `pd.read_sql` + `sqlalchemy.text` |
+| `tests/test_script_parser.py` | 78 个用例：类型判定 / Shell 与 Python 各形态提取 / 降级边界 / 工作流集成 / CLI / 示例脚本端到端 |
+| `demos/complex_sql_probe.py` | 复杂 SQL 能力实测探针（19 个样本 → `reports/complex_sql_probe.json`） |
+| `demos/ds_add_script_workflow.py` | 在海豚建 SQL+SHELL+PYTHON 三任务工作流并跑工作流级分析 |
+| `evidence/script_regression.sh` | HTTP 层回归脚本（4 个端点各打一次） |
+
+### 16.7 已知限制（如实说明）
+
+* **提取的是「静态可见」的 SQL**：`-f xxx.sql`（脚本内没有正文）只记引用位置；
+  `spark.sql(动态拼接表达式)` 无法求值，进 `unresolved_hints`；**不会**猜测内容。
+* **f-string 占位符会被中和成 `0` 再解析**：血缘结构可用，但分区值等常量不精确，同时落一条提示。
+* **只认常见命令/API**：`hive` / `beeline` / `spark-sql` / `impala-shell` / `mysql` / `psql` /
+  `clickhouse-client`、`spark.sql` / `read_sql*` / `sqlalchemy.text`。自封装的执行器
+  （如 `run_hive.sh`、`Util.execute(sql)`）提取不到，会如实记提示。
+* **Shell 变量只做「字面量赋值」级别的解析**：`SQL=$(cat x.sql)` / 循环里拼出来的 SQL 无法静态求值。
+* **复杂 SQL 本身的能力边界**见 `docs/复杂SQL解析能力矩阵.md`（如 Hive 多插入语句 sqlglot 不支持、
+  `MERGE INTO` 未归类、标量子查询会被误记成常量）——这些是**解析器层**的限制，
+  脚本解析只是把它们透传出来，不会掩盖。

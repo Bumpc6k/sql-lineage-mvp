@@ -17,7 +17,7 @@ from typing import Any, Dict
 import pytest
 
 from lineage import cli
-from lineage.ds_lineage import (
+from lineage.ds.lineage import (
     DsLineage,
     DsLineageBuilder,
     build_ds_lineage,

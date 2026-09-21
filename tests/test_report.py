@@ -27,10 +27,10 @@ from urllib.parse import urlparse
 
 import pytest
 
-from lineage import report as report_mod
-from lineage.api_server import Handler, ROUTES, build_report_meta, handle_report
-from lineage.parser import SqlLineageParser
-from lineage.report import (
+from lineage.render import report as report_mod
+from lineage.serve.api_server import Handler, ROUTES, build_report_meta, handle_report
+from lineage_core.parser import SqlLineageParser
+from lineage.render.report import (
     make_report_id,
     prune_reports,
     rank_metrics,
@@ -54,7 +54,7 @@ def demo_sql() -> str:
 @pytest.fixture(scope="module")
 def parsed(demo_sql: str) -> dict:
     """一条真实的 ``/analyze`` 风格结果（含 knowledge 段）。"""
-    from lineage.api_server import handle_analyze
+    from lineage.serve.api_server import handle_analyze
     from lineage.knowledge import default_db_path
 
     out = handle_analyze({"sql": demo_sql, "dialect": "hive", "with_knowledge": True})
@@ -276,7 +276,7 @@ def test_report_in_routes() -> None:
 
 def test_analyze_attaches_report_only_when_asked(parsed: dict, tmp_path: Path) -> None:
     """handle_analyze 默认不落盘（单测友好）；with_report=true 才返回 report 段。"""
-    from lineage.api_server import handle_analyze
+    from lineage.serve.api_server import handle_analyze
 
     off = handle_analyze({"sql": "SELECT 1", "reports_dir": str(tmp_path)})
     assert off["success"] is True

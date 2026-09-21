@@ -25,9 +25,9 @@ from pathlib import Path
 
 import pytest
 
-from lineage.api_server import Handler, POST_DEFAULTS, ROUTES, handle_analyze_workflow
-from lineage.report import render_report
-from lineage.workflow import (
+from lineage.serve.api_server import Handler, POST_DEFAULTS, ROUTES, handle_analyze_workflow
+from lineage.render.report import render_report
+from lineage.ds.workflow import (
     _find_cycles,
     _longest_chain,
     _quality,
@@ -252,7 +252,7 @@ def test_quality_cycle_and_missing_knowledge() -> None:
 
 def test_workflow_definition_include_sub_process(ds) -> None:
     """``SUB_PROCESS`` / ``DEPENDENT`` 引用的工作流可被递归展开（同项目内）。"""
-    from lineage.ds_client import DsClient
+    from lineage.ds.client import DsClient
 
     client = DsClient(base_url=ds.url, user="admin", password="dolphinscheduler123")
     try:

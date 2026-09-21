@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from lineage.graph import LineageGraph
-from lineage.scan import DEFAULT_IGNORE_DIRS, ScanResult, discover_sql_files, scan_directory
+from lineage_core.graph import LineageGraph
+from lineage.collect.scan import DEFAULT_IGNORE_DIRS, ScanResult, discover_sql_files, scan_directory
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WAREHOUSE = PROJECT_ROOT / "examples" / "warehouse"

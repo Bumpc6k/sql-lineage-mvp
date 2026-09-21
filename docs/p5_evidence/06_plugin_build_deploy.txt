@@ -2,7 +2,7 @@
 [1;32m==> 1/5 从容器导出编译依赖 jar[0m
 
 [1;32m==> 2/5 javac --release 8 编译[0m
-   classpath: /root/projects/sql-lineage-mvp/ds-plugin/libs/jackson-annotations-2.13.4.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/slf4j-api-1.7.36.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/dolphinscheduler-common-3.2.2.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/jackson-core-2.13.4.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/commons-lang3-3.12.0.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/commons-collections4-4.3.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/jackson-databind-2.13.4.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/dolphinscheduler-task-api-3.2.2.jar:/root/projects/sql-lineage-mvp/ds-plugin/libs/dolphinscheduler-spi-3.2.2.jar:
+   classpath: /root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/libs/jackson-annotations-2.13.4.jar:/root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/libs/slf4j-api-1.7.36.jar:/root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/libs/dolphinscheduler-common-3.2.2.jar:/root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/libs/jackson-core-2.13.4.jar:/root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/libs/commons-lang3-3.12.0.jar:/root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/libs/commons-collections4-4.3.jar:/root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/libs/jackson-databind-2.13.4.jar:/root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/libs/dolphinscheduler-task-api-3.2.2.jar:/root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/libs/dolphinscheduler-spi-3.2.2.jar:
    sources (5):
      src/main/java/org/apache/dolphinscheduler/plugin/task/lineage/LineageParameters.java
      src/main/java/org/apache/dolphinscheduler/plugin/task/lineage/LineageServiceClient.java
@@ -13,7 +13,7 @@
 
 [1;32m==> 3/5 打包插件 jar (含 META-INF/services SPI 注册)[0m
    SPI 注册文件内容: org.apache.dolphinscheduler.plugin.task.lineage.LineageTaskChannelFactory
-   产物: /root/projects/sql-lineage-mvp/ds-plugin/dolphinscheduler-task-lineage-3.2.2.jar
+   产物: /root/projects/sql-lineage-mvp/apps/apps/ds-plugin/java/dolphinscheduler-task-lineage-3.2.2.jar
 META-INF/
 META-INF/MANIFEST.MF
 META-INF/services/

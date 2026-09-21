@@ -38,7 +38,7 @@ from lineage.generate import (
 )
 from lineage.generate.llm import GenerateLLM as _GenerateLLM
 from lineage.knowledge import build_knowledge_base
-from lineage.parser import SqlLineageParser
+from lineage_core.parser import SqlLineageParser
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WAREHOUSE = PROJECT_ROOT / "examples" / "warehouse"
@@ -466,7 +466,7 @@ def test_l4_accepts_sql_file(tmp_path: Path, kb_db: str) -> None:
 # HTTP 端点
 # --------------------------------------------------------------------------- #
 def test_http_generate_handlers(kb_db: str, tmp_path: Path) -> None:
-    from lineage import api_server
+    from lineage.serve import api_server
 
     for route in ("/generate/sql", "/generate/pipeline", "/generate/apply", "/generate/validate"):
         assert route in api_server.ROUTES, f"{route} 未注册"
@@ -486,14 +486,14 @@ def test_http_generate_handlers(kb_db: str, tmp_path: Path) -> None:
 
 
 def test_http_generate_error_is_business_error() -> None:
-    from lineage import api_server
+    from lineage.serve import api_server
 
     bad = api_server.handle_generate_sql({"target_table": "cdw.x"})
     assert bad["success"] is False and "error" in bad
 
 
 def test_health_lists_generate_endpoints() -> None:
-    from lineage import api_server
+    from lineage.serve import api_server
 
     listed = sorted(api_server.ROUTES)
     assert "/generate/sql" in listed and "/generate/validate" in listed

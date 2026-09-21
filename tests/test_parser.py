@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from lineage.parser import (
+from lineage_core.parser import (
     CONSTANT_MARKER,
     SqlLineageParser,
     dumps,

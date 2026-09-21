@@ -39,7 +39,7 @@ from lineage.knowledge import (
 )
 from lineage.knowledge.comments import parse_sql_comments as parse_comments
 from lineage.knowledge.textutil import split_comment_unit, split_identifier
-from lineage.parser import SqlLineageParser
+from lineage_core.parser import SqlLineageParser
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WAREHOUSE = PROJECT_ROOT / "examples" / "warehouse"
@@ -561,7 +561,7 @@ def test_knowledge_demo_dir_is_scannable() -> None:
 
 def test_http_kb_handlers(demo_db: Path) -> None:
     """直接调用 HTTP 处理函数（不起服务），验证三个 kb 端点。"""
-    from lineage.api_server import handle_kb_ask, handle_kb_metric, handle_kb_search, handle_kb_summary
+    from lineage.serve.api_server import handle_kb_ask, handle_kb_metric, handle_kb_search, handle_kb_summary
 
     payload = {"db": str(demo_db)}
     summary = handle_kb_summary(dict(payload))

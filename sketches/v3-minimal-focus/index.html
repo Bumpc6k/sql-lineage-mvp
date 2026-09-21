@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>变体 C · 极简专注（安静 · 单栏 · 大量留白）</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --ink:#0d0d0f; --sub:#6b6b76; --line:#e8e8ec; --bg:#fcfcfd; --accent:#5b5bd6;
+  }
+  body{
+    font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;
+    font-size:14px;-webkit-font-smoothing:antialiased;
+  }
+  .top{height:52px;display:flex;align-items:center;gap:26px;padding:0 30px;border-bottom:1px solid var(--line);
+       background:rgba(252,252,253,.85);backdrop-filter:blur(10px);position:relative;z-index:3}
+  .logo{font-size:14px;font-weight:600;letter-spacing:-.2px;display:flex;align-items:center;gap:8px}
+  .logo .d{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+  .nav{display:flex;gap:20px;font-size:13px}
+  .nav a{color:var(--sub);text-decoration:none}
+  .nav a.on{color:var(--ink);font-weight:550;position:relative}
+  .nav a.on::after{content:'';position:absolute;left:0;right:0;bottom:-19px;height:1.5px;background:var(--ink)}
+  .nav a:hover{color:var(--ink)}
+  .right{margin-left:auto;font-size:12px;color:var(--sub);display:flex;gap:16px;align-items:center}
+
+  .shell{display:grid;grid-template-columns:1fr 300px;height:calc(100vh - 52px)}
+  .main{overflow:auto;padding:52px 0 0}
+  .inner{max-width:720px;margin:0 auto;padding:0 30px 120px}
+  h1{font-size:27px;font-weight:600;letter-spacing:-.7px;line-height:1.25;margin-bottom:8px}
+  .lede{color:var(--sub);font-size:14.5px;line-height:1.6;margin-bottom:38px}
+
+  .turn{margin-bottom:34px}
+  .who{font-size:12px;color:var(--sub);margin-bottom:10px;display:flex;gap:8px;align-items:center}
+  .me .who::before{content:'';width:18px;height:18px;border-radius:50%;background:var(--ink);display:inline-block}
+  .ai .who::before{content:'';width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),#a78bfa);display:inline-block}
+  .say{font-size:15px;line-height:1.72}
+  .say p{margin-bottom:12px}
+  .say code{background:#f2f2f5;padding:1px 5px;border-radius:4px;font-size:13px;
+            font-family:ui-monospace,Consolas,monospace}
+
+  pre{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:16px 0;
+      overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.7;color:#33333c}
+  pre .c{color:#9a9aa5}pre .k{color:#5b5bd6}pre .f{color:#854d0e}
+
+  .facts{border-left:2px solid var(--line);padding-left:16px;margin:18px 0 0;font-size:13px;color:var(--sub)}
+  .facts div{margin-bottom:7px;display:flex;gap:9px;align-items:baseline}
+  .facts b{color:var(--ink);font-weight:550}
+  .facts .ok{color:#15803d}
+  .actions{display:flex;gap:9px;margin-top:20px;flex-wrap:wrap}
+  .a{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 14px;
+     font:inherit;font-size:12.5px;cursor:pointer;transition:.15s}
+  .a:hover{border-color:var(--ink)}
+  .a.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .a.primary:hover{opacity:.86}
+
+  .composer{position:fixed;bottom:0;left:0;right:300px;background:linear-gradient(transparent,var(--bg) 30%);
+            padding:34px 30px 26px}
+  .box{max-width:720px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:12px;
+       padding:15px 17px;box-shadow:0 8px 26px rgba(15,15,20,.06)}
+  .box input{width:100%;border:0;outline:none;font:inherit;font-size:14.5px;color:var(--ink);background:none}
+  .box .row{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:12px;color:var(--sub)}
+  .box .row .go{margin-left:auto;background:var(--ink);color:#fff;border:0;border-radius:7px;
+       padding:7px 15px;font:inherit;font-size:12.5px;cursor:pointer}
+
+  /* 右侧：知识侧栏（轻量） */
+  .side{border-left:1px solid var(--line);overflow:auto;padding:40px 24px 60px;background:#fdfdfe}
+  .side h3{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--sub);
+           font-weight:600;margin-bottom:15px}
+  .big{font-size:34px;font-weight:600;letter-spacing:-1.6px;line-height:1}
+  .big span{font-size:13px;font-weight:450;color:var(--sub);letter-spacing:0;margin-left:7px}
+  .stat{margin-bottom:26px}
+  .stat .d{font-size:12px;color:var(--sub);margin-top:5px}
+  .divider{height:1px;background:var(--line);margin:26px 0}
+
+  .kv{font-size:13px;line-height:1.6;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .kv:last-child{border-bottom:0}
+  .kv:hover{color:var(--accent)}
+  .kv .m{font-size:12px;color:var(--sub)}
+  .kv .f{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--ink);margin-bottom:3px}
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="logo"><span class="d"></span> 数据资产智能运营平台</div>
+    <div class="nav">
+      <a href="#" class="on">对话</a><a href="#">血缘</a><a href="#">知识库</a>
+      <a href="#">调度</a><a href="#">影响分析</a><a href="#">审核</a>
+    </div>
+    <div class="right"><span>血缘服务 · 正常</span><span>刘雨</span></div>
+  </div>
+
+  <div class="shell">
+    <div class="main">
+      <div class="inner">
+        <h1>需要什么，说一句话就行</h1>
+        <p class="lede">它读过你的 75 条业务口径、34 张表的血缘与 298 个字段词典，
+          所以能给你「有依据」的 SQL —— 每条列都会告诉你依据来自哪个脚本、哪条口径。</p>
+
+        <div class="turn me">
+          <div class="who">我 · 21:04</div>
+          <div class="say"><p>帮我生成「产销存月报」的加工链路，从贴源层一路到应用层</p></div>
+        </div>
+
+        <div class="turn ai">
+          <div class="who">助手 · 21:04 · 用了 1.2 秒</div>
+          <div class="say">
+            <p>生成了 4 段链路。最后一层是这样的：</p>
+            <pre><span class="c">-- ads.ads_产销存月报 ← cdw.dws_产销存汇总</span>
+<span class="k">SELECT</span> t1.brand_code, t2.brand_name, t1.output_qty, t1.sale_qty,
+       <span class="f">ROUND</span>(t1.sale_qty / <span class="f">NULLIF</span>(t1.output_qty,0),4) <span class="k">AS</span> sale_output_ratio,
+       t1.output_qty - t1.sale_qty <span class="k">AS</span> stock_increase
+<span class="k">FROM</span> cdw.dws_产销存汇总 t1 <span class="k">LEFT JOIN</span> dim.dim_brand t2 …</pre>
+            <div class="facts">
+              <div><span>依据</span><b>产销率 = 销量 / 产量</b>（口径 · 置信度 0.9）</div>
+              <div><span>依据</span><b>库存增量 = 产量 − 销量</b>（口径 · 0.9）</div>
+              <div><span>来源</span>examples/warehouse/ads/ads_产销存月报.sql 第 1 条语句</div>
+              <div><span class="ok">✓</span> 语法自检通过 · 分层规则无违规 · 无跨层直连</div>
+              <div><span>待确认</span>2 项（维表关联键按命名规范推断，请复核）</div>
+            </div>
+            <div class="actions">
+              <button class="a primary">落地到海豚 →</button>
+              <button class="a">查看完整报告</button>
+              <button class="a">编辑 SQL</button>
+              <button class="a">导出</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="turn me">
+          <div class="who">我 · 21:06</div>
+          <div class="say"><p>产量到底怎么算的？</p></div>
+        </div>
+        <div class="turn ai" style="margin-bottom:0">
+          <div class="who">助手 · 21:06</div>
+          <div class="say">
+            <p><code>产量 = 打码量 + 跳码量 − 重码量</code>（聚合 · 置信度 0.9）</p>
+            <div class="facts">
+              <div><span>来源</span>dwd_卷烟产量码段明细.sql 第 1 条语句</div>
+              <div><span>上游</span>dwd → ods.卷烟码段流水 → src.mes_码段采集接口</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="box">
+          <input placeholder="说一句话，或者粘贴一段 SQL…">
+          <div class="row"><span>⌘K 指令</span><span>@ 引用表</span><span># 引用口径</span>
+            <button class="go">发送 ⏎</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧知识侧栏 -->
+    <div class="side">
+      <div class="stat">
+        <h3>知识库</h3>
+        <div class="big">75 <span>条口径</span></div>
+        <div class="d">298 字段 · 139 术语 · 76 规则</div>
+      </div>
+      <div class="stat">
+        <h3>血缘</h3>
+        <div class="big">34 <span>张表</span></div>
+        <div class="d">41 条边 · 215 字段映射</div>
+      </div>
+      <div class="stat">
+        <h3>链路体检</h3>
+        <div class="big">0 <span>处硬伤</span></div>
+        <div class="d">4 张表下游在别的工作流（已核对）</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <h3>常用口径</h3>
+      <div class="kv"><div class="f">产量 = 打码量 + 跳码量 − 重码量</div>
+        <div class="m">聚合 · 0.9 · dwd_卷烟产量码段明细</div></div>
+      <div class="kv"><div class="f">产销率 = 销量 / 产量</div>
+        <div class="m">比率 · 0.9 · ads_产销存月报</div></div>
+      <div class="kv"><div class="f">不良品率 = 不良品量 / 产量</div>
+        <div class="m">条件分支 · 0.85 · dwd_卷烟产量明细</div></div>
+      <div class="kv"><div class="f">设备开动率 = 运行 / (运行 + 停机)</div>
+        <div class="m">新提炼 · dws_设备效率</div></div>
+
+      <div class="divider"></div>
+      <h3>最近会话</h3>
+      <div class="kv"><div class="f">产销存月报链路生成</div><div class="m">今天 21:04 · 4 段 SQL</div></div>
+      <div class="kv"><div class="f">哪些表用了打码量</div><div class="m">今天 20:41 · 2 表 5 口径</div></div>
+      <div class="kv"><div class="f">wf_dwd_清洗 工作流血缘</div><div class="m">今天 20:12 · 4 任务</div></div>
+    </div>
+  </div>
+</body>
+</html>

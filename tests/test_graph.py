@@ -12,7 +12,7 @@ from typing import Dict, List
 
 import pytest
 
-from lineage.graph import (
+from lineage_core.graph import (
     LAYERS,
     LineageGraph,
     build_graph,
@@ -23,7 +23,7 @@ from lineage.graph import (
     format_stats_text,
     table_layer,
 )
-from lineage.parser import SqlLineageParser
+from lineage_core.parser import SqlLineageParser
 
 # ---------------------------------------------------------------- 测试数据 --
 CHAIN_SQL = """

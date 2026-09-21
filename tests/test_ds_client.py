@@ -12,7 +12,7 @@ import socket
 
 import pytest
 
-from lineage.ds_client import (
+from lineage.ds.client import (
     DEFAULT_BASE_URL,
     SCRIPT_KEYS,
     DsApiError,
@@ -447,13 +447,13 @@ def test_real_fetch_all_snapshot() -> None:
 
 @requires_ds
 def test_real_demo_project_has_workflows() -> None:
-    """演示数据脚本 scripts/ds_setup_demo.py 跑过之后，项目里应有工作流与任务。"""
+    """演示数据脚本 demos/ds_setup_demo.py 跑过之后，项目里应有工作流与任务。"""
     c = DsClient()
     c.login()
     try:
         projects = {p["name"]: p for p in c.list_projects()}
         if "烟草数仓演示" not in projects:
-            pytest.skip("演示项目还没创建，先跑 scripts/ds_setup_demo.py")
+            pytest.skip("演示项目还没创建，先跑 demos/ds_setup_demo.py")
         code = projects["烟草数仓演示"]["code"]
         defs = c.list_process_definitions(code)
         assert len(defs) >= 4

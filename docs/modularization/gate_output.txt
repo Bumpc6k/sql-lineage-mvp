@@ -1,0 +1,20 @@
+===== 验收门禁 2026-09-21 21:35:22 =====
+
+① 单元②（后端服务/CLI）
+
+② 单元②↔③ 契约（HTTP）
+
+③ 单元③（海豚插件：Java + 前端补丁）
+
+===== 汇总：通过 9 项 / 失败 0 项 =====
+  ✅ pytest 全量用例
+  ✅ 分层守卫 check_layering
+  ✅ CLI 可导入 + 子命令注册
+  ✅ CLI 真实调用（stats 子命令）
+  ✅ 血缘服务健康检查 :18080
+  ✅ 单脚本血缘 /analyze（真实请求）
+  ✅ 前端表单真跑 verify_ldf_form
+  ✅ 保存链路 verify_save_params
+  ✅ 服务端下发字节核对 verify_ui_deploy
+
+GATE: ALL_PASS

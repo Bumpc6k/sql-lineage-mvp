@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from lineage.api_server import build_knowledge_section, handle_analyze, handle_parse
+from lineage.serve.api_server import build_knowledge_section, handle_analyze, handle_parse
 from lineage.knowledge import KnowledgeStore, build_knowledge_base, collect_target_fields, match_knowledge
-from lineage.parser import SqlLineageParser
+from lineage_core.parser import SqlLineageParser
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 KNOWLEDGE_DEMO = PROJECT_ROOT / "examples" / "knowledge_demo"
@@ -174,7 +174,7 @@ def test_handle_analyze_empty_sql() -> None:
 
 def test_build_knowledge_section_api_shape() -> None:
     """/health 的 endpoints 列表里必须出现 /analyze（以及工作流级的 /analyze-workflow）。"""
-    from lineage.api_server import ROUTES
+    from lineage.serve.api_server import ROUTES
 
     assert "/analyze" in ROUTES
     assert sorted(ROUTES) == sorted([

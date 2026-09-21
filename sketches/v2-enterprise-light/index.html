@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>变体 B · 浅色企业控制台（内容优先 · 卡片化）</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    background:#f4f6fa;color:#1f2937;height:100vh;overflow:hidden;font-size:13.5px;
+  }
+  .top{height:56px;background:#fff;border-bottom:1px solid #e5e9f0;display:flex;align-items:center;
+       gap:22px;padding:0 22px;position:relative;z-index:2}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px;color:#1264d1}
+  .logo .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#1264d1,#3b9dff);
+       color:#fff;display:grid;place-items:center;font-size:14px}
+  .logo small{font-weight:400;color:#8a94a6;font-size:11.5px}
+  .nav{display:flex;gap:4px}
+  .nav a{color:#5b6577;text-decoration:none;font-size:13px;padding:7px 13px;border-radius:7px;font-weight:500}
+  .nav a.on{background:#eaf2fe;color:#1264d1;font-weight:600}
+  .nav a:hover{background:#f1f4f9;color:#1f2937}
+  .search{margin-left:auto;background:#f4f6fa;border:1px solid #e5e9f0;border-radius:9px;
+          padding:7px 13px;font-size:12.5px;color:#8a94a6;width:230px}
+  .me{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#5b6577}
+  .me .av{width:28px;height:28px;border-radius:50%;background:#dbe6f8;color:#1264d1;display:grid;
+          place-items:center;font-size:11.5px;font-weight:600}
+
+  .wrap{padding:20px 22px;height:calc(100vh - 56px);overflow:auto}
+  .page-t{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+  .page-t h1{font-size:19px;font-weight:700;letter-spacing:-.3px}
+  .page-t .sub{color:#8a94a6;font-size:12.5px}
+  .page-t .btn{margin-left:auto}
+  .btn{background:#1264d1;color:#fff;border:0;padding:9px 17px;border-radius:8px;font:inherit;
+       font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px rgba(18,100,209,.25)}
+  .btn.ghost{background:#fff;color:#5b6577;border:1px solid #e5e9f0;box-shadow:none}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  .kpi{background:#fff;border:1px solid #e5e9f0;border-radius:12px;padding:15px 17px;
+       box-shadow:0 1px 3px rgba(16,24,40,.04)}
+  .kpi .l{font-size:12px;color:#8a94a6;display:flex;align-items:center;gap:6px;margin-bottom:8px}
+  .kpi .n{font-size:26px;font-weight:700;letter-spacing:-1px;color:#111827}
+  .kpi .d{font-size:11.5px;margin-top:6px;color:#15803d}
+  .kpi .d.warn{color:#b45309}
+  .ic{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:11px}
+  .ic.b{background:#eaf2fe;color:#1264d1}.ic.v{background:#f3ecfe;color:#7c3aed}
+  .ic.g{background:#e7f7ee;color:#15803d}.ic.a{background:#fef5e7;color:#b45309}
+
+  .cols{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;align-items:start}
+  .card{background:#fff;border:1px solid #e5e9f0;border-radius:12px;box-shadow:0 1px 3px rgba(16,24,40,.04);
+        overflow:hidden}
+  .card-h{padding:13px 17px;border-bottom:1px solid #eef1f6;display:flex;align-items:center;gap:9px}
+  .card-h h2{font-size:14px;font-weight:650}
+  .card-h .tag{margin-left:auto;font-size:11.5px;color:#1264d1;background:#eaf2fe;padding:3px 9px;border-radius:99px}
+  .card-b{padding:17px}
+
+  .msg{display:flex;gap:11px;margin-bottom:16px}
+  .msg .av{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;font-size:12px}
+  .msg .av.u{background:#dbe6f8;color:#1264d1;font-weight:600}
+  .msg .av.a{background:linear-gradient(135deg,#1264d1,#7c3aed);color:#fff;font-weight:700}
+  .msg .body{flex:1;min-width:0}
+  .msg .meta{font-size:11.5px;color:#8a94a6;margin-bottom:6px}
+  .txt{font-size:13px;line-height:1.65;color:#374151}
+  .txt b{color:#111827}
+  .code{background:#f7f9fc;border:1px solid #e5e9f0;border-radius:9px;padding:11px 13px;margin:9px 0;
+        font-family:'SF Mono',Consolas,monospace;font-size:11.5px;line-height:1.65;color:#374151;overflow:auto}
+  .code .c{color:#8a94a6}.code .k{color:#9333ea}.code .f{color:#1264d1}
+  .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+  .tagd{font-size:11.5px;padding:4px 10px;border-radius:7px;background:#f4f6fa;color:#5b6577}
+  .tagd.ok{background:#e7f7ee;color:#15803d}
+  .tagd.warn{background:#fef5e7;color:#b45309}
+  .tagd.act{background:#1264d1;color:#fff;cursor:pointer}
+
+  .composer{border-top:1px solid #eef1f6;padding:13px 17px;background:#fcfdff}
+  .inpbox{display:flex;gap:10px;align-items:center;background:#f4f6fa;border:1px solid #e5e9f0;
+          border-radius:10px;padding:11px 14px}
+  .inpbox:focus-within{background:#fff;border-color:#1264d1;box-shadow:0 0 0 4px rgba(18,100,209,.08)}
+  .inpbox input{flex:1;background:none;border:0;outline:none;font:inherit;font-size:13px;color:#1f2937}
+  .shortcuts{display:flex;gap:14px;margin-top:9px;font-size:11.5px;color:#8a94a6}
+
+  .bars{display:flex;flex-direction:column;gap:11px}
+  .bar{font-size:12.5px;color:#5b6577}
+  .bar .row{display:flex;justify-content:space-between;margin-bottom:5px}
+  .track{height:8px;background:#eef1f6;border-radius:99px;overflow:hidden}
+  .fill{height:100%;border-radius:99px}
+  .f1{background:linear-gradient(90deg,#1264d1,#3b9dff)}
+  .f2{background:linear-gradient(90deg,#7c3aed,#a78bfa)}
+  .f3{background:linear-gradient(90deg,#15803d,#34d399)}
+  .f4{background:linear-gradient(90deg,#b45309,#fbbf24)}
+
+  .rowlist{display:flex;flex-direction:column}
+  .rl{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid #f1f4f9;align-items:flex-start}
+  .rl:last-child{border-bottom:0}
+  .rl .idx{width:22px;height:22px;border-radius:7px;background:#eaf2fe;color:#1264d1;font-size:11px;
+           font-weight:700;display:grid;place-items:center;flex:none;margin-top:1px}
+  .rl .t{font-size:12.8px;color:#111827;margin-bottom:3px;line-height:1.5}
+  .rl .s{font-size:11.5px;color:#8a94a6;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .bdg{font-size:11px;padding:2px 8px;border-radius:99px;background:#f3ecfe;color:#7c3aed}
+  .bdg.g{background:#e7f7ee;color:#15803d}
+
+  .health{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .hcard{border:1px solid #e5e9f0;border-radius:10px;padding:12px 13px;background:#fcfdff}
+  .hcard .t{font-size:12.5px;font-weight:600;color:#111827;margin-bottom:5px}
+  .hcard .s{font-size:11.5px;color:#8a94a6;line-height:1.5}
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="logo"><span class="mark">◈</span> 数据资产智能运营平台 <small>· 血缘 / 知识 / 生成</small></div>
+    <div class="nav">
+      <a href="#" class="on">对话</a><a href="#">数据地图</a><a href="#">血缘分析</a>
+      <a href="#">知识库</a><a href="#">调度看板</a><a href="#">审核中心</a>
+    </div>
+    <div class="search">🔍 搜索表 / 字段 / 指标口径…</div>
+    <div class="me"><span class="av">刘</span> 刘雨 · 数据开发</div>
+  </div>
+
+  <div class="wrap">
+    <div class="page-t">
+      <h1>AI 数据开发助手</h1>
+      <span class="sub">基于 75 条业务口径 · 34 张表血缘 · 298 个字段词典</span>
+      <span class="btn ghost">📚 查看知识库</span>
+      <button class="btn" style="margin-left:8px">＋ 新建分析</button>
+    </div>
+
+    <!-- KPI 行 -->
+    <div class="kpis">
+      <div class="kpi">
+        <div class="l"><span class="ic b">📐</span> 指标口径</div>
+        <div class="n">75</div><div class="d">较上次建库 +11 条</div>
+      </div>
+      <div class="kpi">
+        <div class="l"><span class="ic v">🔤</span> 字段词典</div>
+        <div class="n">298</div><div class="d">中文化覆盖 99.3%</div>
+      </div>
+      <div class="kpi">
+        <div class="l"><span class="ic g">🕸</span> 血缘边</div>
+        <div class="n">41</div><div class="d">215 条字段映射</div>
+      </div>
+      <div class="kpi">
+        <div class="l"><span class="ic a">⚠️</span> 链路体检</div>
+        <div class="n">2</div><div class="d warn">2 需人工确认</div>
+      </div>
+    </div>
+
+    <div class="cols">
+      <!-- 左：对话 -->
+      <div class="card">
+        <div class="card-h"><h2>对话工作区</h2><span class="tag">会话 #7 · 规则模式</span></div>
+        <div class="card-b">
+          <div class="msg">
+            <div class="av u">我</div>
+            <div class="body">
+              <div class="meta">我 · 21:04</div>
+              <div class="txt">帮我生成「产销存月报」的加工链路，从贴源层一路到应用层</div>
+            </div>
+          </div>
+          <div class="msg">
+            <div class="av a">AI</div>
+            <div class="body">
+              <div class="meta">助手 · 21:04 · 耗时 1.2s · 依据 75 条口径 + 41 条血缘边</div>
+              <div class="txt">已生成 <b>4 段链路</b>（src → ods → dwd → dws → ads），每列都有口径依据：</div>
+              <div class="code">
+<span class="c">-- ④ ads.ads_产销存月报 ← cdw.dws_产销存汇总</span>
+<span class="k">SELECT</span> t1.brand_code, t2.brand_name, t1.output_qty, t1.sale_qty,
+       <span class="f">ROUND</span>(t1.sale_qty / <span class="f">NULLIF</span>(t1.output_qty,0),4) <span class="k">AS</span> sale_output_ratio, <span class="c">-- 产销率</span>
+       t1.output_qty - t1.sale_qty <span class="k">AS</span> stock_increase          <span class="c">-- 库存增量</span>
+<span class="k">FROM</span> cdw.dws_产销存汇总 t1 <span class="k">LEFT JOIN</span> dim.dim_brand t2 …
+              </div>
+              <div class="tags">
+                <span class="tagd ok">✅ 语法自检通过</span>
+                <span class="tagd ok">✅ 分层规则无违规</span>
+                <span class="tagd">口径复用 ×7</span>
+                <span class="tagd warn">⚠ 2 项需人工确认</span>
+                <span class="tagd act">🚀 落地到海豚</span>
+                <span class="tagd">📄 完整报告</span>
+              </div>
+            </div>
+          </div>
+          <div class="msg">
+            <div class="av u">我</div>
+            <div class="body"><div class="meta">我 · 21:06</div>
+              <div class="txt">产量到底怎么算的？</div></div>
+          </div>
+          <div class="msg" style="margin-bottom:0">
+            <div class="av a">AI</div>
+            <div class="body">
+              <div class="meta">助手 · 21:06</div>
+              <div class="txt"><b>产量 = 打码量 + 跳码量 − 重码量</b>（聚合 · 置信度 0.9）</div>
+              <div class="tags">
+                <span class="tagd">来源：dwd_卷烟产量码段明细.sql 第 1 条语句</span>
+                <span class="tagd">上游：dwd → ods.卷烟码段流水 → src.mes_码段采集接口</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <div class="inpbox">
+            <input placeholder="描述你的需求，例如：生成一张产量日报表并挂到海豚…">
+            <button class="btn">发送</button>
+          </div>
+          <div class="shortcuts"><span>⌘K 快捷指令</span><span>@表名 引用血缘</span><span>#口径 引用知识库</span><span>/apply 直接落地</span></div>
+        </div>
+      </div>
+
+      <!-- 右：知识大盘 -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card">
+          <div class="card-h"><h2>知识库大盘</h2><span class="tag">最近建库 21:52</span></div>
+          <div class="card-b">
+            <div class="bars">
+              <div class="bar"><div class="row"><span>仓库层 dws</span><b>24</b></div>
+                <div class="track"><div class="fill f1" style="width:96%"></div></div></div>
+              <div class="bar"><div class="row"><span>应用层 ads</span><b>23</b></div>
+                <div class="track"><div class="fill f2" style="width:92%"></div></div></div>
+              <div class="bar"><div class="row"><span>明细层 dwd</span><b>15</b></div>
+                <div class="track"><div class="fill f3" style="width:60%"></div></div></div>
+              <div class="bar"><div class="row"><span>贴源层 ods</span><b>13</b></div>
+                <div class="track"><div class="fill f4" style="width:52%"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h2>重点口径</h2><span class="tag">按置信度排序</span></div>
+          <div class="card-b" style="padding-top:6px;padding-bottom:6px">
+            <div class="rowlist">
+              <div class="rl"><div class="idx">1</div><div>
+                <div class="t">产量 = 打码量 + 跳码量 − 重码量</div>
+                <div class="s"><span class="bdg">聚合 0.9</span> cdw.dwd_卷烟产量码段明细</div></div></div>
+              <div class="rl"><div class="idx">2</div><div>
+                <div class="t">产销率 = 销量 / 产量</div>
+                <div class="s"><span class="bdg">比率 0.9</span> ads.ads_产销存月报</div></div></div>
+              <div class="rl"><div class="idx">3</div><div>
+                <div class="t">不良品率 = 不良品量 / 产量</div>
+                <div class="s"><span class="bdg">条件分支 0.85</span> cdw.dwd_卷烟产量明细</div></div></div>
+              <div class="rl"><div class="idx">4</div><div>
+                <div class="t">设备开动率 = 运行时长 / (运行 + 停机)</div>
+                <div class="s"><span class="bdg g">新提炼</span> cdw.dws_设备效率</div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h2>链路体检</h2><span class="tag">工作流级</span></div>
+          <div class="card-b">
+            <div class="health">
+              <div class="hcard"><div class="t">✅ 无环路 · 无孤岛输入</div>
+                <div class="s">34 节点 / 41 边 / 215 字段映射</div></div>
+              <div class="hcard"><div class="t">⚠ 4 张表下游在别的工作流</div>
+                <div class="s">已与全局血缘交叉核对，非真断链</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

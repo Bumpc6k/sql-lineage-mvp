@@ -1,0 +1,37 @@
+[
+  {
+    "name": "scope",
+    "fieldName": "scope",
+    "formType": "radio",
+    "title": "解析范围 (scope)",
+    "value": "current",
+    "validateList": [{ "required": true, "message": "解析范围必填", "trigger": "blur" }],
+    "options": [
+      { "label": "当前工作流（current）", "value": "current", "disabled": false },
+      { "label": "整个项目（project）", "value": "project", "disabled": false }
+    ]
+  },
+  {
+    "name": "taskTypes",
+    "fieldName": "taskTypes",
+    "formType": "input",
+    "title": "解析任务类型 (taskTypes)",
+    "value": "SQL,SHELL,PYTHON",
+    "props": { "placeholder": "SQL,SHELL,PYTHON" }
+  },
+  {
+    "name": "includeSubProcess",
+    "fieldName": "includeSubProcess",
+    "formType": "switch",
+    "title": "包含子工作流 (includeSubProcess)",
+    "value": false
+  },
+  {
+    "name": "serviceUrl",
+    "fieldName": "serviceUrl",
+    "formType": "input",
+    "title": "血缘服务地址 (serviceUrl)",
+    "value": "http://172.17.0.1:18080",
+    "props": { "placeholder": "http://172.17.0.1:18080" }
+  }
+]

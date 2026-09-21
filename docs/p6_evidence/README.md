@@ -4,11 +4,11 @@
 
 | 文件 | 内容 | 复现命令 |
 | --- | --- | --- |
-| `01_analyze_workflow_and_frontend.txt` | `POST /analyze-workflow` 的 curl 证据（HTTP 200 + `wf_dwd_清洗` 的任务清单 / 合并表级血缘 / 链路质量体检 / 报告 URL）、报告页 `GET /report/<id>` 的 HTTP 状态与 HTML 前 15 行、4 个前端 bundle 的 200 + 补丁串检查、容器内动态任务类型配置 | `bash scripts/collect_dag_evidence.sh` |
-| `02_ds_task_log_lineage_dag.txt` | `LINEAGE_DAG` 任务实例日志**全文**（两次运行：3 个 SQL 任务 + 同层 DAG 节点；给历史工作流 `wf_dws_汇总` 追加的尾节点），含五段式报告与 varPool 出参 | `bash ds-plugin/build.sh && bash scripts/prep_ds_demo.sh && .venv/bin/python ds-plugin/verify_dag.py` |
+| `01_analyze_workflow_and_frontend.txt` | `POST /analyze-workflow` 的 curl 证据（HTTP 200 + `wf_dwd_清洗` 的任务清单 / 合并表级血缘 / 链路质量体检 / 报告 URL）、报告页 `GET /report/<id>` 的 HTTP 状态与 HTML 前 15 行、4 个前端 bundle 的 200 + 补丁串检查、容器内动态任务类型配置 | `bash evidence/collect_dag_evidence.sh` |
+| `02_ds_task_log_lineage_dag.txt` | `LINEAGE_DAG` 任务实例日志**全文**（两次运行：3 个 SQL 任务 + 同层 DAG 节点；给历史工作流 `wf_dws_汇总` 追加的尾节点），含五段式报告与 varPool 出参 | `bash apps/apps/ds-plugin/java/build.sh && bash ops/prep_ds_demo.sh && .venv/bin/python apps/apps/ds-plugin/verify/verify_dag.py` |
 | `03_analyze_workflow_response.json` | `/analyze-workflow` 的完整 JSON 响应（32 KB，未删减） | 同上（curl 那一步） |
 | `04_workflow_lineage_report.html` | 工作流级 HTML 报告（单文件、零外部依赖；顶部「工作流概览」+ 任务清单 + 链路质量体检 + 跨任务字段血缘 + 全链路 DAG SVG） | 浏览器打开，或 `curl http://localhost:18080/report/<report_id>` |
-| `05_lineage_regression.txt` | **回归**：现有 `LINEAGE`（单脚本）任务跑一次，①~⑤ 段 + 表格折叠 + 报告 URL 全部命中断言 | `.venv/bin/python ds-plugin/verify_knowledge.py` |
+| `05_lineage_regression.txt` | **回归**：现有 `LINEAGE`（单脚本）任务跑一次，①~⑤ 段 + 表格折叠 + 报告 URL 全部命中断言 | `.venv/bin/python apps/apps/ds-plugin/verify/verify_knowledge.py` |
 | `06_pytest.txt` | 全量单测（**312 passed**，含新增 20 个工作流级用例） | `env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY .venv/bin/python -m pytest -o addopts="" -q` |
 
 ## 一句话结论
