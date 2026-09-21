@@ -89,6 +89,18 @@ from lineage.generate import (  # noqa: E402
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))  # 仓库根
 DEFAULT_GRAPH = os.path.join(PROJECT_ROOT, "warehouse_graph.json")
 
+#: 独立前端模块（apps/web）的目录 —— 服务端可以顺手托管它，也可以完全不起（前端独立部署时用）
+WEB_DIR = os.path.join(PROJECT_ROOT, "apps", "web")
+#: CORS：前端是独立单元，可能从 :5173 等别的源调本服务。默认放开，可用环境变量收紧。
+CORS_ORIGIN = os.environ.get("LINEAGE_CORS_ORIGIN", "*")
+STATIC_TYPES = {
+    ".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon",
+    ".woff2": "font/woff2", ".map": "application/json; charset=utf-8",
+}
+
+
 
 def handle_parse(payload: dict) -> dict:
     sql = payload.get("sql") or ""
@@ -460,21 +472,59 @@ POST_DEFAULTS = {"/analyze": {"with_report": True}, "/analyze-workflow": {"with_
 class Handler(BaseHTTPRequestHandler):
     server_version = "LineageAPI/1.0"
 
+    def _cors(self):
+        """前端是独立部署单元，从别的源调本服务时需要放行（可用 LINEAGE_CORS_ORIGIN 收紧）。"""
+        if CORS_ORIGIN:
+            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
+    def do_OPTIONS(self):  # noqa: N802 — BaseHTTPRequestHandler 约定
+        """CORS 预检：浏览器在跨源 POST(application/json) 前会先来一次。"""
+        self.send_response(204)
+        self._cors()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def _send(self, code: int, obj: dict):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self._cors()
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_html(self, code: int, body: bytes):
+    def _send_html(self, code: int, body: bytes, content_type: str = "text/html; charset=utf-8"):
         self.send_response(code)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self._cors()
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_static(self, rel_path: str):
+        """``GET /app/<file>``：托管独立前端模块 apps/web（不启动它也不影响服务）。"""
+        rel = unquote(rel_path or "").lstrip("/") or "index.html"
+        target = os.path.normpath(os.path.join(WEB_DIR, rel))
+        if not target.startswith(os.path.normpath(WEB_DIR)) or not os.path.isfile(target):
+            self._send_html(404, (
+                '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
+                "<title>404 · 前端模块不可用</title></head>"
+                '<body style="font-family:sans-serif;background:#0d1117;color:#e6edf3;padding:48px">'
+                "<h1>404 · 前端模块不可用</h1>"
+                f"<p>没找到 <code>{rel}</code>（前端目录 <code>{WEB_DIR}</code>）。</p>"
+                "<p>可改用独立部署方式：<code>bash ops/start-web.sh</code>（:5173）。</p>"
+                "</body></html>").encode("utf-8"))
+            return
+        ext = os.path.splitext(target)[1].lower()
+        try:
+            self._send_html(200, open(target, "rb").read(), STATIC_TYPES.get(ext, "application/octet-stream"))
+        except OSError as e:
+            sys.stderr.write(f"[lineage-api] 读取前端文件失败 {target}: {e}\n")
+            self._send(500, {"success": False, "error": f"读取失败: {e}"})
+
 
     def _send_report(self, raw_id: str):
         """``GET /report/<report_id>``：把落盘的 HTML 原样吐回去（找不到给 404 HTML 页）。"""
@@ -528,6 +578,12 @@ class Handler(BaseHTTPRequestHandler):
                 "report_internal_url_template": f"{internal_base}/report/<report_id>",
                 "analyze_generates_report": POST_DEFAULTS["/analyze"]["with_report"],
             })
+            return
+        if path == "/app":
+            self._send_static("index.html")
+            return
+        if path.startswith("/app/"):
+            self._send_static(path[len("/app/"):])
             return
         if path.startswith("/report/"):
             self._send_report(path[len("/report/"):])

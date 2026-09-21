@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>血缘工作台 · sql-lineage-web</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" v-cloak>
+
+  <!-- ===== 顶栏 ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◈</span>
+      <div>
+        <div class="title">血缘工作台</div>
+        <div class="sub">apps/web · 独立前端模块（零构建，直接调 lineage-api）</div>
+      </div>
+    </div>
+    <div class="svc">
+      <label>服务地址</label>
+      <input v-model.trim="baseUrl" @change="onBaseChange" spellcheck="false" placeholder="http://localhost:18080">
+      <span class="badge" :class="health.ok ? 'ok' : (health.checked ? 'bad' : 'idle')">
+        {{ health.ok ? '服务正常' : (health.checked ? '连不上' : '未探测') }}
+      </span>
+      <button class="ghost" @click="checkHealth">测试连接</button>
+    </div>
+  </header>
+
+  <!-- ===== 标签页 ===== -->
+  <nav class="tabs">
+    <button :class="{active: tab === 'query'}" @click="tab='query'">血缘查询</button>
+    <button :class="{active: tab === 'reports'}" @click="tab='reports'; loadReports()">报告浏览</button>
+    <span class="spacer"></span>
+    <span class="hint" v-if="health.kb_metrics !== undefined">
+      知识库口径 {{ health.kb_metrics }} 条 · 报告目录 {{ health.reports_dir }}
+    </span>
+  </nav>
+
+  <!-- ===== 屏 1：血缘查询 ===== -->
+  <main v-show="tab === 'query'" class="pane">
+    <section class="card">
+      <div class="card-head">
+        <h2>① 输入 SQL</h2>
+        <div class="row">
+          <select v-model="dialect">
+            <option v-for="d in dialects" :value="d">{{ d }}</option>
+          </select>
+          <button class="ghost" @click="loadSample">加载示例 SQL</button>
+          <button class="primary" :disabled="busy.analyze" @click="analyze">
+            {{ busy.analyze ? '解析中…' : '解析血缘' }}
+          </button>
+        </div>
+      </div>
+      <textarea v-model="sql" rows="9" spellcheck="false"></textarea>
+      <div class="row wrap">
+        <span class="muted">或按表查（用仓库里的血缘图 warehouse_graph.json）：</span>
+        <input v-model.trim="table" class="tbl" spellcheck="false" placeholder="cdw.dws_产销存汇总">
+        <button :disabled="busy.up || !table" @click="queryTable('upstream')">{{ busy.up ? '查询中…' : '查上游' }}</button>
+        <button :disabled="busy.down || !table" @click="queryTable('impact')">{{ busy.down ? '查询中…' : '查下游影响' }}</button>
+      </div>
+      <p class="err" v-if="err">{{ err }}</p>
+    </section>
+
+    <!-- 结果：概览 -->
+    <section class="card" v-if="result">
+      <div class="card-head">
+        <h2>② 解析结果</h2>
+        <div class="row">
+          <button class="ghost" v-if="result.report_id" @click="openReport(result.report_id)">在报告浏览里打开</button>
+          <a class="ghost as-btn" v-if="result.report_url" :href="result.report_url" target="_blank">新窗口打开报告 ↗</a>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>{{ result.statement_count }}</b><span>语句数</span></div>
+        <div class="stat"><b>{{ result.input_tables.length }}</b><span>输入表</span></div>
+        <div class="stat"><b>{{ result.output_tables.length }}</b><span>输出表</span></div>
+        <div class="stat"><b>{{ result.column_lineage_count }}</b><span>字段血缘</span></div>
+        <div class="stat"><b>{{ (result.knowledge && result.knowledge.metric_count) || 0 }}</b><span>命中口径</span></div>
+      </div>
+
+      <h3>表级血缘</h3>
+      <table class="grid">
+        <thead><tr><th>来源表（上游）</th><th>目标表（下游）</th></tr></thead>
+        <tbody>
+          <tr v-for="(e, i) in result.table_lineage" :key="i">
+            <td><code>{{ e.source }}</code></td>
+            <td><span class="arrow">→</span> <code>{{ e.target }}</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>
+        字段级血缘 <span class="muted">共 {{ result.column_lineage.length }} 条</span>
+        <input v-model.trim="filter" class="tbl small" placeholder="过滤：表名 / 字段名">
+      </h3>
+      <table class="grid">
+        <thead><tr><th>目标字段</th><th>来源字段</th><th>加工表达式</th></tr></thead>
+        <tbody>
+          <tr v-for="(c, i) in filteredColumns" :key="i">
+            <td><code>{{ c.target_table }}.{{ c.target_column }}</code></td>
+            <td><code>{{ c.source_table }}.{{ c.source_column }}</code></td>
+            <td class="expr">{{ c.expression }}</td>
+          </tr>
+          <tr v-if="!filteredColumns.length"><td colspan="3" class="muted">没有匹配的字段血缘</td></tr>
+        </tbody>
+      </table>
+
+      <template v-if="result.knowledge && result.knowledge.metrics && result.knowledge.metrics.length">
+        <h3>命中的业务口径</h3>
+        <div class="metrics">
+          <div class="metric" v-for="(m, i) in result.knowledge.metrics" :key="i">
+            <div class="metric-name">{{ m.metric_name || m.name || m.metric_code }}</div>
+            <div class="metric-formula">{{ m.formula || m.expression }}</div>
+            <div class="metric-meta" v-if="m.target_table || m.source_tables">
+              {{ m.target_table || '' }} <span v-if="m.level">· {{ m.level }}</span>
+            </div>
+          </div>
+        </div>
+      </template>
+      <p class="muted" v-else>本次没有命中已登记的业务口径（可先用 <code>kb build</code> 重建知识库）。</p>
+    </section>
+
+    <!-- 结果：图谱上下游 -->
+    <section class="card" v-if="graph">
+      <div class="card-head">
+        <h2>{{ graph.direction === 'upstream' ? '② 上游溯源' : '② 下游影响面' }}：<code>{{ graph.start_table }}</code></h2>
+        <div class="row">
+          <span class="badge ok" v-if="graph.found">{{ graph.direction === 'upstream' ? '上游' : '下游' }} {{ graph.direction === 'upstream' ? graph.upstream_count : graph.downstream_count }} 张表 · {{ graph.edge_count }} 条边</span>
+          <span class="badge bad" v-else>图里没有这张表</span>
+        </div>
+      </div>
+      <div class="levels">
+        <div class="level" v-for="lv in graph.levels" :key="lv.level">
+          <div class="level-name">第 {{ lv.level }} 层</div>
+          <div class="chips"><span class="chip" v-for="t in lv.tables" :key="t" @click="table = t">{{ t }}</span></div>
+        </div>
+      </div>
+      <template v-if="graph.paths && graph.paths.length">
+        <h3>链路（前 5 条）</h3>
+        <div class="path" v-for="(p, i) in graph.paths.slice(0, 5)" :key="i">
+          <span v-for="(n, j) in p" :key="j"><code>{{ n }}</code><span v-if="j < p.length - 1" class="arrow"> → </span></span>
+        </div>
+      </template>
+    </section>
+  </main>
+
+  <!-- ===== 屏 2：报告浏览 ===== -->
+  <main v-show="tab === 'reports'" class="pane">
+    <section class="card">
+      <div class="card-head">
+        <h2>已生成的 HTML 报告 <span class="muted">共 {{ reports.length }} 份</span></h2>
+        <div class="row">
+          <button class="ghost" :disabled="busy.reports" @click="loadReports">{{ busy.reports ? '刷新中…' : '刷新' }}</button>
+        </div>
+      </div>
+      <table class="grid">
+        <thead><tr><th>报告 ID</th><th>生成时间</th><th>大小</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr v-for="r in reports" :key="r.report_id" :class="{sel: r.report_id === currentReport}">
+            <td><code>{{ r.report_id }}</code></td>
+            <td>{{ r.generated_at }}</td>
+            <td>{{ (r.size_bytes / 1024).toFixed(1) }} KB</td>
+            <td>
+              <button class="ghost small" @click="openReport(r.report_id)">内嵌查看</button>
+              <a class="ghost as-btn small" :href="r.url" target="_blank">新窗口 ↗</a>
+            </td>
+          </tr>
+          <tr v-if="!reports.length"><td colspan="4" class="muted">还没有报告 —— 先在上面「血缘查询」里解析一次（会自动生成报告）。</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="card" v-if="currentReport">
+      <div class="card-head">
+        <h2>报告预览：<code>{{ currentReport }}</code></h2>
+        <div class="row"><a class="ghost as-btn" :href="reportUrl(currentReport)" target="_blank">新窗口打开 ↗</a></div>
+      </div>
+      <iframe class="report-frame" :src="reportUrl(currentReport)"></iframe>
+    </section>
+  </main>
+
+  <footer class="foot">
+    前端：<code>apps/web</code>（Vue 3 本地内置，无构建）· 后端：<code>apps/lineage-api</code>（:18080）· 契约：<code>contracts/openapi.yaml</code>
+  </footer>
+</div>
+
+<script src="vendor/vue.global.prod.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

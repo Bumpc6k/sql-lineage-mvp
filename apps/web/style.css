@@ -1,0 +1,133 @@
+:root {
+  --bg: #0d1117; --panel: #161b22; --panel2: #1c2430; --line: #2a3441;
+  --fg: #e6edf3; --dim: #8b949e; --accent: #58a6ff; --ok: #3fb950; --bad: #f85149;
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+[v-cloak] { display: none; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+code { font-family: var(--mono); font-size: 12.5px; background: #0b1120; padding: 1px 5px; border-radius: 4px; }
+
+/* 顶栏 */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 5;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo { font-size: 26px; color: var(--accent); }
+.title { font-size: 17px; font-weight: 600; }
+.sub { font-size: 12px; color: var(--dim); }
+.svc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.svc label { color: var(--dim); font-size: 12px; }
+.svc input {
+  width: 240px; padding: 6px 9px; background: #0b1120; color: var(--fg);
+  border: 1px solid var(--line); border-radius: 6px; font-family: var(--mono); font-size: 12.5px;
+}
+.badge { padding: 2px 9px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); }
+.badge.ok { color: var(--ok); border-color: #1b4721; background: #0f2417; }
+.badge.bad { color: var(--bad); border-color: #5c1f1c; background: #26100f; }
+.badge.idle { color: var(--dim); }
+
+/* 标签页 */
+.tabs {
+  display: flex; align-items: center; gap: 4px; padding: 8px 20px; border-bottom: 1px solid var(--line);
+  background: #10161e; flex-wrap: wrap;
+}
+.tabs button {
+  background: transparent; border: 1px solid transparent; color: var(--dim);
+  padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13.5px;
+}
+.tabs button.active { color: var(--fg); background: var(--panel2); border-color: var(--line); }
+.spacer { flex: 1; }
+.hint { color: var(--dim); font-size: 12px; }
+
+/* 卡片 */
+.pane { padding: 18px 20px 40px; max-width: 1180px; margin: 0 auto; }
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.card-head h2 { font-size: 15px; margin: 0 0 10px; font-weight: 600; }
+.card h3 { font-size: 14px; margin: 18px 0 8px; font-weight: 600; }
+.muted { color: var(--dim); font-size: 12.5px; font-weight: 400; }
+.row { display: flex; align-items: center; gap: 8px; }
+.row.wrap { flex-wrap: wrap; margin-top: 10px; }
+
+/* 控件 */
+button, .as-btn {
+  padding: 6px 13px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel2); color: var(--fg); cursor: pointer; font-size: 13px; text-decoration: none;
+  display: inline-block;
+}
+button:hover, .as-btn:hover { border-color: var(--accent); }
+button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+button.primary:disabled, button:disabled { opacity: .5; cursor: not-allowed; }
+button.ghost { background: transparent; }
+button.small, .as-btn.small { padding: 3px 9px; font-size: 12px; }
+select {
+  padding: 6px 9px; background: #0b1120; color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; font-size: 13px;
+}
+textarea {
+  width: 100%; margin-top: 8px; padding: 10px; background: #0b1120; color: var(--fg);
+  border: 1px solid var(--line); border-radius: 8px; font-family: var(--mono); font-size: 12.5px; resize: vertical;
+}
+input.tbl {
+  padding: 6px 9px; background: #0b1120; color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; font-family: var(--mono); font-size: 12.5px; width: 280px;
+}
+input.tbl.small { width: 200px; margin-left: 8px; }
+.err { color: var(--bad); font-size: 13px; margin: 10px 0 0; }
+
+/* 统计卡 */
+.stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.stat {
+  flex: 0 0 110px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; text-align: center;
+}
+.stat b { display: block; font-size: 20px; color: var(--accent); }
+.stat span { font-size: 12px; color: var(--dim); }
+
+/* 表格 */
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid th {
+  text-align: left; color: var(--dim); font-weight: 500; font-size: 12px;
+  border-bottom: 1px solid var(--line); padding: 6px 8px;
+}
+table.grid td { padding: 6px 8px; border-bottom: 1px solid #1e262f; vertical-align: top; }
+table.grid tr:hover td { background: #131a23; }
+table.grid tr.sel td { background: #16233a; }
+.arrow { color: var(--accent); }
+.expr { font-family: var(--mono); font-size: 12px; color: #a5d6ff; max-width: 460px; }
+
+/* 层级 / 链路 */
+.levels { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.level { display: flex; align-items: flex-start; gap: 10px; }
+.level-name { flex: 0 0 66px; color: var(--dim); font-size: 12.5px; padding-top: 3px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 999px;
+  padding: 2px 10px; font-family: var(--mono); font-size: 12px; cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); color: #fff; }
+.path { font-size: 12.5px; margin: 4px 0; }
+
+/* 口径卡 */
+.metrics { display: flex; gap: 10px; flex-wrap: wrap; }
+.metric {
+  flex: 1 1 260px; background: var(--panel2); border: 1px solid var(--line);
+  border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px;
+}
+.metric-name { font-weight: 600; font-size: 13.5px; }
+.metric-formula { font-family: var(--mono); font-size: 12px; color: #a5d6ff; margin: 3px 0; }
+.metric-meta { font-size: 12px; color: var(--dim); }
+
+/* 报告帧 */
+.report-frame { width: 100%; height: 72vh; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+
+.foot { color: var(--dim); font-size: 12px; text-align: center; padding: 14px 20px 28px; }

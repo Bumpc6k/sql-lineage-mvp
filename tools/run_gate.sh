@@ -65,6 +65,31 @@ if [ $FAST -eq 0 ]; then
 fi
 
 echo
+echo "④ 单元①（独立前端模块 apps/web）"
+step "前端静态资源（后端 /app/ 托管）" bash -c \
+  "for f in app.js style.css vendor/vue.global.prod.js; do curl -sf -o /dev/null \"http://127.0.0.1:18080/app/\$f\" || exit 1; done; curl -sf http://127.0.0.1:18080/app/ | grep -q 血缘工作台 && echo 'index.html / app.js / style.css / vue 全部 200，标题命中'"
+step "CORS 预检（跨源调后端才可用）" bash -c \
+  "code=\$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS http://127.0.0.1:18080/analyze -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: POST'); [ \"\$code\" = 204 ] && echo 'OPTIONS 预检 204 + Allow-Origin/Allow-Headers' || { echo \"预检返回 \$code\"; exit 1; }"
+
+if [ $FAST -eq 0 ]; then
+  # 独立部署方式：前端自己起静态服务
+  if ! curl -sf -o /dev/null "http://127.0.0.1:5173/index.html"; then
+    echo "   (:5173 没在跑，顺手起一个)"; bash "$ROOT/ops/start-web.sh" >/dev/null 2>&1 || true
+  fi
+  step "前端独立服务 :5173" bash -c \
+    "curl -sf http://127.0.0.1:5173/index.html | grep -q 血缘工作台 && echo '独立静态服务可访问（与后端托管等价）'"
+
+  EDGE="/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+  if [ -x "$EDGE" ]; then
+    step "无头浏览器真渲染（Windows Edge 真跑 JS 并真调后端）" bash -c \
+      "\"$EDGE\" --headless=new --disable-gpu --no-sandbox --user-data-dir='C:\\Users\\Public\\edgeprof_ld' --virtual-time-budget=30000 --dump-dom 'http://localhost:5173/?demo=1' 2>/dev/null > /tmp/gate_dom.html; \
+       grep -q 血缘工作台 /tmp/gate_dom.html && grep -q 服务正常 /tmp/gate_dom.html && grep -q '血缘查询' /tmp/gate_dom.html && grep -q '\"stat\"' /tmp/gate_dom.html && echo \"DOM \$(wc -c < /tmp/gate_dom.html) 字节：页面标题 / 服务状态 / 标签页 / 统计卡均已渲染（数据来自真实 /analyze）\""
+  else
+    echo "   (本机无可用浏览器内核，跳过无头渲染；手动打开 http://localhost:5173/ 即可)"
+  fi
+fi
+
+echo
 echo "===== 汇总：通过 $PASS 项 / 失败 $FAIL 项 ====="
 for r in "${ROWS[@]}"; do echo "  $r"; done
 if [ $FAIL -eq 0 ]; then

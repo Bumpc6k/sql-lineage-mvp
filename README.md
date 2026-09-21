@@ -40,16 +40,19 @@ sql-lineage-mvp/
 │   │   └── ...
 │   ├── ds-plugin/                               【单元③】海豚插件（Java + 前端补丁，可整体替换）
 │   │   ├── java/ frontend/ deploy/ verify/       见 apps/ds-plugin/README.md 第 1 章
-│   └── web/                                     【单元①】独立前端模块（规划中：成熟后原样投产）
+│   └── web/                                     【单元①】独立前端模块（已建最小闭环：血缘查询 + 报告浏览两屏）
+│       ├── index.html app.js style.css           零构建：Vue 3 本地内置，无 CDN、离线可跑
+│       ├── vendor/vue.global.prod.js             Vue 3.5.43（208 KB 全模块）
+│       └── README.md 启动方式 / 契约 / 技术取舍
 ├── packages/
 │   └── lineage-core/lineage_core/               共享内核：parser.py script_parser.py graph.py（**纯函数：无 IO / 无网络 / 无库**）
 ├── contracts/
 │   └── openapi.yaml                             单元①/③ 与 ② 之间的唯一契约（由真实路由生成：`python3 tools/gen_openapi.py`）
-├── ops/         环境与运维脚本（prep_ds_demo.sh / start-lineage-api.sh / restart_lineage_api.sh）
+├── ops/         环境与运维脚本（prep_ds_demo.sh / start-lineage-api.sh / start-web.sh / restart_lineage_api.sh）
 ├── demos/       演示数据脚本（ds_setup_demo.py / ds_add_script_workflow.py …）
 ├── evidence/    证据采集脚本（verify 输出归档、回归脚本）
 ├── tools/       仓库级工具（check_layering.py 分层守卫 / gen_openapi.py 契约生成）
-├── tests/       441 个用例（pytest.ini 的 pythonpath 同时挂 apps/lineage-api 与 packages/lineage-core）
+├── tests/       450 个用例（pytest.ini 的 pythonpath 同时挂 apps/lineage-api 与 packages/lineage-core）
 └── docs/ reports/ data/                         文档 / 报告产物 / 知识库 DB
 ```
 
@@ -57,9 +60,9 @@ sql-lineage-mvp/
 
 | 单元 | 单独启动 | 单独验证 | 依赖谁 |
 | --- | --- | --- | --- |
-| ② lineage-api | `bash ops/start-lineage-api.sh`（tmux `lineage-api`，:18080） | `.venv/bin/python -m pytest`（441 用例） | 只依赖 `packages/lineage-core` |
+| ② lineage-api | `bash ops/start-lineage-api.sh`（tmux `lineage-api`，:18080） | `.venv/bin/python -m pytest`（450 用例） | 只依赖 `packages/lineage-core` |
 | ③ ds-plugin | `bash apps/ds-plugin/java/build.sh` + `bash apps/ds-plugin/deploy/deploy_ui.sh` | `bash apps/ds-plugin/verify/verify.sh`、`verify/verify_ldf_form.py`… | 通过 **HTTP** 调 ②，不 import 任何 Python |
-| ① web（规划中） | 独立 `npm run dev`（:5173） | 前端自己的单测/E2E | 通过 **HTTP** 调 ②，按 `contracts/openapi.yaml` 生成客户端 |
+| ① web | 独立 `bash ops/start-web.sh`（:5173），或蹭后端 `http://localhost:18080/app/` | 前端自己的 `tests/test_web_unit.py`（托管/跨源/契约对齐）+ 无头浏览器真渲染 | 通过 **HTTP** 调 ②，按 `contracts/openapi.yaml` 对接 |
 
 **开发期路径注入**：`.venv` 里有两个 `.pth`（`lineage_core_path.pth` → `packages/lineage-core`、`lineage_units_path.pth` → `apps/lineage-api`），
 因此 `python -m lineage.cli` / `import lineage_core` 在仓库根目录就能用；上线部署改成 `PYTHONPATH` 即可，与代码无关。
