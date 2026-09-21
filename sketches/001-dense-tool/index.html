@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型 A · 工业工具风（高密度深色）</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root{
+    --bg:#0b0f14; --panel:#111720; --panel2:#161e29; --line:#222d3a;
+    --fg:#e6eef8; --dim:#9aa9bd; --acc:#35c2d8; --acc2:#f0a020;
+    --ods:#8b7bd8; --dwd:#4aa8e0; --dws:#3fbf8f; --ads:#e0a13f;
+  }
+  body{font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--fg);display:flex;min-height:100vh}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+
+  /* 左导航 */
+  aside{width:212px;flex:none;background:#0d131b;border-right:1px solid var(--line);padding:14px 0;
+        display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;gap:9px;align-items:center;padding:2px 16px 16px}
+  .brand b{font-size:14px} .brand span{color:var(--acc);font-size:19px}
+  .brand small{display:block;color:var(--dim);font-size:11px;font-weight:400}
+  nav a{display:flex;gap:9px;align-items:center;padding:8px 16px;color:var(--dim);
+        text-decoration:none;border-left:2px solid transparent;cursor:pointer}
+  nav a:hover{background:#131b25;color:var(--fg)}
+  nav a.on{background:#152030;color:#fff;border-left-color:var(--acc)}
+  nav .sep{margin:12px 16px 6px;color:#4d5a6b;font-size:11px;letter-spacing:.08em}
+  aside .foot{margin-top:auto;padding:12px 16px;color:#55637a;font-size:11px;border-top:1px solid var(--line)}
+
+  /* 主区 */
+  main{flex:1;min-width:0;display:flex;flex-direction:column;min-height:100vh}
+  .bar{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line);
+       background:#0d131b;position:sticky;top:0;z-index:3}
+  .bar .t{font-weight:600;font-size:13px}
+  .bar .right{margin-left:auto;display:flex;gap:8px;align-items:center;color:var(--dim);font-size:11.5px}
+  .dot{width:7px;height:7px;border-radius:50%;background:#3fbf8f;display:inline-block}
+
+  button,select,input{font:inherit;color:var(--fg);background:var(--panel2);
+        border:1px solid var(--line);border-radius:4px;padding:5px 10px;cursor:pointer}
+  button.primary{background:#0e7490;border-color:#0e7490;color:#fff}
+  button:hover{border-color:var(--acc)}
+  select{cursor:pointer} input{cursor:text;font-family:ui-monospace,monospace;font-size:12px}
+
+  .editor{margin:12px 16px 0;border:1px solid var(--line);border-radius:6px;background:#0a0e13;overflow:hidden}
+  .editor .head{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);
+        border-bottom:1px solid var(--line)}
+  .editor .head .lbl{color:var(--dim);font-size:11.5px}
+  .editor .head .sp{margin-left:auto}
+  .code{position:relative;height:304px}
+  .code pre,.code textarea{position:absolute;inset:0;margin:0;padding:12px 14px;tab-size:4;overflow:auto;
+        font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.75;white-space:pre}
+  .code pre{color:#cfe3ff;pointer-events:none}
+  .code textarea{background:transparent;color:transparent;caret-color:#7dd3fc;border:0;outline:none;resize:none}
+  .code pre .k{color:#c792ea}   /* 关键字 */
+  .code pre .fn{color:#82aaff}  /* 函数 */
+  .code pre .st{color:#c3e88d}  /* 字符串 */
+  .code pre .nu{color:#f78c6c}  /* 数字 */
+  .code pre .cm{color:#5b6b80}  /* 注释 */
+
+  .stats{display:flex;gap:8px;padding:12px 16px 0;flex-wrap:wrap}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:7px 12px;min-width:104px}
+  .stat b{font-size:17px;display:block;color:var(--acc)}
+  .stat.o b{color:var(--acc2)}
+  .stat span{color:var(--dim);font-size:11px}
+
+  .cols{display:grid;grid-template-columns:minmax(280px,1fr) minmax(340px,1.35fr) minmax(260px,.95fr);
+        gap:12px;padding:12px 16px 24px;align-items:stretch}
+  .cols .card{display:flex;flex-direction:column}
+  .cols .card>*:last-child{flex:1}
+  #view-query>.cols{flex:1}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .card>h3{font-size:12.5px;padding:9px 11px;border-bottom:1px solid var(--line);background:var(--panel2);
+        display:flex;align-items:center;gap:7px}
+  .card>h3 .n{color:var(--dim);font-weight:400}
+  .card>h3 .r{margin-left:auto}
+  .pad{padding:10px 11px}
+
+  /* 表级流向 */
+  .flow{display:flex;flex-direction:column;gap:9px}
+  .frow{display:grid;grid-template-columns:1fr 22px 1fr;align-items:center;gap:6px}
+  .tbl{border:1px solid var(--line);border-radius:4px;padding:5px 8px;background:#0e141c;
+       font-family:ui-monospace,monospace;font-size:11.5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tbl:hover{border-color:var(--acc)}
+  .tbl.src{border-left:3px solid var(--dws)}
+  .tbl.dim{border-left:3px solid var(--dwd)}
+  .tbl.tgt{border-left:3px solid var(--ads);background:#171208}
+  .arrow{text-align:center;color:var(--acc);font-size:13px}
+
+  /* 表格 */
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;color:var(--dim);font-weight:500;font-size:11px;padding:6px 8px;white-space:nowrap;
+     border-bottom:1px solid var(--line);background:#0f151d;position:sticky;top:0}
+  td{padding:5px 8px;border-bottom:1px solid #182130;font-family:ui-monospace,monospace;font-size:11.5px;vertical-align:middle}
+  tbody tr{cursor:pointer}
+  tbody tr:hover td{background:#131c27}
+  tbody tr.sel td{background:#152437;box-shadow:inset 2px 0 0 var(--acc)}
+  .expr{color:#9fd9e8;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .layer{font-size:10px;padding:0 5px;border-radius:3px;border:1px solid;font-family:sans-serif}
+  .l-ods{color:var(--ods);border-color:#3d3663} .l-dwd{color:var(--dwd);border-color:#274a63}
+  .l-dws{color:var(--dws);border-color:#255c47} .l-ads{color:var(--ads);border-color:#63491c}
+
+  /* 右详情 */
+  .kv{display:grid;grid-template-columns:66px 1fr;gap:4px 8px;font-size:11.5px}
+  .kv dt{color:#a9b7c9} .kv dd{font-family:ui-monospace,monospace;word-break:break-all}
+  .metric{border:1px solid var(--line);border-left:2px solid var(--acc2);border-radius:4px;
+          padding:7px 9px;margin-bottom:7px;background:#141a22}
+  .metric b{font-size:12.5px} .metric .f{color:#f2c17a;font-family:ui-monospace,monospace;font-size:11.5px;margin:3px 0}
+  .metric small{color:var(--dim);font-size:11px}
+  .hint{color:#a9b7c9;font-size:11.5px;padding:4px 0}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><span>◈</span><div><b>血缘工作台</b><small>sql-lineage · 原型 A</small></div></div>
+  <nav>
+    <a class="on">◧ 血缘查询</a>
+    <a onclick="switchView('reports',this)">▤ 报告浏览</a>
+    <a onclick="alert('原型：口径库（/kb/search）待做')">◆ 口径库</a>
+    <a onclick="alert('原型：生成引擎 L1~L4 待做')">✦ 链路生成</a>
+  </nav>
+  <div class="foot">血缘服务 172.17.0.1:18080<br>知识库 口径 75 · 字段 298<br>报告目录 reports/</div>
+</aside>
+
+<main>
+  <div class="bar">
+    <span class="t" id="viewTitle">血缘查询</span>
+    <div class="right">
+      <span class="dot"></span> 服务正常
+      <button onclick="alert('原型：切方言后重新解析')">hive ▾</button>
+    </div>
+  </div>
+
+  <!-- 查询视图 -->
+  <div id="view-query" style="display:flex;flex-direction:column;min-height:calc(100vh - 44px)">
+    <div class="editor">
+      <div class="head">
+        <span class="lbl">SQL</span>
+        <span class="lbl mono" style="color:#556">ads/ads_产销存月报.sql</span>
+        <span class="sp"></span>
+        <button onclick="alert('原型：从脚本目录选文件')">载入示例</button>
+        <button class="primary" onclick="run()">解析血缘 ⌘⏎</button>
+      </div>
+      <div class="code">
+      <pre id="hl" aria-hidden="true"></pre>
+      <textarea id="sql" spellcheck="false" oninput="doHl()" onscroll="doSync()" onkeyup="doSync()">insert overwrite table ads.ads_产销存月报
+select a.brand_name                              as 品牌,
+       a.plant_name                              as 工厂,
+       sum(a.output_qty)                         as 产量,
+       sum(a.sale_qty)                           as 销量,
+       sum(a.stock_qty)                          as 库存,
+       round(sum(a.sale_qty) / sum(a.output_qty), 4) as 产销率
+from cdw.dws_产销存汇总 a
+join dim.dim_brand b on a.brand_code = b.brand_code
+join dim.dim_plant p on a.plant_code = p.plant_code
+where a.dt = '${bizdate}'
+group by a.brand_name, a.plant_name;</textarea>
+      </div>
+    </div>
+
+    <div class="stats" id="stats">
+      <div class="stat"><b>1</b><span>语句数</span></div>
+      <div class="stat"><b>3</b><span>输入表</span></div>
+      <div class="stat"><b>1</b><span>输出表</span></div>
+      <div class="stat"><b>7</b><span>字段血缘</span></div>
+      <div class="stat o"><b>2</b><span>命中口径</span></div>
+      <div class="stat"><b>3</b><span>上游层数</span></div>
+    </div>
+
+    <div class="cols">
+      <!-- 表级 -->
+      <div class="card">
+        <h3>表级血缘 <span class="n">3 条</span><span class="r" style="color:#7d8b9c;font-weight:400">按层着色：左=上游 右=产出</span></h3>
+        <div class="pad flow">
+          <div class="frow"><div class="tbl src">cdw.dws_产销存汇总</div><div class="arrow">→</div><div class="tbl tgt">ads.ads_产销存月报</div></div>
+          <div class="frow"><div class="tbl dim">dim.dim_brand</div><div class="arrow">→</div><div class="tbl tgt">ads.ads_产销存月报</div></div>
+          <div class="frow"><div class="tbl dim">dim.dim_plant</div><div class="arrow">→</div><div class="tbl tgt">ads.ads_产销存月报</div></div>
+        </div>
+        <div class="pad" style="border-top:1px solid var(--line)">
+          <div class="hint">点击「cdw.dws_产销存汇总」可继续向上溯源（共 14 张上游表 / 3 层）。</div>
+        </div>
+      </div>
+
+      <!-- 字段级 -->
+      <div class="card">
+        <h3>字段级血缘 <span class="n">7 条</span>
+          <span class="r"><input id="flt" placeholder="过滤字段…" oninput="filterRows(this.value)" style="width:132px;padding:3px 7px"></span></h3>
+        <table id="fieldTable">
+          <thead><tr><th>目标字段</th><th>来源字段</th><th>加工表达式</th></tr></thead>
+          <tbody>
+            <tr onclick="pick(0,this)"><td>品牌</td><td>cdw.dws_产销存汇总.brand_name</td><td class="expr">a.brand_name AS 品牌</td></tr>
+            <tr onclick="pick(1,this)"><td>工厂</td><td>cdw.dws_产销存汇总.plant_name</td><td class="expr">a.plant_name AS 工厂</td></tr>
+            <tr class="sel" onclick="pick(2,this)"><td>产量</td><td>cdw.dws_产销存汇总.output_qty</td><td class="expr">SUM(a.output_qty) AS 产量</td></tr>
+            <tr onclick="pick(3,this)"><td>销量</td><td>cdw.dws_产销存汇总.sale_qty</td><td class="expr">SUM(a.sale_qty) AS 销量</td></tr>
+            <tr onclick="pick(4,this)"><td>库存</td><td>cdw.dws_产销存汇总.stock_qty</td><td class="expr">SUM(a.stock_qty) AS 库存</td></tr>
+            <tr onclick="pick(5,this)"><td>产销率</td><td>cdw.dws_产销存汇总.sale_qty<br>cdw.dws_产销存汇总.output_qty</td><td class="expr">ROUND(SUM(sale_qty)/SUM(output_qty),4)</td></tr>
+            <tr onclick="pick(6,this)"><td>品牌编码</td><td>cdw.dws_产销存汇总.brand_code</td><td class="expr">a.brand_code AS 品牌编码（join 键）</td></tr>
+          </tbody>
+        </table>
+        <div class="pad" style="border-top:1px solid var(--line)">
+          <div class="hint">「品牌 / 工厂」来自维表 join（dim_brand / dim_plant），未参与口径计算。</div>
+        </div>
+      </div>
+
+      <!-- 详情 + 口径 -->
+      <div class="card">
+        <h3>字段详情</h3>
+        <div class="pad">
+          <dl class="kv" id="detail">
+            <dt>目标</dt><dd>ads.ads_产销存月报.产量</dd>
+            <dt>来源</dt><dd>cdw.dws_产销存汇总.output_qty</dd>
+            <dt>表达式</dt><dd>SUM(a.output_qty) AS 产量</dd>
+            <dt>加工</dt><dd>聚合(SUM) · 非分区字段</dd>
+            <dt>口径</dt><dd style="color:var(--acc2)">产量（已登记）</dd>
+          </dl>
+        </div>
+        <h3 style="border-top:1px solid var(--line)">命中的业务口径 <span class="n">2</span></h3>
+        <div class="pad">
+          <div class="metric"><b>产量</b><div class="f">产量 = 打码量 + 跳码量 − 重码量</div>
+            <small>来源 ads_产销存月报 · 依赖 output_qty，含 3 个分解项</small></div>
+          <div class="metric"><b>产销率</b><div class="f">产销率 = 销量 ÷ 产量</div>
+            <small>比率型 · 置信度 0.92 · 依赖 sale_qty / output_qty</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 报告视图 -->
+  <div id="view-reports" class="hidden">
+    <div class="cols" style="grid-template-columns:1fr 1.4fr">
+      <div class="card">
+        <h3>已生成报告 <span class="n">21 份</span><span class="r"><button style="padding:2px 8px">刷新</button></span></h3>
+        <table>
+          <thead><tr><th>报告 ID</th><th>生成时间</th><th>大小</th></tr></thead>
+          <tbody>
+            <tr class="sel" onclick="report(this,'rpt_20260921_215704_6af77585')"><td>rpt_...6af77585</td><td>2026-09-21 21:57</td><td>182 KB</td></tr>
+            <tr onclick="report(this,'rpt_20260921_215656_a1b2c3d4')"><td>rpt_...a1b2c3d4</td><td>2026-09-21 21:56</td><td>176 KB</td></tr>
+            <tr onclick="report(this,'rpt_20260921_210112_9f8e7d6c')"><td>rpt_...9f8e7d6c</td><td>2026-09-21 21:01</td><td>204 KB</td></tr>
+            <tr onclick="report(this,'rpt_20260921_193355_11223344')"><td>rpt_...11223344</td><td>2026-09-21 19:33</td><td>158 KB</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>报告预览 <span class="n mono" id="repId">rpt_...6af77585</span><span class="r"><button style="padding:2px 8px">新窗口 ↗</button></span></h3>
+        <div class="pad" style="height:420px;background:#0a0e13;border-bottom:1px solid var(--line)">
+          <div style="border:1px dashed #2b3a4d;border-radius:5px;height:100%;display:flex;align-items:center;
+                      justify-content:center;color:#556;font-size:12.5px;flex-direction:column;gap:8px">
+            <span style="font-size:22px">▤</span>
+            服务端渲染的单文件 HTML 报告（表级流向 / 字段映射真表格 / 口径卡片 / 链路 SVG）
+            <small style="color:#3f4d5e">原型中用占位区表示，真实版为 iframe 内嵌</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const D = [
+  ['ads.ads_产销存月报.产量','cdw.dws_产销存汇总.output_qty','SUM(a.output_qty) AS 产量','聚合(SUM) · 非分区字段','产量（已登记）'],
+  ['ads.ads_产销存月报.销量','cdw.dws_产销存汇总.sale_qty','SUM(a.sale_qty) AS 销量','聚合(SUM)','产销率（参与）'],
+  ['ads.ads_产销存月报.库存','cdw.dws_产销存汇总.stock_qty','SUM(a.stock_qty) AS 库存','聚合(SUM)','—（未登记）'],
+  ['ads.ads_产销存月报.品牌','cdw.dws_产销存汇总.brand_name','a.brand_name AS 品牌','维表 join（dim_brand）','—'],
+  ['ads.ads_产销存月报.工厂','cdw.dws_产销存汇总.plant_name','a.plant_name AS 工厂','维表 join（dim_plant）','—'],
+  ['ads.ads_产销存月报.产销率','cdw.dws_产销存汇总.sale_qty, output_qty','ROUND(SUM(sale_qty)/SUM(output_qty),4)','算术 · 依赖 2 字段','产销率（已登记）'],
+  ['ads.ads_产销存月报.品牌编码','cdw.dws_产销存汇总.brand_code','a.brand_code AS 品牌编码','join 键（dim_brand.brand_code）','—'],
+];
+function pick(i, el){
+  document.querySelectorAll('#fieldTable tbody tr').forEach(t=>t.classList.remove('sel'));
+  el.classList.add('sel');
+  const d = D[i] || D[0];
+  document.getElementById('detail').innerHTML =
+    `<dt>目标</dt><dd>${d[0]}</dd><dt>来源</dt><dd>${d[1]}</dd><dt>表达式</dt><dd>${d[2]}</dd>
+     <dt>加工</dt><dd>${d[3]}</dd><dt>口径</dt><dd style="color:var(--acc2)">${d[4]}</dd>`;
+}
+function filterRows(q){
+  q = q.trim().toLowerCase();
+  document.querySelectorAll('#fieldTable tbody tr').forEach(tr=>{
+    tr.style.display = (!q || tr.textContent.toLowerCase().includes(q)) ? '' : 'none';
+  });
+}
+const KW = /\b(insert|overwrite|table|select|from|join|on|where|group\s+by|order\s+by|as|and|or|not|null|case|when|then|else|end|left|right|inner|outer|partition\s+by)\b/gi;
+const FN = /\b(sum|count|avg|max|min|round|cast|coalesce|nvl|if|substr|concat|to_date|date_sub)\b/gi;
+function esc(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function doHl(){
+  const ta = document.getElementById('sql');
+  let h = esc(ta.value);
+  h = h.replace(/(--[^\n]*)/g,'<span class="cm">$1</span>');
+  h = h.replace(/'([^'\n]*)'/g,'<span class="st">\'$1\'</span>');
+  h = h.replace(KW,'<span class="k">$&</span>').replace(FN,'<span class="fn">$&</span>');
+  h = h.replace(/\b(\d+(?:\.\d+)?)\b/g,'<span class="nu">$1</span>');
+  document.getElementById('hl').innerHTML = h + '\n';
+  doSync();
+}
+function doSync(){
+  const ta = document.getElementById('sql'), pre = document.getElementById('hl');
+  pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft;
+}
+function run(){
+  const s = document.getElementById('stats');
+  s.style.opacity = .35;
+  setTimeout(()=>{ s.style.opacity = 1; }, 350);
+}
+function switchView(v, el){
+  document.getElementById('view-query').classList.toggle('hidden', v!=='query');
+  document.getElementById('view-reports').classList.toggle('hidden', v!=='reports');
+  document.getElementById('viewTitle').textContent = v==='query' ? '血缘查询' : '报告浏览';
+  if (el){ document.querySelectorAll('nav a').forEach(a=>a.classList.remove('on')); el.classList.add('on'); }
+}
+function report(el, id){
+  document.querySelectorAll('#view-reports tbody tr').forEach(t=>t.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('repId').textContent = 'rpt_...' + id.slice(-8);
+}
+doHl();
+</script>
+</body>
+</html>
