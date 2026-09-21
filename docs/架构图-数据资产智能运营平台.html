@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据资产智能运营平台 · 架构图（含数据安全层）</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrains Mono', 'Microsoft YaHei', 'PingFang SC', monospace;
+    background: #020617; min-height: 100vh; padding: 2rem; color: white;
+  }
+  .container { max-width: 1240px; margin: 0 auto; }
+  .header { margin-bottom: 1.6rem; }
+  .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: .5rem; }
+  .pulse-dot { width: 12px; height: 12px; background: #22d3ee; border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  h1 { font-size: 1.45rem; font-weight: 700; letter-spacing: -.025em; }
+  .subtitle { color: #94a3b8; font-size: .82rem; margin-left: 1.75rem; }
+  .diagram-container { background: rgba(15,23,42,.5); border-radius: 1rem; border: 1px solid #1e293b; padding: 1.2rem; overflow-x: auto; }
+  svg { width: 100%; min-width: 1000px; display: block; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1.6rem; }
+  .card { background: rgba(15,23,42,.5); border-radius: .75rem; border: 1px solid #1e293b; padding: 1.15rem; }
+  .card-header { display: flex; align-items: center; gap: .5rem; margin-bottom: .7rem; }
+  .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .card-dot.cyan{background:#22d3ee} .card-dot.emerald{background:#34d399}
+  .card-dot.violet{background:#a78bfa} .card-dot.amber{background:#fbbf24} .card-dot.rose{background:#fb7185}
+  .card h3 { font-size: .85rem; font-weight: 600; }
+  .card ul { list-style: none; color: #94a3b8; font-size: .73rem; }
+  .card li { margin-bottom: .35rem; }
+  .footer { text-align: center; margin-top: 1.4rem; color: #475569; font-size: .73rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-row">
+      <div class="pulse-dot"></div>
+      <h1>数据资产智能运营平台 · 架构（含数据安全层）</h1>
+    </div>
+    <p class="subtitle">解析血缘 → 沉淀知识 → 生成 SQL → 编排调度 → 反向校验（全内网部署 · 零第三方依赖 · 旁路集成不改平台源码 · 三道安全边界：入口 / 数据 / 审计）</p>
+  </div>
+
+  <div class="diagram-container">
+    <svg viewBox="0 0 1000 1200">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+        </marker>
+        <marker id="arrowhead-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b" />
+        </marker>
+        <marker id="arrowhead-emerald" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#34d399" />
+        </marker>
+        <marker id="arrowhead-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa" />
+        </marker>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+        </pattern>
+        <!-- 防火墙砖墙纹理 -->
+        <pattern id="brick" width="28" height="14" patternUnits="userSpaceOnUse">
+          <rect width="28" height="14" fill="rgba(120,53,15,0.22)"/>
+          <path d="M0 0.5 H28 M0 7.5 H28 M14 0.5 V7.5 M0 7.5 V14 M28 7.5 V14" stroke="#f59e0b" stroke-width="0.6" opacity="0.35" fill="none"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)" />
+
+      <!-- ============ 安全边界外框（防火墙式包围） ============ -->
+      <rect x="8" y="30" width="984" height="1070" rx="16" fill="none" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="10,5" opacity="0.8"/>
+      <rect x="16" y="36" width="474" height="18" rx="4" fill="rgba(2,6,23,0.95)"/>
+      <text x="24" y="49" fill="#f59e0b" font-size="9" font-weight="600">🛡 安全边界（等保 2.0 三级 · 数据分类分级 · 全链路审计留痕）—— 所有出入流量必经</text>
+
+      <!-- ============ 连接线（先画，位于组件之下） ============ -->
+      <line x1="500" y1="221" x2="500" y2="243" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+      <text x="512" y="236" fill="#f59e0b" font-size="8">全部入口流量</text>
+      <line x1="500" y1="337" x2="500" y2="359" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+      <text x="512" y="353" fill="#94a3b8" font-size="8">已认证流量</text>
+      <line x1="500" y1="407" x2="500" y2="429" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead-emerald)"/>
+      <text x="512" y="421" fill="#94a3b8" font-size="8">HTTP / SSE</text>
+      <line x1="500" y1="657" x2="500" y2="679" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrowhead-amber)"/>
+      <text x="512" y="671" fill="#f59e0b" font-size="8">读写请求</text>
+      <line x1="500" y1="773" x2="500" y2="795" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead-violet)"/>
+      <text x="512" y="789" fill="#94a3b8" font-size="8">仅放行元数据 / 脱敏结果</text>
+
+      <!-- 审计轨：把 ③ 本体与入口/数据两道边界连起来，表明是横切而非底层专属 -->
+      <line x1="17" y1="293" x2="17" y2="1049" stroke="#fb7185" stroke-width="1" stroke-dasharray="6,4" opacity="0.55"/>
+      <line x1="983" y1="293" x2="983" y2="1049" stroke="#fb7185" stroke-width="1" stroke-dasharray="6,4" opacity="0.55"/>
+
+      <!-- ============ ① 用户入口层 ============ -->
+      <rect x="26" y="64" width="948" height="157" rx="12" fill="rgba(8,51,68,0.10)" stroke="#22d3ee" stroke-width="1" stroke-dasharray="8,4"/>
+      <text x="38" y="82" fill="#22d3ee" font-size="10" font-weight="600">① 用户入口层</text>
+
+      <!-- Web Console 主容器 -->
+      <rect x="40" y="92" width="640" height="118" rx="8" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="360" y="112" fill="white" font-size="12" font-weight="600" text-anchor="middle">Web Console 控制台（浏览器 · 单页应用）</text>
+
+      <!-- 6 个功能模块 -->
+      <rect x="52" y="122" width="198" height="34" rx="5" fill="rgba(15,23,42,.85)" stroke="#22d3ee" stroke-width="1"/>
+      <text x="151" y="136" fill="#22d3ee" font-size="9" font-weight="600" text-anchor="middle">AI 对话窗口</text>
+      <text x="151" y="149" fill="#94a3b8" font-size="7.5" text-anchor="middle">增删改查工作流 / 节点</text>
+
+      <rect x="261" y="122" width="198" height="34" rx="5" fill="rgba(15,23,42,.85)" stroke="#a78bfa" stroke-width="1"/>
+      <text x="360" y="136" fill="#a78bfa" font-size="9" font-weight="600" text-anchor="middle">知识库大盘</text>
+      <text x="360" y="149" fill="#94a3b8" font-size="7.5" text-anchor="middle">口径 / 字段 / 术语 / 规则</text>
+
+      <rect x="470" y="122" width="198" height="34" rx="5" fill="rgba(15,23,42,.85)" stroke="#22d3ee" stroke-width="1"/>
+      <text x="569" y="136" fill="#22d3ee" font-size="9" font-weight="600" text-anchor="middle">血缘图谱</text>
+      <text x="569" y="149" fill="#94a3b8" font-size="7.5" text-anchor="middle">表级 / 字段级 / 工作流级</text>
+
+      <rect x="52" y="164" width="198" height="34" rx="5" fill="rgba(15,23,42,.85)" stroke="#fbbf24" stroke-width="1"/>
+      <text x="151" y="178" fill="#fbbf24" font-size="9" font-weight="600" text-anchor="middle">调度看板</text>
+      <text x="151" y="191" fill="#94a3b8" font-size="7.5" text-anchor="middle">任务运行 / 失败 / 耗时</text>
+
+      <rect x="261" y="164" width="198" height="34" rx="5" fill="rgba(15,23,42,.85)" stroke="#fb7185" stroke-width="1"/>
+      <text x="360" y="178" fill="#fb7185" font-size="9" font-weight="600" text-anchor="middle">影响分析</text>
+      <text x="360" y="191" fill="#94a3b8" font-size="7.5" text-anchor="middle">改表前看影响面</text>
+
+      <rect x="470" y="164" width="198" height="34" rx="5" fill="rgba(15,23,42,.85)" stroke="#34d399" stroke-width="1"/>
+      <text x="569" y="178" fill="#34d399" font-size="9" font-weight="600" text-anchor="middle">审核工作台</text>
+      <text x="569" y="191" fill="#94a3b8" font-size="7.5" text-anchor="middle">生成物待确认队列</text>
+
+      <!-- 飞书机器人 -->
+      <rect x="700" y="92" width="258" height="118" rx="8" fill="rgba(30,41,59,0.6)" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <text x="829" y="118" fill="white" font-size="11" font-weight="600" text-anchor="middle">飞书 / IM 机器人</text>
+      <text x="829" y="138" fill="#94a3b8" font-size="8" text-anchor="middle">自然语言直连引擎</text>
+      <text x="829" y="154" fill="#94a3b8" font-size="8" text-anchor="middle">"帮我生成产销存链路"</text>
+      <text x="829" y="178" fill="#22d3ee" font-size="7.5" text-anchor="middle">同一后端 · 移动端可用</text>
+      <text x="829" y="196" fill="#64748b" font-size="7" text-anchor="middle">（Hermes 网关已就绪 · 仍需过安全边界 ①）</text>
+
+      <!-- ============ 🛡 安全边界 ① 入口安全网关（防火墙） ============ -->
+      <rect x="26" y="249" width="948" height="88" rx="8" fill="url(#brick)" stroke="#f59e0b" stroke-width="1.5"/>
+      <rect x="36" y="255" width="390" height="18" rx="4" fill="rgba(2,6,23,0.92)"/>
+      <text x="44" y="268" fill="#f59e0b" font-size="10" font-weight="600">🛡 安全边界 ① · 入口安全网关（防火墙）</text>
+      <text x="440" y="268" fill="#fcd34d" font-size="8">人 / 机器人 / 外部系统的每一次调用，都必须先过这道闸门</text>
+
+      <rect x="40" y="279" width="222" height="34" rx="5" fill="rgba(15,23,42,.92)" stroke="#22d3ee" stroke-width="1"/>
+      <text x="151" y="292" fill="#22d3ee" font-size="9" font-weight="600" text-anchor="middle">统一身份认证 SSO / IAM</text>
+      <text x="151" y="304" fill="#94a3b8" font-size="7.5" text-anchor="middle">复用公司账号体系 · 不自建</text>
+
+      <rect x="273" y="279" width="222" height="34" rx="5" fill="rgba(15,23,42,.92)" stroke="#f59e0b" stroke-width="1"/>
+      <text x="384" y="292" fill="#f59e0b" font-size="9" font-weight="600" text-anchor="middle">IP 白名单 + 堡垒机跳板</text>
+      <text x="384" y="304" fill="#94a3b8" font-size="7.5" text-anchor="middle">运维操作强制留痕</text>
+
+      <rect x="506" y="279" width="222" height="34" rx="5" fill="rgba(15,23,42,.92)" stroke="#f59e0b" stroke-width="1"/>
+      <text x="617" y="292" fill="#f59e0b" font-size="9" font-weight="600" text-anchor="middle">接口签名 + 限流熔断</text>
+      <text x="617" y="304" fill="#94a3b8" font-size="7.5" text-anchor="middle">防越权调用 / 防批量爬取</text>
+
+      <rect x="739" y="279" width="222" height="34" rx="5" fill="rgba(15,23,42,.92)" stroke="#fb7185" stroke-width="1"/>
+      <text x="850" y="292" fill="#fb7185" font-size="9" font-weight="600" text-anchor="middle">高危操作二次确认</text>
+      <text x="850" y="304" fill="#94a3b8" font-size="7.5" text-anchor="middle">落地 / 删除需双人复核</text>
+
+      <text x="40" y="330" fill="#fcd34d" font-size="8">对接公司已有安全底座（统一身份认证 · 堡垒机 · 数据库审计），平台侧只做策略联动 —— 不重复造轮子，也天然满足等保要求</text>
+
+      <!-- ============ ② 接入层 ============ -->
+      <rect x="26" y="365" width="948" height="42" rx="8" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="500" y="383" fill="white" font-size="11" font-weight="600" text-anchor="middle">② 接入层：统一 API 网关（REST + SSE 流式）</text>
+      <text x="500" y="399" fill="#94a3b8" font-size="8.5" text-anchor="middle">路由分发 · 协议转换 · 审计埋点 · 全内网（不出网）· 报告 URL 带签名（鉴权已在安全边界 ① 完成）</text>
+
+      <!-- ============ ③ 服务层 ============ -->
+      <rect x="26" y="435" width="948" height="222" rx="12" fill="rgba(6,78,59,0.08)" stroke="#34d399" stroke-width="1" stroke-dasharray="8,4"/>
+      <text x="38" y="453" fill="#34d399" font-size="10" font-weight="600">③ 服务层 · lineage-api（Python 零第三方依赖 · 单体 :18080）</text>
+
+      <!-- 6 个引擎 -->
+      <rect x="40" y="465" width="300" height="84" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="190" y="485" fill="white" font-size="11" font-weight="600" text-anchor="middle">分析引擎</text>
+      <text x="190" y="503" fill="#94a3b8" font-size="8" text-anchor="middle">sqlglot 多方言解析 · 表级/字段级血缘</text>
+      <text x="190" y="517" fill="#94a3b8" font-size="8" text-anchor="middle">Shell / Python 脚本内嵌 SQL 提取</text>
+      <text x="190" y="535" fill="#34d399" font-size="7.5" text-anchor="middle">工作流级跨任务合并</text>
+
+      <rect x="350" y="465" width="300" height="84" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="500" y="485" fill="white" font-size="11" font-weight="600" text-anchor="middle">生成引擎（L1→L4）</text>
+      <text x="500" y="503" fill="#94a3b8" font-size="8" text-anchor="middle">L1 单表 SQL · L2 分层链路</text>
+      <text x="500" y="517" fill="#94a3b8" font-size="8" text-anchor="middle">L3 一键落地海豚 · L4 反向校验</text>
+      <text x="500" y="535" fill="#34d399" font-size="7.5" text-anchor="middle">宁少勿假 · 逐列可追溯</text>
+
+      <rect x="660" y="465" width="300" height="84" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="810" y="485" fill="white" font-size="11" font-weight="600" text-anchor="middle">知识引擎</text>
+      <text x="810" y="503" fill="#94a3b8" font-size="8" text-anchor="middle">口径自动提炼 · 中文业务名推断</text>
+      <text x="810" y="517" fill="#94a3b8" font-size="8" text-anchor="middle">检索 / 问数（规则 + 可插拔 LLM）</text>
+      <text x="810" y="535" fill="#a78bfa" font-size="7.5" text-anchor="middle">75 口径 · 298 字段 · 139 术语</text>
+
+      <rect x="40" y="559" width="300" height="84" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="190" y="579" fill="white" font-size="11" font-weight="600" text-anchor="middle">报告服务</text>
+      <text x="190" y="597" fill="#94a3b8" font-size="8" text-anchor="middle">单文件 HTML（零外链）</text>
+      <text x="190" y="611" fill="#94a3b8" font-size="8" text-anchor="middle">血缘图 + 真表格 + 口径卡片</text>
+      <text x="190" y="629" fill="#34d399" font-size="7.5" text-anchor="middle">单任务 / 工作流级双模式</text>
+
+      <rect x="350" y="559" width="300" height="84" rx="6" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="500" y="579" fill="white" font-size="11" font-weight="600" text-anchor="middle">海豚适配器</text>
+      <text x="500" y="597" fill="#94a3b8" font-size="8" text-anchor="middle">OpenAPI 只读拉取 + 写操作</text>
+      <text x="500" y="611" fill="#94a3b8" font-size="8" text-anchor="middle">工作流定义 / 实例 / 日志</text>
+      <text x="500" y="629" fill="#fbbf24" font-size="7.5" text-anchor="middle">账号仅服务端配置一处（不入前端）</text>
+
+      <rect x="660" y="559" width="300" height="84" rx="6" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
+      <text x="810" y="579" fill="white" font-size="11" font-weight="600" text-anchor="middle">运维巡检</text>
+      <text x="810" y="597" fill="#94a3b8" font-size="8" text-anchor="middle">断链 · 孤岛 · 环路 · 跨层直连</text>
+      <text x="810" y="611" fill="#94a3b8" font-size="8" text-anchor="middle">口径一致性 · 分层规则</text>
+      <text x="810" y="629" fill="#fb7185" font-size="7.5" text-anchor="middle">调度健康巡检（规划）</text>
+
+      <!-- ============ 🛡 安全边界 ② 数据访问护栏 ============ -->
+      <rect x="26" y="685" width="948" height="88" rx="8" fill="url(#brick)" stroke="#f59e0b" stroke-width="1.5"/>
+      <rect x="36" y="691" width="404" height="18" rx="4" fill="rgba(2,6,23,0.92)"/>
+      <text x="44" y="704" fill="#f59e0b" font-size="10" font-weight="600">🛡 安全边界 ② · 数据访问护栏（数据访问代理）</text>
+      <text x="450" y="704" fill="#fcd34d" font-size="8">服务层 → 数据层之间的唯一通道：SQL 与元数据在这里被检查、裁剪、脱敏</text>
+
+      <rect x="40" y="715" width="176" height="34" rx="5" fill="rgba(15,23,42,.92)" stroke="#22d3ee" stroke-width="1"/>
+      <text x="128" y="728" fill="#22d3ee" font-size="8.5" font-weight="600" text-anchor="middle">SQL 白名单 + 语法校验</text>
+      <text x="128" y="740" fill="#94a3b8" font-size="7" text-anchor="middle">只放行解析类语句</text>
+
+      <rect x="226" y="715" width="176" height="34" rx="5" fill="rgba(15,23,42,.92)" stroke="#34d399" stroke-width="1"/>
+      <text x="314" y="728" fill="#34d399" font-size="8.5" font-weight="600" text-anchor="middle">只读账号 · 最小权限</text>
+      <text x="314" y="740" fill="#94a3b8" font-size="7" text-anchor="middle">DDL / DML 一律拒绝</text>
+
+      <rect x="412" y="715" width="176" height="34" rx="5" fill="rgba(15,23,42,.92)" stroke="#a78bfa" stroke-width="1"/>
+      <text x="500" y="728" fill="#a78bfa" font-size="8.5" font-weight="600" text-anchor="middle">数据分级 L1–L4 标签</text>
+      <text x="500" y="740" fill="#94a3b8" font-size="7" text-anchor="middle">按行业分级分类标准</text>
+
+      <rect x="598" y="715" width="176" height="34" rx="5" fill="rgba(15,23,42,.92)" stroke="#fb7185" stroke-width="1"/>
+      <text x="686" y="728" fill="#fb7185" font-size="8.5" font-weight="600" text-anchor="middle">动态脱敏 + 字段拦截</text>
+      <text x="686" y="740" fill="#94a3b8" font-size="7" text-anchor="middle">手机号 / 身份证 / 薪酬</text>
+
+      <rect x="784" y="715" width="176" height="34" rx="5" fill="rgba(15,23,42,.92)" stroke="#a78bfa" stroke-width="1"/>
+      <text x="872" y="728" fill="#a78bfa" font-size="8.5" font-weight="600" text-anchor="middle">行级 / 列级权限</text>
+      <text x="872" y="740" fill="#94a3b8" font-size="7" text-anchor="middle">下推到 DWS 行级控制</text>
+
+      <text x="40" y="766" fill="#fcd34d" font-size="8">只碰元数据与 SQL 文本，不接触业务数据 · 生成物默认不落地、需显式确认 · 每一次「放行 / 拒绝」都写审计（含理由）</text>
+
+      <!-- ============ ④ 数据层 ============ -->
+      <rect x="26" y="801" width="948" height="112" rx="12" fill="rgba(76,29,149,0.08)" stroke="#a78bfa" stroke-width="1" stroke-dasharray="8,4"/>
+      <text x="38" y="819" fill="#a78bfa" font-size="10" font-weight="600">④ 数据层（本地 SQLite / 文件，无外部依赖）</text>
+
+      <rect x="40" y="829" width="222" height="70" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="151" y="850" fill="white" font-size="10.5" font-weight="600" text-anchor="middle">SQLite 知识库</text>
+      <text x="151" y="868" fill="#94a3b8" font-size="8" text-anchor="middle">口径 / 字段 / 术语 / 规则</text>
+      <text x="151" y="885" fill="#a78bfa" font-size="7.5" text-anchor="middle">幂等 rebuild（内容指纹）</text>
+
+      <rect x="274" y="829" width="222" height="70" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="385" y="850" fill="white" font-size="10.5" font-weight="600" text-anchor="middle">血缘图 JSON</text>
+      <text x="385" y="868" fill="#94a3b8" font-size="8" text-anchor="middle">34 节点 / 41 边</text>
+      <text x="385" y="885" fill="#a78bfa" font-size="7.5" text-anchor="middle">215 字段映射</text>
+
+      <rect x="508" y="829" width="222" height="70" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="619" y="850" fill="white" font-size="10.5" font-weight="600" text-anchor="middle">HTML 报告</text>
+      <text x="619" y="868" fill="#94a3b8" font-size="8" text-anchor="middle">单文件可分享</text>
+      <text x="619" y="885" fill="#a78bfa" font-size="7.5" text-anchor="middle">保留最近 200 份</text>
+
+      <rect x="742" y="829" width="218" height="70" rx="6" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
+      <text x="851" y="850" fill="white" font-size="10.5" font-weight="600" text-anchor="middle">审计与合规台账（规划）</text>
+      <text x="851" y="868" fill="#94a3b8" font-size="8" text-anchor="middle">谁 / 何时 / 生成并落地了什么</text>
+      <text x="851" y="885" fill="#fb7185" font-size="7.5" text-anchor="middle">由安全边界 ③ 统一采集</text>
+
+      <!-- ============ ⑤ 嵌入端 + 外部系统 ============ -->
+      <rect x="40" y="943" width="420" height="60" rx="8" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="250" y="963" fill="white" font-size="11" font-weight="600" text-anchor="middle">⑤ 嵌入端：DolphinScheduler 插件</text>
+      <text x="250" y="981" fill="#94a3b8" font-size="8" text-anchor="middle">LINEAGE（单脚本）· LINEAGE_DAG（工作流级）· SPI 官方扩展，不改源码</text>
+      <text x="250" y="996" fill="#fb923c" font-size="7.5" text-anchor="middle">任务日志自动输出血缘 + 业务口径 + 报告 URL（调用同样经安全边界 ①）</text>
+
+      <rect x="480" y="943" width="480" height="60" rx="8" fill="rgba(30,41,59,0.6)" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="720" y="963" fill="white" font-size="11" font-weight="600" text-anchor="middle">外部系统</text>
+      <text x="720" y="981" fill="#94a3b8" font-size="8" text-anchor="middle">DolphinScheduler 3.2.2（调度）· Hive / HDFS（元数据只读）· LLM（可插拔，可选）</text>
+      <text x="720" y="996" fill="#94a3b8" font-size="7.5" text-anchor="middle">全部内网直连 · 只读元数据 · 无外部网络依赖</text>
+      <line x1="460" y1="973" x2="480" y2="973" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+
+      <!-- ============ 🛡 安全边界 ③ 全链路审计与合规 ============ -->
+      <rect x="26" y="1015" width="948" height="68" rx="8" fill="rgba(136,19,55,0.18)" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="8,4"/>
+      <rect x="36" y="1021" width="452" height="18" rx="4" fill="rgba(2,6,23,0.92)"/>
+      <text x="44" y="1034" fill="#fb7185" font-size="10" font-weight="600">🛡 安全边界 ③ · 全链路审计与合规（横切所有层 · 见图两侧审计轨）</text>
+
+      <text x="44" y="1057" fill="#fb7185" font-size="8.5" font-weight="600">• 操作留痕：谁 / 何时 / 什么操作</text>
+      <text x="44" y="1072" fill="#94a3b8" font-size="7.5">含被拒绝的请求，可按人 / 表 / 时间检索</text>
+
+      <text x="290" y="1057" fill="#fb7185" font-size="8.5" font-weight="600">• 生成物审批台账</text>
+      <text x="290" y="1072" fill="#94a3b8" font-size="7.5">待确认 → 落地 → 变更，可回溯到 SQL</text>
+
+      <text x="536" y="1057" fill="#fb7185" font-size="8.5" font-weight="600">• 报告水印 + 签名 URL</text>
+      <text x="536" y="1072" fill="#94a3b8" font-size="7.5">外发可溯源到人，过期自动失效</text>
+
+      <text x="770" y="1057" fill="#fb7185" font-size="8.5" font-weight="600">• 合规条款映射</text>
+      <text x="770" y="1072" fill="#94a3b8" font-size="7.5">等保 2.0 / 《数据安全法》/ 分级分类</text>
+
+      <!-- ============ 图例 ============ -->
+      <text x="40" y="1126" fill="white" font-size="10" font-weight="600">图例</text>
+      <rect x="40" y="1136" width="16" height="10" rx="2" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1"/>
+      <text x="62" y="1144" fill="#94a3b8" font-size="8">展示 / 入口</text>
+      <rect x="140" y="1136" width="16" height="10" rx="2" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1"/>
+      <text x="162" y="1144" fill="#94a3b8" font-size="8">服务引擎</text>
+      <rect x="240" y="1136" width="16" height="10" rx="2" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1"/>
+      <text x="262" y="1144" fill="#94a3b8" font-size="8">数据存储</text>
+      <rect x="340" y="1136" width="16" height="10" rx="2" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1"/>
+      <text x="362" y="1144" fill="#94a3b8" font-size="8">平台适配</text>
+      <rect x="440" y="1136" width="16" height="10" rx="2" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1"/>
+      <text x="462" y="1144" fill="#94a3b8" font-size="8">质量 / 安全</text>
+      <rect x="540" y="1136" width="16" height="10" rx="2" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1"/>
+      <text x="562" y="1144" fill="#94a3b8" font-size="8">嵌入端</text>
+      <rect x="640" y="1136" width="16" height="10" rx="2" fill="url(#brick)" stroke="#f59e0b" stroke-width="1"/>
+      <text x="662" y="1144" fill="#94a3b8" font-size="8">安全边界 / 防火墙（新增）</text>
+
+      <text x="40" y="1168" fill="#64748b" font-size="8">✅ 已完成：分析引擎 · 生成引擎 · 知识引擎 · 报告服务 · 海豚插件 · 工作流级解析</text>
+      <text x="40" y="1186" fill="#64748b" font-size="8">🔵 规划中：Web Console · 飞书直连 · 三道安全边界（入口鉴权 / 数据护栏 / 审计合规）· 调度看板</text>
+    </svg>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-header"><div class="card-dot amber"></div><h3>三道闸门（一句话版）</h3></div>
+      <ul>
+        <li>• 闸门 ①：进得来的人必须是<strong>合法的人</strong></li>
+        <li>• 闸门 ②：拿得到的数据必须是<strong>该看到的那部分</strong></li>
+        <li>• 闸门 ③：做过的每件事都能<strong>倒查到人</strong></li>
+        <li>• 安全横切而非串行 —— 每层都要过，不是某一层的事</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot cyan"></div><h3>产品化三端</h3></div>
+      <ul>
+        <li>• Web Console：完整交互（对话/大盘/图谱/看板）</li>
+        <li>• 飞书机器人：移动端一句话直达引擎</li>
+        <li>• 海豚插件：平台内自动分析（零改造）</li>
+        <li>• 三者共用同一后端服务与知识库，且共用同一套安全边界</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot emerald"></div><h3>核心差异化</h3></div>
+      <ul>
+        <li>• 业务口径自动提炼（行业空白）</li>
+        <li>• 工作流级血缘 + 历史零改造</li>
+        <li>• 需求 → SQL → 链路 → 落地 闭环</li>
+        <li>• 轻量：零第三方依赖 + SQLite</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot rose"></div><h3>安全与治理（本期新增）</h3></div>
+      <ul>
+        <li>• 入口：统一身份认证 + 白名单 + 堡垒机（复用公司底座）</li>
+        <li>• 数据：只读账号 + 分级分类 + 动态脱敏 + 行级权限</li>
+        <li>• 只碰元数据与 SQL 文本，不接触业务数据；生成默认不落地</li>
+        <li>• 审计：操作留痕 + 审批台账 + 报告水印（对齐等保 / 数安法）</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="footer">数据资产智能运营平台 · sql-lineage-mvp · v2 含数据安全层 · 生成时间 2026-09-21 · 全部内网部署</p>
+</div>
+</body>
+</html>
