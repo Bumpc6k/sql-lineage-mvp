@@ -461,9 +461,13 @@ ROUTES = {
     "/generate/validate": handle_generate_validate,
 }
 
-#: 支持 GET 的端点（其余为 POST）
-#: 另有动态 GET：``/report/<report_id>``（取回 HTML 报告）与 ``/reports``（最近报告清单）
+#: 支持 GET 的端点（其余为 POST）；``/reports``（最近报告清单）也在其中
 GET_ROUTES = {"/health", "/kb/summary", "/kb/metric", "/reports"}
+
+#: 路径带参数的动态 GET 端点（无法用「相等」匹配，需要前缀匹配）
+#: 契约生成（tools/gen_openapi.py）与契约漂移测试（tests/test_contract.py）都读这个常量，
+#: 所以**新增动态路由必须加在这里**，否则契约会漏端点。
+DYNAMIC_GET_ROUTES = {"/report/<report_id>"}
 
 #: HTTP 层为 ``POST /analyze`` 注入的默认值 —— 插件一次调用就能拿到报告地址
 POST_DEFAULTS = {"/analyze": {"with_report": True}, "/analyze-workflow": {"with_report": True}}
@@ -567,7 +571,7 @@ class Handler(BaseHTTPRequestHandler):
                 "success": True,
                 "service": "lineage-api",
                 "endpoints": sorted(ROUTES.keys()),
-                "get_endpoints": sorted(GET_ROUTES) + ["/report/<report_id>"],
+                "get_endpoints": sorted(GET_ROUTES | DYNAMIC_GET_ROUTES),
                 "default_graph": os.path.basename(DEFAULT_GRAPH),
                 "graph_exists": os.path.exists(DEFAULT_GRAPH),
                 "kb_db": kb_db,
