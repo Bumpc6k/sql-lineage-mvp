@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数据智能平台（DIP）· 架构图 v1.1</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#020617;color:#e2e8f0;font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
+       padding:26px 22px 38px;-webkit-font-smoothing:antialiased}
+  .head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#34d399;box-shadow:0 0 12px #34d399;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  h1{font-size:19px;font-weight:600}
+  .sub{color:#64748b;font-size:12px;margin:0 0 16px 21px}
+  .frame{border:1px solid #1e293b;border-radius:14px;background:#020617;padding:8px;overflow:auto}
+  svg{display:block;width:100%;height:auto;min-width:1180px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;margin-top:18px}
+  .card{border:1px solid #1e293b;border-radius:12px;background:#0b1220;padding:14px 16px}
+  .card-header{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .card-dot{width:8px;height:8px;border-radius:50%}
+  .cyan{background:#22d3ee} .emerald{background:#34d399} .amber{background:#fbbf24}
+  .card h3{font-size:13px;font-weight:600}
+  .card ul{list-style:none;display:flex;flex-direction:column;gap:5px}
+  .card li{font-size:11.5px;color:#94a3b8;line-height:1.65}
+  .card li b{color:#e2e8f0;font-weight:500}
+  footer{margin-top:20px;color:#475569;font-size:11px;line-height:1.8}
+  code{background:#0f172a;border:1px solid #1e293b;border-radius:4px;padding:0 5px;color:#7dd3fc}
+</style>
+</head>
+<body>
+<div class="head"><span class="dot"></span><h1>数据智能平台（DIP）· 总体架构</h1></div>
+<p class="sub">v1.1 ｜ 实线 = Phase 1 已实现范围　·　虚线 = 后续阶段 / 可选　·　旧内核本期冻结，新平台只走 HTTP 契约</p>
+
+<div class="frame">
+<svg viewBox="0 0 1240 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#0f1b2e" stroke-width="0.6"/>
+    </pattern>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <marker id="arE" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#34d399"/></marker>
+    <marker id="arC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#22d3ee"/></marker>
+    <marker id="arV" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#a78bfa"/></marker>
+    <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#fbbf24"/></marker>
+  </defs>
+  <rect width="1240" height="900" fill="url(#grid)"/>
+
+  <!-- ===== 边界 ===== -->
+  <rect x="30" y="46" width="770" height="560" rx="12" fill="none" stroke="#fbbf24" stroke-width="1"
+        stroke-dasharray="8,4" opacity=".55"/>
+  <text x="46" y="68" fill="#fbbf24" font-size="10.5">新仓库 data-intelligence-platform（门户与平台层）</text>
+  <rect x="30" y="626" width="1180" height="212" rx="12" fill="none" stroke="#fbbf24" stroke-width="1"
+        stroke-dasharray="8,4" opacity=".55"/>
+  <text x="46" y="648" fill="#fbbf24" font-size="10.5">旧仓库 sql-lineage-mvp ＝ Data Intelligence Kernel（本期冻结 · 只被 HTTP 调用 · tag v1.0-kernel）</text>
+
+  <!-- ===== 连线（先画，压在框下）===== -->
+  <!-- ① web → api -->
+  <path d="M 185 176 L 185 220" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arC)"/>
+  <text x="194" y="203" fill="#64748b" font-size="8.5">HTTP / JSON</text>
+  <!-- 飞书/CLI → api（P2+）-->
+  <path d="M 430 176 L 430 220" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arC)" opacity=".55"/>
+  <!-- ② api → agent → client -->
+  <path d="M 190 317 L 190 354" stroke="#34d399" stroke-width="1.5" marker-end="url(#arE)"/>
+  <path d="M 190 444 L 190 476" stroke="#34d399" stroke-width="1.5" marker-end="url(#arE)"/>
+  <text x="199" y="468" fill="#64748b" font-size="8.5">进程内调用</text>
+  <!-- ③ client → 内核（唯一耦合面）-->
+  <path d="M 190 550 L 190 668" stroke="#34d399" stroke-width="2.2" marker-end="url(#arE)"/>
+  <text x="200" y="600" fill="#34d399" font-size="9.5">HTTP 契约（唯一耦合面）</text>
+  <text x="200" y="615" fill="#64748b" font-size="8.5">contracts/openapi.yaml · 16 端点</text>
+  <!-- ④ api → PostgreSQL -->
+  <path d="M 530 271 C 700 271 700 344 820 346" stroke="#a78bfa" stroke-width="1.5" fill="none" marker-end="url(#arV)"/>
+  <text x="596" y="300" fill="#64748b" font-size="8.5">平台元数据 / 会话 / 审计</text>
+  <!-- ⑤ api → Casdoor（走 y=214 空带）-->
+  <path d="M 470 225 L 470 214 L 1104 214 L 1104 184" stroke="#fbbf24" stroke-width="1.3" fill="none"
+        stroke-dasharray="5,4" marker-end="url(#arA)"/>
+  <text x="820" y="209" fill="#64748b" font-size="8.5">OIDC 登录（生产）</text>
+  <!-- ⑥ api → LLM（走 y=196 空带）-->
+  <path d="M 250 225 L 250 196 L 906 196 L 906 184" stroke="#fbbf24" stroke-width="1.3" fill="none"
+        stroke-dasharray="5,4" marker-end="url(#arA)"/>
+  <text x="520" y="191" fill="#64748b" font-size="8.5">LLM 网关：可插拔 / 无 key 时规则降级</text>
+  <!-- ⑦ scheduler-adapter → DolphinScheduler（绕右侧空档 x=1032）-->
+  <path d="M 600 520 L 622 566 L 1032 566 L 1032 346 L 1040 346" stroke="#fbbf24" stroke-width="1.3" fill="none"
+        stroke-dasharray="5,4" marker-end="url(#arA)"/>
+  <text x="640" y="561" fill="#64748b" font-size="8.5">统一任务模型（P2 只读 / P4 工单式写操作）</text>
+  <!-- ⑧ 调度平台 → 海豚任务实例日志（入口①）-->
+  <path d="M 1064 392 L 1002 654" stroke="#fbbf24" stroke-width="1.2" fill="none"
+        stroke-dasharray="4,4" marker-end="url(#arA)" opacity=".8"/>
+  <text x="1012" y="560" fill="#64748b" font-size="8.5">入口①</text>
+  <text x="1012" y="573" fill="#64748b" font-size="8.5">任务内触发</text>
+
+  <!-- ===== ① 交互层 ===== -->
+  <g>
+    <rect x="60" y="100" width="250" height="76" rx="6" fill="#0f172a"/>
+    <rect x="60" y="100" width="250" height="76" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="76" y="126" fill="#e2e8f0" font-size="12">portal-web</text>
+    <text x="76" y="144" fill="#7dd3fc" font-size="9">对话工作台（首屏）+ 血缘 / 口径 / 报告</text>
+    <text x="76" y="160" fill="#64748b" font-size="8.5">Vue3 + Vite + TS · Ant Design Vue · AntV G6</text>
+  </g>
+  <g>
+    <rect x="330" y="100" width="200" height="76" rx="6" fill="#0f172a"/>
+    <rect x="330" y="100" width="200" height="76" rx="6" fill="rgba(8,51,68,0.25)" stroke="#22d3ee"
+          stroke-width="1" stroke-dasharray="5,4"/>
+    <text x="346" y="126" fill="#e2e8f0" font-size="12">飞书机器人 / CLI</text>
+    <text x="346" y="144" fill="#94a3b8" font-size="9">同源会话（与 Web 共用 Agent）</text>
+    <text x="346" y="160" fill="#64748b" font-size="8.5">Phase 3</text>
+  </g>
+
+  <!-- ===== ② 应用层 ===== -->
+  <g>
+    <rect x="60" y="225" width="470" height="92" rx="6" fill="#0f172a"/>
+    <rect x="60" y="225" width="470" height="92" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="76" y="251" fill="#e2e8f0" font-size="12">portal-api</text>
+    <text x="76" y="270" fill="#6ee7b7" font-size="9">FastAPI :18100 · 身份鉴权 · 会话管理 · Agent 编排 · 审计 · 报告代理</text>
+    <text x="76" y="288" fill="#94a3b8" font-size="9">最小 RBAC（角色 × 菜单）· 只读优先（P1 不做任何写操作）</text>
+    <text x="76" y="305" fill="#64748b" font-size="8.5">dev 身份 / OIDC 双模式 · 所有工具调用留痕</text>
+  </g>
+
+  <!-- ===== ③ 智能层 ===== -->
+  <g>
+    <rect x="60" y="360" width="300" height="84" rx="6" fill="#0f172a"/>
+    <rect x="60" y="360" width="300" height="84" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="76" y="384" fill="#e2e8f0" font-size="12">dip-agent</text>
+    <text x="76" y="402" fill="#6ee7b7" font-size="9">意图分类 → 工具编排 → 结果组装 → 引用溯源</text>
+    <text x="76" y="420" fill="#94a3b8" font-size="9">LLM 网关客户端（可插拔 / 可降级）</text>
+    <text x="76" y="436" fill="#64748b" font-size="8.5">语义层客户端（口径约束生成 · P3）</text>
+  </g>
+  <g>
+    <rect x="380" y="360" width="160" height="84" rx="6" fill="#0f172a"/>
+    <rect x="380" y="360" width="160" height="84" rx="6" fill="rgba(6,78,59,0.3)" stroke="#34d399" stroke-width="1.2"/>
+    <text x="394" y="382" fill="#e2e8f0" font-size="11">dip-contracts</text>
+    <text x="394" y="399" fill="#94a3b8" font-size="8.5">契约单一来源</text>
+    <text x="394" y="414" fill="#94a3b8" font-size="8.5">统一结果模型：</text>
+    <text x="394" y="428" fill="#64748b" font-size="8">value · confidence</text>
+    <text x="394" y="439" fill="#64748b" font-size="8">status · evidence</text>
+  </g>
+
+  <!-- ===== ④ 集成层 ===== -->
+  <g>
+    <rect x="60" y="476" width="300" height="74" rx="6" fill="#0f172a"/>
+    <rect x="60" y="476" width="300" height="74" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="76" y="500" fill="#e2e8f0" font-size="11.5">integrations/lineage-client</text>
+    <text x="76" y="518" fill="#6ee7b7" font-size="9">唯一与内核耦合处（可替换为进程内实现）</text>
+    <text x="76" y="535" fill="#64748b" font-size="8.5">解析 / 血缘 / 口径 / 报告（P3 起：生成）</text>
+  </g>
+  <g>
+    <rect x="380" y="476" width="220" height="74" rx="6" fill="#0f172a"/>
+    <rect x="380" y="476" width="220" height="74" rx="6" fill="rgba(6,78,59,0.25)" stroke="#34d399"
+          stroke-width="1" stroke-dasharray="5,4"/>
+    <text x="394" y="500" fill="#e2e8f0" font-size="11.5">scheduler-adapter</text>
+    <text x="394" y="518" fill="#94a3b8" font-size="8.5">统一任务模型 + 适配器</text>
+    <text x="394" y="535" fill="#64748b" font-size="8.5">Phase 2 只读 / Phase 4 写操作走工单</text>
+  </g>
+
+  <!-- ===== 上排：外部服务（amber）===== -->
+  <g>
+    <rect x="826" y="100" width="176" height="84" rx="6" fill="#0f172a"/>
+    <rect x="826" y="100" width="176" height="84" rx="6" fill="rgba(120,53,15,0.25)" stroke="#fbbf24"
+          stroke-width="1" stroke-dasharray="5,4"/>
+    <text x="840" y="124" fill="#e2e8f0" font-size="11.5">LLM（可选）</text>
+    <text x="840" y="142" fill="#94a3b8" font-size="8.5">云端 API / 本地 vLLM</text>
+    <text x="840" y="157" fill="#94a3b8" font-size="8.5">无 key 时 → 规则模式</text>
+    <text x="840" y="172" fill="#64748b" font-size="8">演示与离线环境无需凭据</text>
+  </g>
+  <g>
+    <rect x="1024" y="100" width="176" height="84" rx="6" fill="#0f172a"/>
+    <rect x="1024" y="100" width="176" height="84" rx="6" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.3"/>
+    <text x="1038" y="124" fill="#e2e8f0" font-size="11.5">Casdoor（IAM）</text>
+    <text x="1038" y="142" fill="#fcd34d" font-size="8.5">开源 · OIDC</text>
+    <text x="1038" y="157" fill="#94a3b8" font-size="8.5">只做身份认证</text>
+    <text x="1038" y="172" fill="#64748b" font-size="8">权限在平台侧（RBAC）</text>
+  </g>
+
+  <!-- ===== 右列：存储（violet）===== -->
+  <g>
+    <rect x="826" y="300" width="196" height="96" rx="6" fill="#0f172a"/>
+    <rect x="826" y="300" width="196" height="96" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="842" y="324" fill="#e2e8f0" font-size="12">PostgreSQL 16</text>
+    <text x="842" y="342" fill="#c4b5fd" font-size="9">系统事实库（P1 唯一数据库）</text>
+    <text x="842" y="360" fill="#94a3b8" font-size="8.5">会话 / 消息 / 审计 / 快照</text>
+    <text x="842" y="376" fill="#94a3b8" font-size="8.5">JSONB 存结构化结果</text>
+    <text x="842" y="390" fill="#64748b" font-size="8">不引 Redis / Neo4j（P1）</text>
+  </g>
+  <g>
+    <rect x="826" y="410" width="196" height="58" rx="6" fill="#0f172a"/>
+    <rect x="826" y="410" width="196" height="58" rx="6" fill="rgba(76,29,149,0.2)" stroke="#a78bfa"
+          stroke-width="1" stroke-dasharray="5,4"/>
+    <text x="842" y="432" fill="#e2e8f0" font-size="11">Redis + 队列</text>
+    <text x="842" y="449" fill="#64748b" font-size="8.5">Phase 5：长任务 / 并发 / 重试才加</text>
+  </g>
+  <g>
+    <rect x="826" y="482" width="196" height="58" rx="6" fill="#0f172a"/>
+    <rect x="826" y="482" width="196" height="58" rx="6" fill="rgba(76,29,149,0.2)" stroke="#a78bfa"
+          stroke-width="1" stroke-dasharray="5,4"/>
+    <text x="842" y="504" fill="#e2e8f0" font-size="11">Neo4j（图查询投影）</text>
+    <text x="842" y="521" fill="#64748b" font-size="8.5">Phase 5：从 PG/内核同步，可重建</text>
+  </g>
+
+  <!-- ===== 右下：调度平台（amber）===== -->
+  <g>
+    <rect x="1046" y="300" width="176" height="92" rx="6" fill="#0f172a"/>
+    <rect x="1046" y="300" width="176" height="92" rx="6" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.3"/>
+    <text x="1060" y="324" fill="#e2e8f0" font-size="11.5">DolphinScheduler</text>
+    <text x="1060" y="342" fill="#fcd34d" font-size="8.5">Phase 1：只读（OpenAPI）</text>
+    <text x="1060" y="358" fill="#94a3b8" font-size="8.5">插件 LINEAGE</text>
+    <text x="1060" y="372" fill="#94a3b8" font-size="8.5">LINEAGE_DAG</text>
+    <text x="1060" y="386" fill="#64748b" font-size="8">Phase 4：工单式写操作</text>
+  </g>
+  <g>
+    <rect x="1046" y="520" width="176" height="62" rx="6" fill="#0f172a"/>
+    <rect x="1046" y="520" width="176" height="62" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8"
+          stroke-width="1" stroke-dasharray="5,4"/>
+    <text x="1060" y="543" fill="#e2e8f0" font-size="11">DataWorks / Airflow</text>
+    <text x="1060" y="561" fill="#64748b" font-size="8.5">Phase 5 适配器（先只读）</text>
+  </g>
+
+  <!-- ===== ⑤ 内核（slate，冻结）===== -->
+  <g>
+    <rect x="60" y="668" width="250" height="90" rx="6" fill="#0f172a"/>
+    <rect x="60" y="668" width="250" height="90" rx="6" fill="rgba(30,41,59,0.6)" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="76" y="692" fill="#e2e8f0" font-size="12">lineage-api :18080</text>
+    <text x="76" y="710" fill="#cbd5e1" font-size="9">解析 · 血缘 · 口径 · 报告 · 生成</text>
+    <text x="76" y="727" fill="#94a3b8" font-size="8.5">16 个端点 · 450 用例 · 分层守卫</text>
+    <text x="76" y="745" fill="#64748b" font-size="8.5">tag v1.0-kernel（已冻结，本期不改</text>
+    <text x="76" y="756" fill="#64748b" font-size="8.5">内部，抽包推迟到 Phase 5 之后）</text>
+  </g>
+  <g>
+    <rect x="340" y="668" width="168" height="42" rx="5" fill="#0f172a"/>
+    <rect x="340" y="668" width="168" height="42" rx="5" fill="rgba(30,41,59,0.5)" stroke="#64748b" stroke-width="1"/>
+    <text x="354" y="687" fill="#e2e8f0" font-size="10.5">lineage-core</text>
+    <text x="354" y="702" fill="#94a3b8" font-size="8">sqlglot 解析内核（纯函数）</text>
+  </g>
+  <g>
+    <rect x="524" y="668" width="168" height="42" rx="5" fill="#0f172a"/>
+    <rect x="524" y="668" width="168" height="42" rx="5" fill="rgba(30,41,59,0.5)" stroke="#64748b" stroke-width="1"/>
+    <text x="538" y="687" fill="#e2e8f0" font-size="10.5">knowledge</text>
+    <text x="538" y="702" fill="#94a3b8" font-size="8">业务口径库（人审 + 置信度）</text>
+  </g>
+  <g>
+    <rect x="708" y="668" width="150" height="42" rx="5" fill="#0f172a"/>
+    <rect x="708" y="668" width="150" height="42" rx="5" fill="rgba(30,41,59,0.5)" stroke="#64748b" stroke-width="1"/>
+    <text x="722" y="687" fill="#e2e8f0" font-size="10.5">generate</text>
+    <text x="722" y="702" fill="#94a3b8" font-size="8">L1~L4 生成 + 反向校验</text>
+  </g>
+  <g>
+    <rect x="340" y="718" width="168" height="42" rx="5" fill="#0f172a"/>
+    <rect x="340" y="718" width="168" height="42" rx="5" fill="rgba(30,41,59,0.5)" stroke="#64748b" stroke-width="1"/>
+    <text x="354" y="737" fill="#e2e8f0" font-size="10.5">render</text>
+    <text x="354" y="752" fill="#94a3b8" font-size="8">自包含 HTML 报告</text>
+  </g>
+  <g>
+    <rect x="524" y="718" width="168" height="42" rx="5" fill="#0f172a"/>
+    <rect x="524" y="718" width="168" height="42" rx="5" fill="rgba(30,41,59,0.5)" stroke="#64748b" stroke-width="1"/>
+    <text x="538" y="737" fill="#e2e8f0" font-size="10.5">ds + ds-plugin（薄插件）</text>
+    <text x="538" y="752" fill="#94a3b8" font-size="8">取上下文 → 调 API → 摘要 + 报告 URL</text>
+  </g>
+  <g>
+    <rect x="708" y="718" width="150" height="42" rx="5" fill="#0f172a"/>
+    <rect x="708" y="718" width="150" height="42" rx="5" fill="rgba(30,41,59,0.4)" stroke="#64748b" stroke-width="1"
+          stroke-dasharray="4,3"/>
+    <text x="722" y="737" fill="#e2e8f0" font-size="10.5">apps/web</text>
+    <text x="722" y="752" fill="#94a3b8" font-size="8">早期最小前端（可弃用）</text>
+  </g>
+  <!-- 内核内部依赖箭头 -->
+  <path d="M 310 705 L 334 690" stroke="#64748b" stroke-width="1" marker-end="url(#ar)"/>
+  <path d="M 310 718 L 334 738" stroke="#64748b" stroke-width="1" marker-end="url(#ar)"/>
+
+  <!-- 海豚任务实例日志（交付面） -->
+  <g>
+    <rect x="880" y="668" width="200" height="92" rx="5" fill="#0f172a"/>
+    <rect x="880" y="668" width="200" height="92" rx="5" fill="rgba(30,41,59,0.6)" stroke="#94a3b8" stroke-width="1.3"/>
+    <text x="894" y="692" fill="#e2e8f0" font-size="11">海豚任务实例日志</text>
+    <text x="894" y="710" fill="#cbd5e1" font-size="8.5">交付面：插件只输出摘要 +</text>
+    <text x="894" y="724" fill="#cbd5e1" font-size="8.5">可点击的报告 URL（不改前端</text>
+    <text x="894" y="738" fill="#cbd5e1" font-size="8.5">bundle 也能用）</text>
+    <text x="894" y="753" fill="#64748b" font-size="8">入口①：任务内实时触发</text>
+  </g>
+
+  <!-- ===== 图例（在所有边界之外）===== -->
+  <g transform="translate(46,862)">
+    <text x="0" y="0" fill="#475569" font-size="9.5">图例：</text>
+    <rect x="44" y="-8" width="14" height="10" rx="2" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="64" y="0" fill="#94a3b8" font-size="9">交互层</text>
+    <rect x="116" y="-8" width="14" height="10" rx="2" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1"/>
+    <text x="136" y="0" fill="#94a3b8" font-size="9">应用 / 智能 / 集成</text>
+    <rect x="244" y="-8" width="14" height="10" rx="2" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="264" y="0" fill="#94a3b8" font-size="9">存储</text>
+    <rect x="304" y="-8" width="14" height="10" rx="2" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1"/>
+    <text x="324" y="0" fill="#94a3b8" font-size="9">外部依赖</text>
+    <rect x="392" y="-8" width="14" height="10" rx="2" fill="rgba(30,41,59,0.6)" stroke="#94a3b8" stroke-width="1"/>
+    <text x="412" y="0" fill="#94a3b8" font-size="9">旧内核（冻结）</text>
+    <line x1="500" y1="-3" x2="534" y2="-3" stroke="#34d399" stroke-width="2.2"/>
+    <text x="540" y="0" fill="#94a3b8" font-size="9">Phase 1 已实现</text>
+    <line x1="648" y1="-3" x2="682" y2="-3" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="5,4"/>
+    <text x="688" y="0" fill="#94a3b8" font-size="9">后续阶段 / 可选</text>
+    <line x1="796" y1="-3" x2="830" y2="-3" stroke="#fbbf24" stroke-width="1.3" stroke-dasharray="5,4"/>
+    <text x="836" y="0" fill="#94a3b8" font-size="9">身份 / 模型 / 调度</text>
+  </g>
+</svg>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-header"><div class="card-dot emerald"></div><h3>Phase 1：三个单元 + 一个库</h3></div>
+    <ul>
+      <li>• <b>portal-web</b> 前端（对话首屏 / 血缘 / 口径 / 报告）</li>
+      <li>• <b>portal-api</b> FastAPI（身份 / 会话 / Agent / 审计）</li>
+      <li>• <b>lineage-api</b> 旧内核（复用、不动）</li>
+      <li>• <b>PostgreSQL</b> 唯一数据库 —— 不上 Redis / Neo4j / 调度适配器</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-dot cyan"></div><h3>唯一耦合面 = HTTP 契约</h3></div>
+    <ul>
+      <li>• 新平台只经 <b>integrations/lineage-client</b> 调内核，不 import 内部模块</li>
+      <li>• <b>contracts/openapi.yaml</b>（16 端点）只追加字段，破坏性变更升 /v2</li>
+      <li>• 双仓库各自独立发布；Phase 5 之后才考虑抽包做进程内调用</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-dot amber"></div><h3>产品主线：Evidence-first</h3></div>
+    <ul>
+      <li>• 对话是入口，血缘与口径是事实基础，<b>凭证</b>是可信机制</li>
+      <li>• 统一结果模型：<code>value / confidence / status / evidence / source / version</code></li>
+      <li>• 没有凭证的回答不发布；写操作必须「生成 → 审核 → 执行」</li>
+    </ul>
+  </div>
+</div>
+
+<footer>
+  数据智能平台（DIP）· 架构图 v1.1 ｜ 依据《项目规划与功能设计 v1.1》绘制 ｜ 旧仓库 tag：v1.0-kernel<br>
+  单文件 HTML（内联 SVG，无外部依赖）—— 可直接放进 README 或汇报材料；改动请同步 docs/platform-vision/diagrams/。
+</footer>
+</body>
+</html>

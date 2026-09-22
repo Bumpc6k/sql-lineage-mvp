@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型 3 · 凭证优先（左对话 / 右证据画布）</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#fff; --bg2:#f8f9fb; --line:#e6e8ec; --line2:#eff1f4; --fg:#14181f; --dim:#5b6472; --dim2:#8b94a3;
+    --acc:#4f46e5; --ok:#0f9960; --okbg:#eefaf3; --warn:#b45309; --warnbg:#fef7ec;
+    --ods:#8b5cf6; --dwd:#2563eb; --dws:#0d9488; --ads:#d97706; --dimc:#94a3b8;
+  }
+  body{font:14.5px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:var(--bg);
+       color:var(--fg);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;background:#f2f3f6;border-radius:5px;padding:1px 6px;color:#374151}
+  header{height:54px;flex:none;display:flex;align-items:center;gap:11px;padding:0 18px;border-bottom:1px solid var(--line)}
+  .lg{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#0ea5e9);color:#fff;display:grid;place-items:center;font-size:14px}
+  header b{font-size:14.5px}
+  header .sp{margin-left:auto;display:flex;gap:9px;align-items:center;font-size:12.5px;color:var(--dim)}
+  .tg{border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12.5px}
+  .tg.w{color:var(--warn);border-color:#f0d9b5;background:var(--warnbg)}
+
+  .body{flex:1;display:flex;min-height:0}
+  .left{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+  .stream{flex:1;overflow:auto;padding:20px 22px}
+  .msg{max-width:720px;margin-bottom:18px}
+  .who{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim2);margin-bottom:6px}
+  .av{width:20px;height:20px;border-radius:50%;background:#e9ecf1;display:grid;place-items:center;font-size:10px;color:#4b5563}
+  .av.ai{background:linear-gradient(135deg,#6366f1,#0ea5e9);color:#fff}
+  .me{font-size:15px;font-weight:500}
+  .steps{border:1px solid var(--line2);background:#fbfcfd;border-radius:9px;padding:8px 11px;margin-bottom:10px;font-size:12.5px;cursor:pointer}
+  .step{display:flex;align-items:center;gap:8px;color:#4b5563}
+  .step .d{width:14px;height:14px;border-radius:50%;background:var(--okbg);color:var(--ok);display:grid;place-items:center;font-size:9px}
+  .step .tt{margin-left:auto;color:var(--dim2);font-size:11.5px}
+  .sd{display:none;margin:7px 0 2px 22px;padding:8px 10px;background:#fff;border:1px solid var(--line2);border-radius:7px;
+      font-family:ui-monospace,monospace;font-size:11px;color:#5b6472;white-space:pre-wrap}
+  .steps.open .sd{display:block}
+
+  /* 结论 + 点它高亮右侧证据 */
+  .concl{border-left:3px solid var(--acc);background:#fafbff;padding:11px 13px;border-radius:0 9px 9px 0;margin-bottom:12px;cursor:pointer;transition:.15s}
+  .concl:hover{background:#f4f6ff}
+  .concl .f{font-family:ui-monospace,monospace;font-size:14.5px;color:#111827}
+  .bs{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;font-size:11.5px}
+  .b{border-radius:999px;padding:1px 8px;border:1px solid}
+  .b.ok{color:var(--ok);border-color:#cdeadd;background:var(--okbg)}
+  .b.g{color:var(--dim);border-color:var(--line)}
+  .evlist{display:flex;flex-direction:column;gap:6px}
+  .ev{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:8px}
+  .ev:hover{border-color:var(--acc);background:#fafbff}
+  .ev.on{border-color:var(--acc);background:#f4f6ff;box-shadow:0 0 0 2px #e6e9ff}
+  .ev .k{color:var(--dim2);font-size:11.5px;margin-left:auto}
+  .hintline{color:var(--dim2);font-size:12px;margin-top:9px}
+
+  .comp{flex:none;border-top:1px solid var(--line);padding:11px 22px 15px;background:#fcfcfd}
+  .inp{border:1px solid var(--line);border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.05);overflow:hidden}
+  .inp textarea{width:100%;border:0;outline:none;resize:none;height:50px;padding:12px 14px 4px;font:inherit;background:transparent}
+  .inp .bar{display:flex;align-items:center;gap:7px;padding:5px 9px 8px 11px;font-size:11.5px;color:var(--dim2)}
+  .pl{border:1px solid var(--line);border-radius:999px;padding:2px 8px;cursor:pointer}
+  .pl:hover{border-color:var(--acc);color:var(--acc)}
+  .bar .r{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .send{background:var(--acc);border:0;color:#fff;border-radius:8px;padding:6px 13px;font-size:12.5px;cursor:pointer;font-weight:600}
+
+  /* 右：证据画布（本原型的主角） */
+  .right{width:46%;min-width:520px;flex:none;display:flex;flex-direction:column;background:var(--bg2)}
+  .rh{flex:none;display:flex;align-items:center;gap:2px;padding:9px 14px;border-bottom:1px solid var(--line);background:#fff}
+  .tab{padding:6px 12px;border-radius:8px;font-size:13px;color:var(--dim);cursor:pointer}
+  .tab.on{background:#eef1ff;color:var(--acc);font-weight:600}
+  .rh .sp{margin-left:auto;font-size:12px;color:var(--dim2)}
+  .rp{flex:1;overflow:auto;padding:14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:12px}
+  .card h4{font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:7px}
+  .card h4 .sp{margin-left:auto;font-size:11.5px;color:var(--dim2);font-weight:400}
+  .lvg{position:relative;height:196px;background:#fff;border-radius:9px;border:1px solid var(--line2);overflow:hidden}
+  .lvcol{position:absolute;top:8px;bottom:8px;display:flex;flex-direction:column;justify-content:center;gap:9px}
+  .nd{border:1px solid var(--line);border-radius:8px;height:34px;padding:5px 9px;font-family:ui-monospace,monospace;font-size:10.5px;
+      background:#fff;cursor:pointer;white-space:nowrap;transition:.15s;position:relative}
+  .nd:hover{border-color:var(--acc)}
+  .nd.hl{border-color:var(--warn);background:#fffaf0;box-shadow:0 0 0 2px #fdeccb}
+  .nd .lb{display:block;font-family:-apple-system,sans-serif;font-size:9.5px;color:var(--dim2);line-height:1.3}
+  .nd.sel{border-color:var(--acc);background:#f4f6ff;box-shadow:0 0 0 2px #e6e9ff}
+  .ln{position:absolute;height:1.5px;background:#dbe0e8;transform-origin:0 0}
+  .colh{position:absolute;top:6px;font-size:10.5px;color:#8b94a3;letter-spacing:.08em;font-weight:600}
+  .ln.hl{background:var(--warn);height:2px}
+  .fml{font-family:ui-monospace,monospace;font-size:13px;background:#fafbff;border:1px solid #e6e9ff;border-radius:8px;padding:9px 11px}
+  .fml2{font-family:ui-monospace,monospace;font-size:12px;color:#5b6472;margin-top:7px}
+  .kv{display:grid;grid-template-columns:78px 1fr;gap:4px 10px;font-size:12.5px;margin-top:8px}
+  .kv dt{color:var(--dim2)} .kv dd{font-family:ui-monospace,monospace;font-size:12px}
+  .rep{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;cursor:pointer}
+  .rep:hover{border-color:var(--acc)}
+  .rep .ic{width:28px;height:28px;border-radius:8px;background:#ecfeff;color:#0e7490;display:grid;place-items:center}
+  .rep small{display:block;color:var(--dim2);font-size:11.5px}
+  .hidden{display:none}
+  .legend{display:flex;gap:12px;font-size:11.5px;color:var(--dim2);margin-top:8px;flex-wrap:wrap}
+  .legend i{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:5px}
+</style>
+</head>
+<body>
+<header>
+  <span class="lg">◈</span><b>数据智能平台</b>
+  <span class="sp">
+    <span class="tg w">规则模式</span><span class="tg">口径库 75</span><span class="tg">内核正常</span><span>张工</span>
+  </span>
+</header>
+
+<div class="body">
+  <div class="left">
+    <div class="stream">
+      <div class="msg">
+        <div class="who"><span class="av">张</span> 张工 · 14:02</div>
+        <div class="me">ads.ads_产销存月报 的产量怎么算的？</div>
+      </div>
+      <div class="msg">
+        <div class="who"><span class="av ai">◈</span> 数据智能平台 · 14:02</div>
+        <div class="steps" onclick="this.classList.toggle('open')">
+          <div class="step"><span class="d">✓</span> 查血缘 /analyze<span class="tt">0.4s</span></div>
+          <div class="sd">POST /analyze {"sql":"insert overwrite table ads.ads_产销存月报 …"}
+← 200  column_lineage=7  input_tables=3</div>
+          <div class="step" style="margin-top:6px"><span class="d">✓</span> 检索口径 /kb/search<span class="tt">0.2s</span></div>
+          <div class="sd">POST /kb/search {"keyword":"产量"}
+← 200  命中 1 条 · status=verified</div>
+        </div>
+
+        <div class="concl" onclick="pick('metric')">
+          <div class="f">产量 = 打码量 + 跳码量 − 重码量</div>
+          <div class="bs"><span class="b ok">verified 已审核</span><span class="b g">0.93</span><span class="b g">口径 v3</span></div>
+        </div>
+
+        <div style="color:var(--dim);font-size:13.5px;margin-bottom:10px">
+          依赖字段 <code>output_qty</code>，上游 2 层到 <code>ods.ods_卷烟产量明细</code>。
+        </div>
+
+        <div class="evlist">
+          <div class="ev on" id="ev-graph" onclick="pick('graph')">◈ 血缘图 <span class="k">上游 3 / 展开 14</span></div>
+          <div class="ev" id="ev-metric" onclick="pick('metric')">◆ 口径详情 · 产量 <span class="k">v3 · 已审核</span></div>
+          <div class="ev" id="ev-report" onclick="pick('report')">▤ HTML 报告 <span class="k">182 KB</span></div>
+        </div>
+        <div class="hintline">点任意结论或凭证，右侧画布会切到对应证据（点一下试试）</div>
+      </div>
+    </div>
+
+    <div class="comp">
+      <div class="inp">
+        <textarea placeholder="继续追问…例如：那这个口径在 dws 层是什么？"></textarea>
+        <div class="bar">
+          <span class="pl">@ 表</span><span class="pl"># 口径</span><span class="pl">/ 指令</span>
+          <span class="r"><button class="send">发送</button></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：证据画布 -->
+  <div class="right">
+    <div class="rh">
+      <span class="tab" id="t-graph" onclick="pick('graph')">血缘图</span>
+      <span class="tab" id="t-metric" onclick="pick('metric')">口径</span>
+      <span class="tab" id="t-report" onclick="pick('report')">报告</span>
+      <span class="sp" id="srcLabel">证据 · 来源：/analyze</span>
+    </div>
+    <div class="rp">
+      <!-- 血缘图 -->
+      <div class="card" id="p-graph">
+        <h4>血缘：ads.ads_产销存月报 <span class="sp">点节点看详情 · 表级</span></h4>
+        <div class="lvg" id="lvg"></div>
+        <div class="legend">
+          <span><i style="background:var(--ods)"></i>ods</span><span><i style="background:var(--dwd)"></i>dwd</span>
+          <span><i style="background:var(--dws)"></i>dws</span><span><i style="background:var(--ads)"></i>ads</span>
+          <span><i style="background:var(--warn)"></i>当前结论的依赖链</span>
+        </div>
+      </div>
+      <!-- 口径 -->
+      <div class="card hidden" id="p-metric">
+        <h4>口径 · 产量 <span class="sp">v3 · 已审核 · 置信度 0.93</span></h4>
+        <div class="fml">产量 = 打码量 + 跳码量 − 重码量</div>
+        <div class="fml2">忠实表达式：SUM(a.output_qty) − SUM(a.reject_qty) + SUM(a.jump_qty)</div>
+        <dl class="kv">
+          <dt>所属表</dt><dd>ads.ads_产销存月报</dd>
+          <dt>依赖字段</dt><dd>cdw.dws_产销存汇总.output_qty</dd>
+          <dt>来源</dt><dd>ads/ads_产销存月报.sql 第 4 行</dd>
+          <dt>类型</dt><dd>聚合（3 个分解项）</dd>
+          <dt>责任人</dt><dd>张工 · 数据开发</dd>
+        </dl>
+      </div>
+      <!-- 报告 -->
+      <div class="card hidden" id="p-report">
+        <h4>HTML 报告 <span class="sp">自包含单文件 · 可离线打开</span></h4>
+        <div class="rep" onclick="alert('原型：内嵌预览 or 新窗口打开')">
+          <span class="ic">▤</span>
+          <span><b style="font-size:13px">rpt_20260922_a1b2c3d4</b><small>182 KB · 14:02 生成 · 单脚本模式</small></span>
+          <span style="margin-left:auto;color:var(--dim2);font-size:12px">打开 ›</span>
+        </div>
+        <div style="color:var(--dim2);font-size:12.5px;margin-top:9px">报告含：表级流向 / 字段映射真表格 / 口径卡片 / 上游链路 SVG</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- 证据切换 ---- */
+function pick(k){
+  ['graph','metric','report'].forEach(function(x){
+    document.getElementById('p-'+x).classList.toggle('hidden', x!==k);
+    document.getElementById('t-'+x).classList.toggle('on', x===k);
+    var e=document.getElementById('ev-'+x); if(e) e.classList.toggle('on', x===k);
+  });
+  document.getElementById('srcLabel').textContent =
+    '证据 · 来源：' + ({graph:'/analyze（字段级血缘）',metric:'/kb/search（口径 v3）',report:'/report（自包含 HTML）'})[k];
+  if(k==='graph') drawGraph();
+}
+
+/* ---- 极简血缘图：4 列 + 连线 + 依赖链高亮（原型手算坐标，生产用 AntV G6）---- */
+/* 列顺序按数仓流向：ods(0) → dwd(1) → dws(2) → ads(3)，连线一律左→右 */
+var NODES = [
+  {id:'ods1', x:0, y:1, t:'ods_卷烟产量明细', lb:'ods · 源表', f:'ods.ods_卷烟产量明细'},
+  {id:'ods2', x:0, y:3, t:'ods_卷烟销量明细', lb:'ods · 源表', f:'ods.ods_卷烟销量明细'},
+  {id:'dwd1', x:1, y:1, t:'dwd_卷烟产量明细', lb:'dwd · 清洗', f:'cdw.dwd_卷烟产量明细'},
+  {id:'dwd2', x:1, y:3, t:'dwd_卷烟销量明细', lb:'dwd · 清洗', f:'cdw.dwd_卷烟销量明细'},
+  {id:'dws',  x:2, y:2, t:'dws_产销存汇总',   lb:'dws · 汇总', f:'cdw.dws_产销存汇总'},
+  {id:'ads',  x:3, y:2, t:'ads_产销存月报',   lb:'ads · 产出 · 本句', f:'ads.ads_产销存月报'},
+];
+var COLS = ['ODS 采集', 'DWD 清洗', 'DWS 汇总', 'ADS 应用'];
+var LINKS = [['dws','ads'],['dwd1','dws'],['dwd2','dws'],['ods1','dwd1'],['ods2','dwd2']];
+var CHAIN = {ads:1, dws:1, dwd1:1, ods1:1};   /* 产量 的依赖链 */
+
+function drawGraph(){
+  var box=document.getElementById('lvg'); box.innerHTML='';
+  var W=box.clientWidth||520, H=box.clientHeight||238;
+  var colW=W/4, ndW=colW-26, pos={};
+  /* 列标题 */
+  COLS.forEach(function(c,i){
+    var h=document.createElement('div');
+    h.className='colh';
+    h.textContent=c;
+    h.style.left=(i*colW+10)+'px';
+    box.appendChild(h);
+  });
+  NODES.forEach(function(n){
+    var d=document.createElement('div');
+    d.className='nd'+(CHAIN[n.id]?' hl':'');
+    d.style.left=(n.x*colW+12)+'px';
+    d.style.top =(28+(n.y-1)*62)+'px';
+    d.style.width=ndW+'px';
+    d.innerHTML=n.t+'<span class="lb">'+n.lb+'</span>';
+    d.title=n.f;
+    d.onclick=function(){ d.classList.toggle('sel'); };
+    box.appendChild(d);
+    pos[n.id]={x:n.x*colW+12, y:28+(n.y-1)*62, w:ndW, h:34};
+  });
+  LINKS.forEach(function(l){
+    var a=pos[l[0]], b=pos[l[1]];
+    var x1=a.x+a.w, y1=a.y+a.h/2, x2=b.x, y2=b.y+b.h/2;
+    if(x2<=x1){return;}   /* 只画左→右 */
+
+    var len=Math.hypot(x2-x1,y2-y1);
+    var e=document.createElement('div');
+    e.className='ln'+((CHAIN[l[0]]&&CHAIN[l[1]])?' hl':'');
+    e.style.left=x1+'px'; e.style.top=y1+'px'; e.style.width=len+'px';
+    e.style.transform='rotate('+Math.atan2(y2-y1,x2-x1)+'rad)';
+    box.appendChild(e);
+  });
+}
+window.addEventListener('resize', drawGraph);
+pick('graph');   /* 必须在 NODES/LINKS 赋值之后调用（var 只提升声明不提升赋值）*/
+</script>
+</body>
+</html>

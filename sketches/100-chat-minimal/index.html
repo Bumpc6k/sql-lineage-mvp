@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型 1 · 极简对话（大模型式）</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#fff; --bg2:#f7f8fa; --line:#e8eaed; --line2:#f0f1f4;
+    --fg:#1f2328; --dim:#6b7280; --dim2:#9aa1ac; --acc:#4f46e5; --acc-bg:#eef1ff;
+    --ok:#0f9960; --ok-bg:#eefaf3; --warn:#b45309; --warn-bg:#fef7ec;
+  }
+  body{font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased;display:flex;height:100vh;overflow:hidden}
+  code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px;background:#f2f3f6;
+       border-radius:5px;padding:1px 6px;color:#374151}
+
+  /* 侧栏：会话列表（可收起） */
+  aside{width:246px;flex:none;background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column}
+  aside .top{padding:14px 14px 10px;display:flex;align-items:center;gap:9px}
+  .logo{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#0ea5e9);color:#fff;
+        display:grid;place-items:center;font-size:14px}
+  aside .top b{font-size:14px}
+  .newbtn{margin:0 12px 10px;padding:9px 12px;border:1px solid var(--line);background:#fff;border-radius:9px;
+          cursor:pointer;font-size:13.5px;display:flex;align-items:center;gap:7px}
+  .newbtn:hover{border-color:var(--acc);color:var(--acc)}
+  .sec{color:var(--dim2);font-size:11.5px;padding:10px 16px 4px}
+  .conv{padding:8px 16px;font-size:13.5px;color:#3f4650;cursor:pointer;border-radius:0;white-space:nowrap;
+        overflow:hidden;text-overflow:ellipsis}
+  .conv:hover{background:#eef0f3}
+  .conv.on{background:#e8ebf0;font-weight:600}
+  aside .foot{margin-top:auto;border-top:1px solid var(--line);padding:11px 14px;font-size:12px;color:var(--dim2)}
+
+  main{flex:1;display:flex;flex-direction:column;min-width:0}
+  header{height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid var(--line)}
+  header .t{font-weight:600;font-size:14.5px}
+  header .sp{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--dim)}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:3px 11px;font-size:12.5px;background:#fff}
+  .chip.rule{background:var(--warn-bg);border-color:#f3ddb8;color:var(--warn)}
+
+  .stream{flex:1;overflow:auto;padding:26px 0 10px}
+  .wrap{max-width:760px;margin:0 auto;padding:0 24px}
+  .msg{margin-bottom:26px}
+  .who{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim);margin-bottom:7px}
+  .av{width:22px;height:22px;border-radius:50%;background:#e5e7eb;display:grid;place-items:center;font-size:11px;color:#4b5563}
+  .av.ai{background:linear-gradient(135deg,#6366f1,#0ea5e9);color:#fff}
+  .me{font-size:15.5px;font-weight:500}
+  .answer p{margin-bottom:10px}
+
+  /* 工具调用步骤 */
+  .steps{border:1px solid var(--line2);background:#fbfcfd;border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:13px}
+  .step{display:flex;align-items:center;gap:8px;color:#4b5563;cursor:pointer}
+  .step .dot{width:15px;height:15px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:grid;place-items:center;font-size:10px}
+  .step .tt{color:var(--dim2);font-size:12px;margin-left:auto}
+  .stepdetail{display:none;margin:8px 0 2px 23px;padding:8px 10px;background:#fff;border:1px solid var(--line2);
+              border-radius:8px;font-family:ui-monospace,monospace;font-size:11.5px;color:#4b5563;white-space:pre-wrap}
+  .steps.open .stepdetail{display:block}
+
+  /* 结论 + 状态徽标 */
+  .concl{border-left:3px solid var(--acc);background:#fafbff;padding:12px 14px;border-radius:0 10px 10px 0;margin-bottom:14px}
+  .concl .formula{font-family:ui-monospace,monospace;font-size:14.5px;color:#111827;margin-bottom:6px}
+  .badges{display:flex;gap:7px;flex-wrap:wrap;font-size:11.5px}
+  .b{border-radius:999px;padding:1px 8px;border:1px solid}
+  .b.ok{color:var(--ok);border-color:#cdeadd;background:var(--ok-bg)}
+  .b.gray{color:var(--dim);border-color:var(--line);background:#fff}
+  .b.warn{color:var(--warn);border-color:#f3ddb8;background:var(--warn-bg)}
+
+  /* 凭证卡片 */
+  .evid{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+  .evid .h{padding:9px 13px;background:var(--bg2);border-bottom:1px solid var(--line);font-size:12.5px;color:var(--dim);
+        display:flex;align-items:center;gap:7px}
+  .evid .h b{color:var(--fg);font-size:12.5px}
+  .evrow{display:flex;align-items:center;gap:11px;padding:11px 13px;border-bottom:1px solid var(--line2);cursor:pointer}
+  .evrow:last-child{border-bottom:0}
+  .evrow:hover{background:#fafbfd}
+  .ico{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:13px;flex:none}
+  .ico.g{background:#eef2ff;color:#4f46e5} .ico.o{background:#fff7ed;color:#c2410c} .ico.t{background:#ecfeff;color:#0e7490}
+  .evrow .txt{flex:1;min-width:0}
+  .evrow .txt b{font-size:13.5px;font-weight:550;display:block}
+  .evrow .txt small{color:var(--dim2);font-size:12px}
+  .evrow .go{color:var(--dim2);font-size:12px}
+
+  /* 输入 */
+  .composer{flex:none;padding:14px 0 22px;background:linear-gradient(180deg,rgba(255,255,255,.6),#fff 30%)}
+  .box{max-width:760px;margin:0 auto;padding:0 24px}
+  .inp{border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.05);overflow:hidden}
+  .inp textarea{width:100%;border:0;outline:none;resize:none;padding:13px 15px 6px;font:inherit;height:56px;background:transparent}
+  .inp .bar{display:flex;align-items:center;gap:8px;padding:6px 10px 9px 12px;font-size:12px;color:var(--dim2)}
+  .inp .bar .right{margin-left:auto;display:flex;gap:7px;align-items:center}
+  .pill{border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:12px;cursor:pointer;color:#4b5563}
+  .pill:hover{border-color:var(--acc);color:var(--acc)}
+  .send{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:7px 14px;font-size:13px;cursor:pointer;font-weight:600}
+  .hint{max-width:760px;margin:12px auto 0;padding:0 24px;font-size:11.5px;color:var(--dim2);text-align:center;line-height:1.9}
+
+  .meta{color:var(--dim2);font-size:12px;border-top:1px solid var(--line2);margin-top:12px;padding-top:9px}
+</style>
+</head>
+<body>
+<aside>
+  <div class="top"><span class="logo">◈</span><b>数据智能平台</b></div>
+  <div class="newbtn">＋ 新建对话</div>
+  <div class="sec">今天</div>
+  <div class="conv on">ads_产销存月报的产量怎么来的？</div>
+  <div class="conv">这个字段改了下游会砸哪些表</div>
+  <div class="sec">本周</div>
+  <div class="conv">口径库里有几个产销率口径</div>
+  <div class="conv">ods 到 ads 的链路体检</div>
+  <aside class="foot" style="border:0;padding:12px 16px">dev 身份 · 规则模式（未配 LLM key）<br>内核 18080 正常</aside>
+</aside>
+
+<main>
+  <header>
+    <span class="t">对话</span>
+    <span class="sp">
+      <span class="chip rule">规则模式</span>
+      <span class="chip">口径库 75</span>
+      <span>数据开发 · 张工</span>
+    </span>
+  </header>
+
+  <div class="stream">
+    <div class="wrap">
+      <div class="msg">
+        <div class="who"><span class="av">张</span> 张工 · 14:02</div>
+        <div class="me">ads.ads_产销存月报 的产量怎么算的？</div>
+      </div>
+
+      <div class="msg">
+        <div class="who"><span class="av ai">◈</span> 数据智能平台 · 14:02</div>
+
+        <div class="steps" onclick="this.classList.toggle('open')">
+          <div class="step"><span class="dot">✓</span> 查血缘：ads.ads_产销存月报 ← 3 张上游表<span class="tt">0.4s</span></div>
+          <div class="stepdetail">POST /analyze  {"sql":"insert overwrite table ads.ads_产销存月报 …","dialect":"hive"}
+→ 200 · statement_count=1 · column_lineage=7 · input_tables=['cdw.dws_产销存汇总','dim.dim_brand','dim.dim_plant']</div>
+          <div class="step" style="margin-top:6px"><span class="dot">✓</span> 检索口径：命中「产量」<span class="tt">0.2s</span></div>
+          <div class="stepdetail">POST /kb/search  {"keyword":"产量","table":"ads.ads_产销存月报"}
+→ 200 · 命中 1 口径（metric_code=产量, version=3）</div>
+        </div>
+
+        <div class="answer">
+          <p>产量的口径是：</p>
+        </div>
+
+        <div class="concl">
+          <div class="formula">产量 = 打码量 + 跳码量 − 重码量</div>
+          <div class="badges">
+            <span class="b ok">已审核 verified</span>
+            <span class="b gray">置信度 0.93</span>
+            <span class="b gray">口径 v3</span>
+            <span class="b gray">来源 ads/ads_产销存月报.sql 第 4 行</span>
+          </div>
+        </div>
+
+        <div class="answer">
+          <p>它属于 <code>ads.ads_产销存月报</code>，字段级依赖 <code>cdw.dws_产销存汇总.output_qty</code>，再往上 2 层还有 <code>cdw.dwd_卷烟产量明细</code> 与 <code>ods.ods_卷烟产量明细</code>。</p>
+        </div>
+
+        <div class="evid">
+          <div class="h"><b>凭证</b> · 结论背后的可点开证据</div>
+          <div class="evrow" onclick="alert('原型：打开血缘图（表级/字段级切换）')">
+            <span class="ico g">◈</span>
+            <span class="txt"><b>血缘图</b><small>ads.ads_产销存月报 · 上游 3 张 / 展开 14 张 · 3 层</small></span>
+            <span class="go">打开 ›</span>
+          </div>
+          <div class="evrow" onclick="alert('原型：打开口径详情（人话公式 + 忠实表达式 + 依赖字段 + 版本）')">
+            <span class="ico o">◆</span>
+            <span class="txt"><b>口径详情 · 产量</b><small>v3 · 已审核 · 依赖 output_qty · 分解 3 项</small></span>
+            <span class="go">打开 ›</span>
+          </div>
+          <div class="evrow" onclick="alert('原型：打开自包含 HTML 报告（可下载、可直接发同事）')">
+            <span class="ico t">▤</span>
+            <span class="txt"><b>HTML 报告</b><small>rpt_20260922_a1b2c3d4 · 182 KB · 14:02 生成</small></span>
+            <span class="go">打开 ›</span>
+          </div>
+        </div>
+
+        <div class="meta">本次回答调用内核 2 次，全部成功 · 已写入审计</div>
+      </div>
+
+      <div class="msg">
+        <div class="who"><span class="av">我</span> 我 · 14:03</div>
+        <div class="me">那这个口径在 dws 层是什么？</div>
+      </div>
+      <div class="msg">
+        <div class="who"><span class="av ai">◈</span> 数据智能平台 · 14:03</div>
+        <div class="answer"><p>正在检索…（原型演示：追问会自动继承上一条消息里的表与字段上下文，不需要重新 @）</p></div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px">
+          <span class="pill" onclick="alert('原型：按建议追问')">dws 层的产量口径是什么？</span>
+          <span class="pill" onclick="alert('原型：按建议追问')">这张表被哪些任务加工？</span>
+          <span class="pill" onclick="alert('原型：按建议追问')">改 output_qty 会砸哪些下游？</span>
+        </div>
+        <div class="meta">建议追问由 Agent 基于本次结果生成（不需要你重新组织语言）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="composer">
+    <div class="box">
+      <div class="inp">
+        <textarea placeholder="问点什么…例如：ads.ads_产销存月报 的产量怎么来的？"></textarea>
+        <div class="bar">
+          <span class="pill">@ 引用表</span><span class="pill"># 引用口径</span><span class="pill">/ 指令</span>
+          <span class="right"><button class="send">发送</button></span>
+        </div>
+      </div>
+      <div class="hint">回答必须带可点开的凭证 · 未配 LLM key 时以规则模式运行，数据仍来自真实内核</div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

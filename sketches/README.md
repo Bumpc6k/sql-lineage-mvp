@@ -20,6 +20,21 @@ bash ops/serve-sketches.sh          # 起静态服务（:5180），然后浏览�
 
 截图归档：`_shots/`（A/B/C = 第 2 轮；OLD-* = 第 1 轮）。
 
+
+## 第 3 轮（09-22）：对话优先首屏（P1 原型，3 个立场）
+
+按《规划 v1.1》的「对话是入口 + Evidence-first」做，三版都用同一条演示问答（`ads.ads_产销存月报` 的产量怎么来的），便于对比。
+
+| 变体 | 在线地址 | 立场 | 一句话 |
+| --- | --- | --- | --- |
+| `100-chat-minimal` | http://localhost:5180/100-chat-minimal/ | 极简对话（大模型式） | 只有会话列 + 居中消息流；凭证是消息里的卡片；最像 ChatGPT，学习成本最低 |
+| `101-chat-workbench` | http://localhost:5180/101-chat-workbench/ | 工作台三栏（深色 Copilot） | 窄导航 + 会话列 + 对话 + 右侧「会话上下文」常驻（引用的表/口径/调用/审计） |
+| `102-chat-evidence-first` | http://localhost:5180/102-chat-evidence-first/ | 凭证优先（左对话/右证据画布） | 右侧是**证据画布**（血缘图/口径/报告三个 tab），点左侧结论即可切到对应证据 |
+
+三版共同点（P1 硬要求）：工具调用步骤条可展开看真实请求与耗时、结论带 `status`（verified/置信度/版本/来源行）、**凭证卡片**（血缘图/口径详情/HTML 报告）、无 LLM key 时以规则模式运行的提示、建议追问。
+
+截图归档：`_shots/CHAT-*.png`　架构图：`docs/platform-vision/diagrams/architecture.html`（另附同目录 PNG）
+
 ## 两轮的差别（关键）
 
 | | 第 1 轮 v1/v2/v3 | 第 2 轮 001/002/003 |
