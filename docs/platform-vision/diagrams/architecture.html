@@ -72,7 +72,7 @@
   <!-- ③ client → 内核（唯一耦合面）-->
   <path d="M 190 550 L 190 668" stroke="#34d399" stroke-width="2.2" marker-end="url(#arE)"/>
   <text x="200" y="600" fill="#34d399" font-size="9.5">HTTP 契约（唯一耦合面）</text>
-  <text x="200" y="615" fill="#64748b" font-size="8.5">contracts/openapi.yaml · 16 端点</text>
+  <text x="200" y="615" fill="#64748b" font-size="8.5">contracts/openapi.yaml · 17 端点</text>
   <!-- ④ api → PostgreSQL -->
   <path d="M 530 271 C 700 271 700 344 820 346" stroke="#a78bfa" stroke-width="1.5" fill="none" marker-end="url(#arV)"/>
   <text x="596" y="300" fill="#64748b" font-size="8.5">平台元数据 / 会话 / 审计</text>
@@ -225,7 +225,7 @@
     <rect x="60" y="668" width="250" height="90" rx="6" fill="rgba(30,41,59,0.6)" stroke="#94a3b8" stroke-width="1.5"/>
     <text x="76" y="692" fill="#e2e8f0" font-size="12">lineage-api :18080</text>
     <text x="76" y="710" fill="#cbd5e1" font-size="9">解析 · 血缘 · 口径 · 报告 · 生成</text>
-    <text x="76" y="727" fill="#94a3b8" font-size="8.5">16 个端点 · 450 用例 · 分层守卫</text>
+    <text x="76" y="727" fill="#94a3b8" font-size="8.5">17 个端点 · 454 用例 · 分层守卫</text>
     <text x="76" y="745" fill="#64748b" font-size="8.5">tag v1.0-kernel（已冻结，本期不改</text>
     <text x="76" y="756" fill="#64748b" font-size="8.5">内部，抽包推迟到 Phase 5 之后）</text>
   </g>
@@ -318,7 +318,7 @@
     <div class="card-header"><div class="card-dot cyan"></div><h3>唯一耦合面 = HTTP 契约</h3></div>
     <ul>
       <li>• 新平台只经 <b>integrations/lineage-client</b> 调内核，不 import 内部模块</li>
-      <li>• <b>contracts/openapi.yaml</b>（16 端点）只追加字段，破坏性变更升 /v2</li>
+      <li>• <b>contracts/openapi.yaml</b>（17 端点）只追加字段，破坏性变更升 /v2</li>
       <li>• 双仓库各自独立发布；Phase 5 之后才考虑抽包做进程内调用</li>
     </ul>
   </div>
