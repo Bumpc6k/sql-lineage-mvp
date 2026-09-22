@@ -35,6 +35,7 @@ echo
 echo "① 单元②（后端服务/CLI）"
 step "pytest 全量用例" bash -c "$PY -m pytest -v --tb=line -rN | tail -1"
 step "分层守卫 check_layering" bash -c "$PY tools/check_layering.py"
+step "契约漂移检查 openapi.yaml == 真实路由" bash -c "$PY -m pytest tests/test_contract.py -q | tail -1"
 step "CLI 可导入 + 子命令注册" bash -c "$PY -c \"
 from lineage import cli
 cmds = sorted(cli._SUBCOMMAND_RUNNERS)

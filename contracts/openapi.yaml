@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # 血缘服务对外 HTTP 契约 —— 由 tools/gen_openapi.py 从真实路由表生成，请勿手改
 # 生成命令: python3 tools/gen_openapi.py   （路由表来源: apps/lineage-api/lineage/serve/api_server.py）
+# 漂移守卫: tests/test_contract.py（契约与路由不一致即测试失败）
 openapi: "3.0.3"
 info:
   title: LINEAGE 服务（血缘分析 / 业务口径 / 链路生成）
@@ -46,7 +47,7 @@ paths:
   /generate/apply:
     post:
       summary: 把链路落到海豚
-      description: 建/改海陵工作流（apply）
+      description: 建/改海豚工作流（apply）—— 写操作，新平台 P4 才用
       responses:
         '200':
           description: 统一返回 {"success": bool, ...}；失败时带 error 字段
@@ -216,6 +217,19 @@ paths:
             schema:
               type: object
               description: 见 apps/ds-plugin/verify/verify_api.py 的真实请求体样例
+  /report/{report_id}:
+    get:
+      summary: 报告 HTML（按 ID 取回）
+      description: 凭证（Evidence）的最终落地页：前端 iframe 内嵌、插件日志给链接、可直接发同事
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 统一返回 {"success": bool, ...}；失败时带 error 字段
   /reports:
     get:
       summary: 报告列表

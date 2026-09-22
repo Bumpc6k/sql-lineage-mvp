@@ -21,15 +21,26 @@ from __future__ import annotations
 import ast
 import importlib.util
 import re
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+#: 与 pytest.ini 的 pythonpath 一致；也保证单独跑本文件时能导入内核
+for _p in (REPO_ROOT / "apps" / "lineage-api", REPO_ROOT / "packages" / "lineage-core"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+from lineage.serve.api_server import DYNAMIC_GET_ROUTES  # noqa: E402
+
 API_SERVER = REPO_ROOT / "apps" / "lineage-api" / "lineage" / "serve" / "api_server.py"
 GEN_OPENAPI = REPO_ROOT / "tools" / "gen_openapi.py"
 SPEC_FILE = REPO_ROOT / "contracts" / "openapi.yaml"
 
-#: 不经契约声明的内部路径（静态托管：由 tests/test_web_unit.py 负责守）
-INTERNAL_PATH_ALLOWLIST = {"/app", "/app/"}
+#: 不经契约声明的内部路径（静态托管 + 实现细节），加进来会在这里留下 review 痕迹
+INTERNAL_PATH_ALLOWLIST = {
+    "/app", "/app/",  # 静态托管：apps/web 单元契约由 tests/test_web_unit.py 守
+    "/",              # 只是 parsed.path.rstrip("/") 的兜底值，实现里没有 "/" 的处理器
+}
 #: 前缀匹配的动态路由：路径字面量 → 契约里的动态路径
 PREFIX_TO_DYNAMIC = {"/report/": "/report/<report_id>"}
 
@@ -42,7 +53,6 @@ def _load(name: str, path: Path):
 
 
 gen = _load("gen_openapi_for_contract_test", GEN_OPENAPI)
-api_server = _load("api_server_for_contract_test", API_SERVER)
 
 
 def _parse_spec(text: str) -> tuple[set, set, dict]:
@@ -128,7 +138,9 @@ def test_spec_uses_openapi_parameter_syntax():
 # --------------------------------------------------------------------------- #
 def test_no_undeclared_paths_in_dispatch():
     post_paths, get_paths = gen.implemented_routes()
-    declared = {gen.spec_path(p) for p in (set(post_paths) | set(get_paths))}
+    all_impl = set(post_paths) | set(get_paths)
+    declared = {gen.spec_path(p) for p in all_impl}
+    declared |= all_impl  # 实现侧写法（如 /report/<report_id>）也算「已声明」
     declared |= INTERNAL_PATH_ALLOWLIST
     declared |= set(PREFIX_TO_DYNAMIC)  # 前缀匹配用的字面量（如 "/report/"）
 
@@ -144,6 +156,6 @@ def test_no_undeclared_paths_in_dispatch():
 def test_dynamic_get_route_is_reachable_by_prefix_match():
     """动态路由地址真的能被前缀匹配命中（契约声明的端点必须可达）。"""
     src = API_SERVER.read_text(encoding="utf-8")
-    for dynamic in api_server.DYNAMIC_GET_ROUTES:
+    for dynamic in DYNAMIC_GET_ROUTES:
         prefix = dynamic.split("<", 1)[0]  # /report/<report_id> → /report/
         assert f'startswith("{prefix}")' in src, f"{dynamic} 声明了但没有前缀匹配实现: {prefix}"
