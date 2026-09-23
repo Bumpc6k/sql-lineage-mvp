@@ -1,0 +1,2861 @@
+{
+ "probed_at": "2026-09-23T21:11:42",
+ "base_url": "http://127.0.0.1:18080",
+ "note": "旧内核真实响应快照，用于 B2 接口设计评审（未加工）",
+ "endpoints": {
+  "analyze": {
+   "request": {
+    "path": "/analyze",
+    "body": {
+     "mode": "sql",
+     "sql": "-- 来源：wf_ads_报表 / t_ads_产销存月报（SQL），抽取自 taskParams.sql\n-- ADS 报表：产销存月报（产销存汇总 + 工厂 / 牌号维表）\nINSERT OVERWRITE TABLE ads.ads_产销存月报 PARTITION (dt = '2026-01-01')\nSELECT\n    s.plant_code                           AS plant_code,\n    pl.plant_name                          AS plant_name,\n    s.brand_code                           AS brand_code,\n    bd.brand_name                          AS brand_name,\n    bd.price_band                          AS price_band,\n    s.output_qty                           AS output_qty,\n    s.sale_qty                             AS sale_qty,\n    s.stock_qty                            AS stock_qty,\n    s.sale_amt                             AS sale_amt,\n    ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio,\n    s.output_qty - s.sale_qty              AS stock_increase\nFROM cdw.dws_产销存汇总 s\nLEFT JOIN dim.dim_plant pl\n       ON s.plant_code = pl.plant_code\nLEFT JOIN dim.dim_brand bd\n       ON s.brand_code = bd.brand_code\nWHERE s.dt = '2026-01-01';\n",
+     "dialect": "hive",
+     "depth": 3
+    }
+   },
+   "http_status": 200,
+   "response": {
+    "success": true,
+    "dialect": "hive",
+    "statement_count": 1,
+    "input_tables": [
+     "cdw.dws_产销存汇总",
+     "dim.dim_brand",
+     "dim.dim_plant"
+    ],
+    "output_tables": [
+     "ads.ads_产销存月报"
+    ],
+    "table_lineage": [
+     {
+      "source": "cdw.dws_产销存汇总",
+      "target": "ads.ads_产销存月报"
+     },
+     {
+      "source": "dim.dim_plant",
+      "target": "ads.ads_产销存月报"
+     },
+     {
+      "source": "dim.dim_brand",
+      "target": "ads.ads_产销存月报"
+     }
+    ],
+    "column_lineage_count": 13,
+    "column_lineage": [
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "plant_code",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "plant_code",
+      "expression": "s.plant_code AS plant_code",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "plant_name",
+      "source_table": "dim.dim_plant",
+      "source_column": "plant_name",
+      "expression": "pl.plant_name AS plant_name",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "brand_code",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "brand_code",
+      "expression": "s.brand_code AS brand_code",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "brand_name",
+      "source_table": "dim.dim_brand",
+      "source_column": "brand_name",
+      "expression": "bd.brand_name AS brand_name",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "price_band",
+      "source_table": "dim.dim_brand",
+      "source_column": "price_band",
+      "expression": "bd.price_band AS price_band",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "output_qty",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "output_qty",
+      "expression": "s.output_qty AS output_qty",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "sale_qty",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "sale_qty",
+      "expression": "s.sale_qty AS sale_qty",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "stock_qty",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "stock_qty",
+      "expression": "s.stock_qty AS stock_qty",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "sale_amt",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "sale_amt",
+      "expression": "s.sale_amt AS sale_amt",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "sale_output_ratio",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "sale_qty",
+      "expression": "ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "sale_output_ratio",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "output_qty",
+      "expression": "ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "stock_increase",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "output_qty",
+      "expression": "s.output_qty - s.sale_qty AS stock_increase",
+      "resolved": true
+     },
+     {
+      "target_table": "ads.ads_产销存月报",
+      "target_column": "stock_increase",
+      "source_table": "cdw.dws_产销存汇总",
+      "source_column": "sale_qty",
+      "expression": "s.output_qty - s.sale_qty AS stock_increase",
+      "resolved": true
+     }
+    ],
+    "statements": [
+     {
+      "statement_index": 1,
+      "task_type": "INSERT_SELECT",
+      "dialect": "hive",
+      "output_tables": [
+       {
+        "name": "ads_产销存月报",
+        "schema": "ads",
+        "catalog": null
+       }
+      ],
+      "output_table_names": [
+       "ads.ads_产销存月报"
+      ],
+      "input_tables": [
+       {
+        "name": "dws_产销存汇总",
+        "schema": "cdw",
+        "catalog": null
+       },
+       {
+        "name": "dim_plant",
+        "schema": "dim",
+        "catalog": null
+       },
+       {
+        "name": "dim_brand",
+        "schema": "dim",
+        "catalog": null
+       }
+      ],
+      "input_table_names": [
+       "cdw.dws_产销存汇总",
+       "dim.dim_plant",
+       "dim.dim_brand"
+      ],
+      "table_lineage": [
+       {
+        "source": "cdw.dws_产销存汇总",
+        "target": "ads.ads_产销存月报"
+       },
+       {
+        "source": "dim.dim_plant",
+        "target": "ads.ads_产销存月报"
+       },
+       {
+        "source": "dim.dim_brand",
+        "target": "ads.ads_产销存月报"
+       }
+      ],
+      "column_lineage": [
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "plant_code",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "plant_code",
+        "expression": "s.plant_code AS plant_code",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "plant_name",
+        "source_table": "dim.dim_plant",
+        "source_column": "plant_name",
+        "expression": "pl.plant_name AS plant_name",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "brand_code",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "brand_code",
+        "expression": "s.brand_code AS brand_code",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "brand_name",
+        "source_table": "dim.dim_brand",
+        "source_column": "brand_name",
+        "expression": "bd.brand_name AS brand_name",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "price_band",
+        "source_table": "dim.dim_brand",
+        "source_column": "price_band",
+        "expression": "bd.price_band AS price_band",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "output_qty",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "output_qty",
+        "expression": "s.output_qty AS output_qty",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "sale_qty",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "sale_qty",
+        "expression": "s.sale_qty AS sale_qty",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "stock_qty",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "stock_qty",
+        "expression": "s.stock_qty AS stock_qty",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "sale_amt",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "sale_amt",
+        "expression": "s.sale_amt AS sale_amt",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "sale_output_ratio",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "sale_qty",
+        "expression": "ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "sale_output_ratio",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "output_qty",
+        "expression": "ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "stock_increase",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "output_qty",
+        "expression": "s.output_qty - s.sale_qty AS stock_increase",
+        "resolved": true
+       },
+       {
+        "target_table": "ads.ads_产销存月报",
+        "target_column": "stock_increase",
+        "source_table": "cdw.dws_产销存汇总",
+        "source_column": "sale_qty",
+        "expression": "s.output_qty - s.sale_qty AS stock_increase",
+        "resolved": true
+       }
+      ],
+      "filters": [
+       "s.dt = '2026-01-01'"
+      ],
+      "partition_filters": {
+       "dt": "2026-01-01"
+      },
+      "joins": [
+       {
+        "type": "LEFT JOIN",
+        "left": "s",
+        "right": "pl",
+        "on": "s.plant_code = pl.plant_code"
+       },
+       {
+        "type": "LEFT JOIN",
+        "left": "s",
+        "right": "bd",
+        "on": "s.brand_code = bd.brand_code"
+       }
+      ],
+      "sql": "INSERT OVERWRITE TABLE ads.ads_产销存月报 PARTITION(dt = '2026-01-01') SELECT s.plant_code AS plant_code, pl.plant_name AS plant_name, s.brand_code AS brand_code, bd.brand_name AS brand_name, bd.price_band AS price_band, s.output_qty AS output_qty, s.sale_qty AS sale_qty, s.stock_qty AS stock_qty, s.sale_amt AS sale_amt, ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio, s.output_qty - s.sale_qty AS stock_increase FROM cdw.dws_产销存汇总 AS s LEFT JOIN dim.dim_plant AS pl ON s.plant_code = pl.plant_code LEFT JOIN dim.dim_brand AS bd ON s.brand_code = bd.brand_code WHERE s.dt = '2026-01-01'",
+      "source": "<inline>"
+     }
+    ],
+    "knowledge": {
+     "kb_available": true,
+     "db": "/root/projects/sql-lineage-mvp/data/knowledge.db",
+     "metric_count": 2,
+     "metrics": [
+      {
+       "target_table": "ads.ads_产销存月报",
+       "target_column": "sale_output_ratio",
+       "chinese_name": "产销率",
+       "formula": "产销率 = ROUND(销量 / NULLIF(产量, 0), 4)",
+       "formula_full": "产销率 = ROUND(销量 / NULLIF(产量, 0), 4)",
+       "metric_type": "比率",
+       "confidence": 0.9,
+       "unit": "",
+       "layer": "ads",
+       "aggregate_func": "",
+       "expression_normalized": "ROUND(sale_qty / NULLIF(output_qty, 0), 4)",
+       "depends_on": [
+        {
+         "table": "cdw.dws_产销存汇总",
+         "column": "sale_qty",
+         "chinese_name": "销量"
+        },
+        {
+         "table": "cdw.dws_产销存汇总",
+         "column": "output_qty",
+         "chinese_name": "产量"
+        }
+       ],
+       "depends_text": "cdw.dws_产销存汇总.sale_qty(销量), cdw.dws_产销存汇总.output_qty(产量)",
+       "source_script": "examples/warehouse/ads/ads_产销存月报.sql",
+       "source_statement": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dws_产销存汇总",
+        "dim.dim_brand",
+        "dim.dim_plant"
+       ],
+       "notes": "",
+       "matched_by": "目标字段",
+       "lineage_path": [
+        "ads.ads_产销存月报",
+        "dim.dim_brand"
+       ]
+      },
+      {
+       "target_table": "ads.ads_产销存月报",
+       "target_column": "stock_increase",
+       "chinese_name": "库存增量",
+       "formula": "库存增量 = 产量 - 销量",
+       "formula_full": "库存增量 = 产量 - 销量",
+       "metric_type": "算术计算",
+       "confidence": 0.9,
+       "unit": "",
+       "layer": "ads",
+       "aggregate_func": "",
+       "expression_normalized": "output_qty - sale_qty",
+       "depends_on": [
+        {
+         "table": "cdw.dws_产销存汇总",
+         "column": "output_qty",
+         "chinese_name": "产量"
+        },
+        {
+         "table": "cdw.dws_产销存汇总",
+         "column": "sale_qty",
+         "chinese_name": "销量"
+        }
+       ],
+       "depends_text": "cdw.dws_产销存汇总.output_qty(产量), cdw.dws_产销存汇总.sale_qty(销量)",
+       "source_script": "examples/warehouse/ads/ads_产销存月报.sql",
+       "source_statement": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dws_产销存汇总",
+        "dim.dim_brand",
+        "dim.dim_plant"
+       ],
+       "notes": "",
+       "matched_by": "目标字段",
+       "lineage_path": [
+        "ads.ads_产销存月报",
+        "dim.dim_brand"
+       ]
+      }
+     ],
+     "terms": [
+      {
+       "field": "sale_qty",
+       "table": "cdw.dws_产销存汇总",
+       "chinese_name": "销量",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": ""
+      },
+      {
+       "field": "output_qty",
+       "table": "cdw.dws_产销存汇总",
+       "chinese_name": "产量",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": ""
+      },
+      {
+       "field": "sale_output_ratio",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "产销率",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": "产销率"
+      },
+      {
+       "field": "stock_increase",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "库存增量",
+       "source": "comment",
+       "confidence": 0.9,
+       "unit": "",
+       "role": "target",
+       "business_desc": "库存增量"
+      },
+      {
+       "field": "plant_code",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "生产厂编码",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": ""
+      },
+      {
+       "field": "plant_name",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "生产厂名称",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": ""
+      },
+      {
+       "field": "brand_code",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "牌号编码",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": ""
+      },
+      {
+       "field": "brand_name",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "牌号名称",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": ""
+      },
+      {
+       "field": "price_band",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "价格档位",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "target",
+       "business_desc": ""
+      },
+      {
+       "field": "output_qty",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "产量",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": ""
+      },
+      {
+       "field": "sale_qty",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "销量",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": ""
+      },
+      {
+       "field": "stock_qty",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "库存量",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "target",
+       "business_desc": ""
+      },
+      {
+       "field": "sale_amt",
+       "table": "ads.ads_产销存月报",
+       "chinese_name": "销售额",
+       "source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "",
+       "role": "both",
+       "business_desc": ""
+      }
+     ],
+     "rules": [
+      {
+       "rule_type": "关联规则",
+       "description": "s LEFT JOIN bd ON s.brand_code = bd.brand_code",
+       "expression": "s.brand_code = bd.brand_code",
+       "table": "ads.ads_产销存月报",
+       "source_script": "examples/warehouse/ads/ads_产销存月报.sql",
+       "source_statement": 1,
+       "source_comment": ""
+      },
+      {
+       "rule_type": "关联规则",
+       "description": "s LEFT JOIN pl ON s.plant_code = pl.plant_code",
+       "expression": "s.plant_code = pl.plant_code",
+       "table": "ads.ads_产销存月报",
+       "source_script": "examples/warehouse/ads/ads_产销存月报.sql",
+       "source_statement": 1,
+       "source_comment": ""
+      },
+      {
+       "rule_type": "分区规则",
+       "description": "分区/时点条件：dt = 2026-01-01",
+       "expression": "dt = '2026-01-01'",
+       "table": "ads.ads_产销存月报",
+       "source_script": "examples/warehouse/ads/ads_产销存月报.sql",
+       "source_statement": 1,
+       "source_comment": ""
+      },
+      {
+       "rule_type": "过滤规则",
+       "description": "时点/分区过滤：s.dt = '2026-01-01'",
+       "expression": "s.dt = '2026-01-01'",
+       "table": "ads.ads_产销存月报",
+       "source_script": "examples/warehouse/ads/ads_产销存月报.sql",
+       "source_statement": 1,
+       "source_comment": ""
+      }
+     ],
+     "matched_fields": [
+      "sale_output_ratio",
+      "stock_increase"
+     ],
+     "target_field_count": 11
+    },
+    "report": {
+     "report_id": "rpt_20260923_211142_a794d3f0",
+     "path": "/root/projects/sql-lineage-mvp/reports/rpt_20260923_211142_a794d3f0.html",
+     "file": "rpt_20260923_211142_a794d3f0.html",
+     "size_bytes": 20732,
+     "url": "http://localhost:18080/report/rpt_20260923_211142_a794d3f0",
+     "internal_url": "http://172.17.0.1:18080/report/rpt_20260923_211142_a794d3f0",
+     "generated_at": "2026-09-23 21:11:42",
+     "task_name": "LINEAGE 血缘分析任务"
+    },
+    "report_id": "rpt_20260923_211142_a794d3f0",
+    "report_url": "http://localhost:18080/report/rpt_20260923_211142_a794d3f0",
+    "report_internal_url": "http://172.17.0.1:18080/report/rpt_20260923_211142_a794d3f0"
+   }
+  },
+  "kb_search": {
+   "request": {
+    "path": "/kb/search",
+    "body": {
+     "query": "产量"
+    }
+   },
+   "http_status": 200,
+   "response": {
+    "success": true,
+    "query": "产量",
+    "total": 72,
+    "counts": {
+     "metrics": 20,
+     "fields": 20,
+     "tables": 5,
+     "terms": 13,
+     "rules": 14
+    },
+    "groups": {
+     "metrics": [
+      {
+       "metric_name": "chanliang_qty",
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "layer": "dwd",
+       "metric_type": "聚合",
+       "aggregate_func": "SUM",
+       "functions": [
+        "SUM"
+       ],
+       "expression_raw": "SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS chanliang_qty",
+       "expression_normalized": "SUM(dama_qty) + SUM(tiaoma_qty) - SUM(chongma_qty)",
+       "formula": "产量 = 打码量 + 跳码量 - 重码量",
+       "formula_full": "产量 = SUM(打码量) + SUM(跳码量) - SUM(重码量)",
+       "depends_on": [
+        {
+         "chinese_name": "重码量",
+         "column": "chongma_qty",
+         "table": "ods.ods_卷烟码段流水"
+        },
+        {
+         "chinese_name": "打码量",
+         "column": "dama_qty",
+         "table": "ods.ods_卷烟码段流水"
+        },
+        {
+         "chinese_name": "跳码量",
+         "column": "tiaoma_qty",
+         "table": "ods.ods_卷烟码段流水"
+        }
+       ],
+       "source_file": "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "ods.ods_卷烟码段流水"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "脚本注释：产量口径：打码量+跳码量-重码量（箱）；口径本体已剥离一致的聚合函数 SUM()（共 3 个依赖字段）",
+       "unit": "箱",
+       "depends_text": "chongma_qty 重码量 dama_qty 打码量 tiaoma_qty 跳码量",
+       "_kind": "metrics",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 2.3
+      },
+      {
+       "metric_name": "output_qty",
+       "table_name": "ads.ads_码段产量日报",
+       "chinese_name": "产量",
+       "chinese_source": "comment",
+       "layer": "ads",
+       "metric_type": "聚合",
+       "aggregate_func": "SUM",
+       "functions": [
+        "SUM"
+       ],
+       "expression_raw": "SUM(d.chanliang_qty) AS output_qty",
+       "expression_normalized": "SUM(chanliang_qty)",
+       "formula": "产量 = SUM(产量)",
+       "formula_full": "产量 = SUM(产量)",
+       "depends_on": [
+        {
+         "chinese_name": "产量",
+         "column": "chanliang_qty",
+         "table": "cdw.dwd_卷烟产量码段明细"
+        }
+       ],
+       "source_file": "examples/knowledge_demo/ads/ads_码段产量日报.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dwd_卷烟产量码段明细"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "脚本注释：产量（箱）",
+       "unit": "箱",
+       "depends_text": "chanliang_qty 产量",
+       "_kind": "metrics",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "output_qty",
+       "table_name": "ads.ads_经营指标驾驶舱",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "layer": "ads",
+       "metric_type": "聚合",
+       "aggregate_func": "SUM",
+       "functions": [
+        "SUM"
+       ],
+       "expression_raw": "SUM(i.output_qty) AS output_qty",
+       "expression_normalized": "SUM(output_qty)",
+       "formula": "产量 = SUM(产量)",
+       "formula_full": "产量 = SUM(产量)",
+       "depends_on": [
+        {
+         "chinese_name": "产量",
+         "column": "output_qty",
+         "table": "ads.ads_经营指标明细"
+        }
+       ],
+       "source_file": "examples/warehouse/ads/ads_经营指标驾驶舱.sql",
+       "source_stmt": 2,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "ads.ads_烟叶供应商排名",
+        "ads.ads_经营指标明细",
+        "ads.ads_设备运行看板"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "",
+       "unit": null,
+       "depends_text": "output_qty 产量",
+       "_kind": "metrics",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "output_qty",
+       "table_name": "ads.ads_设备运行看板",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "layer": "ads",
+       "metric_type": "聚合",
+       "aggregate_func": "SUM",
+       "functions": [
+        "SUM"
+       ],
+       "expression_raw": "SUM(e.total_output_qty) AS output_qty",
+       "expression_normalized": "SUM(total_output_qty)",
+       "formula": "产量 = SUM(总产量)",
+       "formula_full": "产量 = SUM(总产量)",
+       "depends_on": [
+        {
+         "chinese_name": "总产量",
+         "column": "total_output_qty",
+         "table": "cdw.dws_设备效率汇总"
+        }
+       ],
+       "source_file": "examples/warehouse/ads/ads_设备运行看板.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dws_设备效率汇总"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "",
+       "unit": null,
+       "depends_text": "total_output_qty 总产量",
+       "_kind": "metrics",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "output_qty",
+       "table_name": "ods.ods_卷烟产量流水",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "layer": "ods",
+       "metric_type": "函数转换",
+       "aggregate_func": null,
+       "functions": [
+        "CAST",
+        "DECIMAL"
+       ],
+       "expression_raw": "CAST(a.output_qty AS DECIMAL(18, 4)) AS output_qty",
+       "expression_normalized": "CAST(output_qty AS DECIMAL(18, 4))",
+       "formula": "产量 = CAST(产量 AS DECIMAL(18, 4))",
+       "formula_full": "产量 = CAST(产量 AS DECIMAL(18, 4))",
+       "depends_on": [
+        {
+         "chinese_name": "产量",
+         "column": "output_qty",
+         "table": "src.erp_生产工单明细"
+        }
+       ],
+       "source_file": "examples/warehouse/ods/ods_卷烟产量流水.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "src.erp_生产工单明细"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "脚本注释：产量（箱）",
+       "unit": "箱",
+       "depends_text": "output_qty 产量",
+       "_kind": "metrics",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "output_qty",
+       "table_name": "ods.ods_设备运行工况",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "layer": "ods",
+       "metric_type": "函数转换",
+       "aggregate_func": null,
+       "functions": [
+        "CAST",
+        "DECIMAL"
+       ],
+       "expression_raw": "CAST(f.output_qty AS DECIMAL(18, 4)) AS output_qty",
+       "expression_normalized": "CAST(output_qty AS DECIMAL(18, 4))",
+       "formula": "产量 = CAST(产量 AS DECIMAL(18, 4))",
+       "formula_full": "产量 = CAST(产量 AS DECIMAL(18, 4))",
+       "depends_on": [
+        {
+         "chinese_name": "台时产量",
+         "column": "output_qty",
+         "table": "src.iot_设备工况采集"
+        }
+       ],
+       "source_file": "examples/warehouse/ods/ods_设备运行工况.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "src.iot_设备工况采集"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "脚本注释：台时产量（箱）",
+       "unit": "箱",
+       "depends_text": "output_qty 台时产量",
+       "_kind": "metrics",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "chanliang_cig",
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "chinese_name": "产量（条）",
+       "chinese_source": "exact_glossary",
+       "layer": "dwd",
+       "metric_type": "聚合",
+       "aggregate_func": "SUM",
+       "functions": [
+        "SUM"
+       ],
+       "expression_raw": "(SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)) * 250 AS chanliang_cig",
+       "expression_normalized": "(SUM(dama_qty) + SUM(tiaoma_qty) - SUM(chongma_qty)) * 250",
+       "formula": "产量（条） = (打码量 + 跳码量 - 重码量) * 250",
+       "formula_full": "产量（条） = (SUM(打码量) + SUM(跳码量) - SUM(重码量)) * 250",
+       "depends_on": [
+        {
+         "chinese_name": "重码量",
+         "column": "chongma_qty",
+         "table": "ods.ods_卷烟码段流水"
+        },
+        {
+         "chinese_name": "打码量",
+         "column": "dama_qty",
+         "table": "ods.ods_卷烟码段流水"
+        },
+        {
+         "chinese_name": "跳码量",
+         "column": "tiaoma_qty",
+         "table": "ods.ods_卷烟码段流水"
+        }
+       ],
+       "source_file": "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "ods.ods_卷烟码段流水"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "脚本注释：产量折条（箱转条）；口径本体已剥离一致的聚合函数 SUM()（共 3 个依赖字段）",
+       "unit": null,
+       "depends_text": "chongma_qty 重码量 dama_qty 打码量 tiaoma_qty 跳码量",
+       "_kind": "metrics",
+       "score": 106.6,
+       "matched_field": "chinese_name",
+       "match_reason": "前缀命中",
+       "_richness": 3.3
+      },
+      {
+       "metric_name": "output_qty_cig",
+       "table_name": "cdw.dwd_卷烟产量明细",
+       "chinese_name": "产量（条）",
+       "chinese_source": "exact_glossary",
+       "layer": "dwd",
+       "metric_type": "算术计算",
+       "aggregate_func": null,
+       "functions": [],
+       "expression_raw": "p.output_qty * 250 AS output_qty_cig",
+       "expression_normalized": "output_qty * 250",
+       "formula": "产量（条） = 产量 * 250",
+       "formula_full": "产量（条） = 产量 * 250",
+       "depends_on": [
+        {
+         "chinese_name": "产量",
+         "column": "output_qty",
+         "table": "ods.ods_卷烟产量流水"
+        }
+       ],
+       "source_file": "examples/warehouse/cdw/dwd_卷烟产量明细.sql",
+       "source_stmt": 1,
+       "source_task_type": "CTAS",
+       "input_tables": [
+        "dim.dim_brand",
+        "dim.dim_plant",
+        "ods.ods_卷烟产量流水"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "脚本注释：箱转条",
+       "unit": null,
+       "depends_text": "output_qty 产量",
+       "_kind": "metrics",
+       "score": 106.6,
+       "matched_field": "chinese_name",
+       "match_reason": "前缀命中",
+       "_richness": 1.1
+      },
+      {
+       "metric_name": "hourly_output",
+       "table_name": "cdw.dwd_设备运行明细",
+       "chinese_name": "台时产量",
+       "chinese_source": "exact_glossary",
+       "layer": "dwd",
+       "metric_type": "条件分支",
+       "aggregate_func": null,
+       "functions": [
+        "ROUND"
+       ],
+       "expression_raw": "CASE WHEN eq.run_minutes > 0 THEN ROUND(eq.output_qty * 60 / eq.run_minutes, 2) ELSE 0 END AS hourly_output",
+       "expression_normalized": "CASE WHEN run_minutes > 0 THEN ROUND(output_qty * 60 / run_minutes, 2) ELSE 0 END",
+       "formula": "台时产量 = CASE WHEN 运行时长 > 0 THEN ROUND(产量 * 60 / 运行时长, 2) ELSE 0 END",
+       "formula_full": "台时产量 = CASE WHEN 运行时长 > 0 THEN ROUND(产量 * 60 / 运行时长, 2) ELSE 0 END",
+       "depends_on": [
+        {
+         "chinese_name": "运行时长",
+         "column": "run_minutes",
+         "table": "ods.ods_设备运行工况"
+        },
+        {
+         "chinese_name": "产量",
+         "column": "output_qty",
+         "table": "ods.ods_设备运行工况"
+        }
+       ],
+       "source_file": "examples/warehouse/cdw/dwd_设备运行明细.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "dim.dim_equipment",
+        "ods.ods_设备运行工况"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.85,
+       "notes": "脚本注释：台时产量（箱/小时）",
+       "unit": "箱/小时",
+       "depends_text": "run_minutes 运行时长 output_qty 产量",
+       "_kind": "metrics",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 2.2
+      },
+      {
+       "metric_name": "max_chanliang_cig",
+       "table_name": "ads.ads_码段产量日报",
+       "chinese_name": "单工单最高产量",
+       "chinese_source": "comment",
+       "layer": "ads",
+       "metric_type": "聚合",
+       "aggregate_func": "MAX",
+       "functions": [
+        "MAX"
+       ],
+       "expression_raw": "MAX(d.chanliang_cig) AS max_chanliang_cig",
+       "expression_normalized": "MAX(chanliang_cig)",
+       "formula": "单工单最高产量 = MAX(产量（条）)",
+       "formula_full": "单工单最高产量 = MAX(产量（条）)",
+       "depends_on": [
+        {
+         "chinese_name": "产量（条）",
+         "column": "chanliang_cig",
+         "table": "cdw.dwd_卷烟产量码段明细"
+        }
+       ],
+       "source_file": "examples/knowledge_demo/ads/ads_码段产量日报.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dwd_卷烟产量码段明细"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "脚本注释：单工单最高产量（条）",
+       "unit": "条",
+       "depends_text": "chanliang_cig 产量（条）",
+       "_kind": "metrics",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "avg_hourly_output",
+       "table_name": "cdw.dws_设备效率汇总",
+       "chinese_name": "平均台时产量",
+       "chinese_source": "exact_glossary",
+       "layer": "dws",
+       "metric_type": "聚合",
+       "aggregate_func": "AVG",
+       "functions": [
+        "AVG",
+        "ROUND"
+       ],
+       "expression_raw": "ROUND(AVG(e.hourly_output), 2) AS avg_hourly_output",
+       "expression_normalized": "ROUND(AVG(hourly_output), 2)",
+       "formula": "平均台时产量 = ROUND(AVG(台时产量), 2)",
+       "formula_full": "平均台时产量 = ROUND(AVG(台时产量), 2)",
+       "depends_on": [
+        {
+         "chinese_name": "台时产量",
+         "column": "hourly_output",
+         "table": "cdw.dwd_设备运行明细"
+        }
+       ],
+       "source_file": "examples/warehouse/cdw/dws_设备效率汇总.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dwd_设备运行明细"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "",
+       "unit": null,
+       "depends_text": "hourly_output 台时产量",
+       "_kind": "metrics",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "total_output_qty",
+       "table_name": "cdw.dws_产量汇总",
+       "chinese_name": "总产量",
+       "chinese_source": "exact_glossary",
+       "layer": "dws",
+       "metric_type": "聚合",
+       "aggregate_func": "SUM",
+       "functions": [
+        "SUM"
+       ],
+       "expression_raw": "SUM(d.output_qty) AS total_output_qty",
+       "expression_normalized": "SUM(output_qty)",
+       "formula": "总产量 = SUM(产量)",
+       "formula_full": "总产量 = SUM(产量)",
+       "depends_on": [
+        {
+         "chinese_name": "产量",
+         "column": "output_qty",
+         "table": "cdw.dwd_卷烟产量明细"
+        }
+       ],
+       "source_file": "examples/warehouse/cdw/dws_产销存汇总.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dwd_卷烟产量明细"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "",
+       "unit": null,
+       "depends_text": "output_qty 产量",
+       "_kind": "metrics",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "total_output_qty",
+       "table_name": "cdw.dws_税利汇总",
+       "chinese_name": "总产量",
+       "chinese_source": "exact_glossary",
+       "layer": "dws",
+       "metric_type": "聚合",
+       "aggregate_func": "MAX",
+       "functions": [
+        "MAX"
+       ],
+       "expression_raw": "MAX(p.total_output_qty) AS total_output_qty",
+       "expression_normalized": "MAX(total_output_qty)",
+       "formula": "总产量 = MAX(总产量)",
+       "formula_full": "总产量 = MAX(总产量)",
+       "depends_on": [
+        {
+         "chinese_name": "总产量",
+         "column": "total_output_qty",
+         "table": "cdw.dws_产量汇总"
+        }
+       ],
+       "source_file": "examples/warehouse/cdw/dws_税利汇总.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dwd_税利明细",
+        "cdw.dws_产量汇总"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "",
+       "unit": null,
+       "depends_text": "total_output_qty 总产量",
+       "_kind": "metrics",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "total_output_qty",
+       "table_name": "cdw.dws_设备效率汇总",
+       "chinese_name": "总产量",
+       "chinese_source": "exact_glossary",
+       "layer": "dws",
+       "metric_type": "聚合",
+       "aggregate_func": "SUM",
+       "functions": [
+        "SUM"
+       ],
+       "expression_raw": "SUM(e.output_qty) AS total_output_qty",
+       "expression_normalized": "SUM(output_qty)",
+       "formula": "总产量 = SUM(产量)",
+       "formula_full": "总产量 = SUM(产量)",
+       "depends_on": [
+        {
+         "chinese_name": "产量",
+         "column": "output_qty",
+         "table": "cdw.dwd_设备运行明细"
+        }
+       ],
+       "source_file": "examples/warehouse/cdw/dws_设备效率汇总.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dwd_设备运行明细"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "",
+       "unit": null,
+       "depends_text": "output_qty 产量",
+       "_kind": "metrics",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.1
+      },
+      {
+       "metric_name": "defect_rate",
+       "table_name": "cdw.dwd_卷烟产量明细",
+       "chinese_name": "不良品率",
+       "chinese_source": "comment",
+       "layer": "dwd",
+       "metric_type": "条件分支",
+       "aggregate_func": null,
+       "functions": [
+        "ROUND"
+       ],
+       "expression_raw": "CASE WHEN p.output_qty > 0 THEN ROUND(p.defect_qty / p.output_qty, 6) ELSE 0 END AS defect_rate",
+       "expression_normalized": "CASE WHEN output_qty > 0 THEN ROUND(defect_qty / output_qty, 6) ELSE 0 END",
+       "formula": "不良品率 = CASE WHEN 产量 > 0 THEN ROUND(不良品量 / 产量, 6) ELSE 0 END",
+       "formula_full": "不良品率 = CASE WHEN 产量 > 0 THEN ROUND(不良品量 / 产量, 6) ELSE 0 END",
+       "depends_on": [
+        {
+         "chinese_name": "产量",
+         "column": "output_qty",
+         "table": "ods.ods_卷烟产量流水"
+        },
+        {
+         "chinese_name": "不良品量",
+         "column": "defect_qty",
+         "table": "ods.ods_卷烟产量流水"
+        }
+       ],
+       "source_file": "examples/warehouse/cdw/dwd_卷烟产量明细.sql",
+       "source_stmt": 1,
+       "source_task_type": "CTAS",
+       "input_tables": [
+        "dim.dim_brand",
+        "dim.dim_plant",
+        "ods.ods_卷烟产量流水"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.85,
+       "notes": "",
+       "unit": null,
+       "depends_text": "output_qty 产量 defect_qty 不良品量",
+       "_kind": "metrics",
+       "score": 65.0,
+       "matched_field": "formula",
+       "match_reason": "子串命中",
+       "_richness": 1.2
+      },
+      {
+       "metric_name": "sale_output_ratio",
+       "table_name": "ads.ads_产销存月报",
+       "chinese_name": "产销率",
+       "chinese_source": "exact_glossary",
+       "layer": "ads",
+       "metric_type": "比率",
+       "aggregate_func": null,
+       "functions": [
+        "NULLIF",
+        "ROUND"
+       ],
+       "expression_raw": "ROUND(s.sale_qty / NULLIF(s.output_qty, 0), 4) AS sale_output_ratio",
+       "expression_normalized": "ROUND(sale_qty / NULLIF(output_qty, 0), 4)",
+       "formula": "产销率 = ROUND(销量 / NULLIF(产量, 0), 4)",
+       "formula_full": "产销率 = ROUND(销量 / NULLIF(产量, 0), 4)",
+       "depends_on": [
+        {
+         "chinese_name": "销量",
+         "column": "sale_qty",
+         "table": "cdw.dws_产销存汇总"
+        },
+        {
+         "chinese_name": "产量",
+         "column": "output_qty",
+         "table": "cdw.dws_产销存汇总"
+        }
+       ],
+       "source_file": "examples/warehouse/ads/ads_产销存月报.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dws_产销存汇总",
+        "dim.dim_brand",
+        "dim.dim_plant"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "",
+       "unit": null,
+       "depends_text": "sale_qty 销量 output_qty 产量",
+       "_kind": "metrics",
+       "score": 65.0,
+       "matched_field": "formula",
+       "match_reason": "子串命中",
+       "_richness": 1.2
+      },
+      {
+       "metric_name": "tax_profit_per_box",
+       "table_name": "cdw.dws_税利汇总",
+       "chinese_name": "单箱税利",
+       "chinese_source": "exact_glossary",
+       "layer": "dws",
+       "metric_type": "条件分支",
+       "aggregate_func": "MAX",
+       "functions": [
+        "MAX",
+        "ROUND",
+        "SUM"
+       ],
+       "expression_raw": "CASE WHEN MAX(p.total_output_qty) > 0 THEN ROUND(SUM(t.total_tax_profit) / MAX(p.total_output_qty), 2) ELSE 0 END AS tax_profit_per_box",
+       "expression_normalized": "CASE WHEN MAX(total_output_qty) > 0 THEN ROUND(SUM(total_tax_profit) / MAX(total_output_qty), 2) ELSE 0 END",
+       "formula": "单箱税利 = CASE WHEN MAX(总产量) > 0 THEN ROUND(SUM(税利总额) / MAX(总产量), 2) ELSE 0 END",
+       "formula_full": "单箱税利 = CASE WHEN MAX(总产量) > 0 THEN ROUND(SUM(税利总额) / MAX(总产量), 2) ELSE 0 END",
+       "depends_on": [
+        {
+         "chinese_name": "总产量",
+         "column": "total_output_qty",
+         "table": "cdw.dws_产量汇总"
+        },
+        {
+         "chinese_name": "税利总额",
+         "column": "total_tax_profit",
+         "table": "cdw.dwd_税利明细"
+        }
+       ],
+       "source_file": "examples/warehouse/cdw/dws_税利汇总.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dwd_税利明细",
+        "cdw.dws_产量汇总"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.85,
+       "notes": "",
+       "unit": null,
+       "depends_text": "total_output_qty 总产量 total_tax_profit 税利总额",
+       "_kind": "metrics",
+       "score": 65.0,
+       "matched_field": "formula",
+       "match_reason": "子串命中",
+       "_richness": 1.2
+      },
+      {
+       "metric_name": "stock_increase",
+       "table_name": "ads.ads_产销存月报",
+       "chinese_name": "库存增量",
+       "chinese_source": "comment",
+       "layer": "ads",
+       "metric_type": "算术计算",
+       "aggregate_func": null,
+       "functions": [],
+       "expression_raw": "s.output_qty - s.sale_qty AS stock_increase",
+       "expression_normalized": "output_qty - sale_qty",
+       "formula": "库存增量 = 产量 - 销量",
+       "formula_full": "库存增量 = 产量 - 销量",
+       "depends_on": [
+        {
+         "chinese_name": "产量",
+         "column": "output_qty",
+         "table": "cdw.dws_产销存汇总"
+        },
+        {
+         "chinese_name": "销量",
+         "column": "sale_qty",
+         "table": "cdw.dws_产销存汇总"
+        }
+       ],
+       "source_file": "examples/warehouse/ads/ads_产销存月报.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "cdw.dws_产销存汇总",
+        "dim.dim_brand",
+        "dim.dim_plant"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "",
+       "unit": null,
+       "depends_text": "output_qty 产量 sale_qty 销量",
+       "_kind": "metrics",
+       "score": 65.0,
+       "matched_field": "formula",
+       "match_reason": "子串命中",
+       "_richness": 1.2
+      },
+      {
+       "metric_name": "dama_rate",
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "chinese_name": "打码占比",
+       "chinese_source": "exact_glossary",
+       "layer": "dwd",
+       "metric_type": "条件分支",
+       "aggregate_func": "SUM",
+       "functions": [
+        "ROUND",
+        "SUM"
+       ],
+       "expression_raw": "CASE WHEN SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) > 0 THEN ROUND(SUM(b.dama_qty) / (SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty)), 6) ELSE 0 END AS dama_rate",
+       "expression_normalized": "CASE WHEN SUM(dama_qty) + SUM(tiaoma_qty) - SUM(chongma_qty) > 0 THEN ROUND(SUM(dama_qty) / (SUM(dama_qty) + SUM(tiaoma_qty) - SUM(chongma_qty)), 6) ELSE 0 END",
+       "formula": "打码占比 = CASE WHEN 打码量 + 跳码量 - 重码量 > 0 THEN ROUND(打码量 / (打码量 + 跳码量 - 重码量), 6) ELSE 0 END",
+       "formula_full": "打码占比 = CASE WHEN SUM(打码量) + SUM(跳码量) - SUM(重码量) > 0 THEN ROUND(SUM(打码量) / (SUM(打码量) + SUM(跳码量) - SUM(重码量)), 6) ELSE 0 END",
+       "depends_on": [
+        {
+         "chinese_name": "重码量",
+         "column": "chongma_qty",
+         "table": "ods.ods_卷烟码段流水"
+        },
+        {
+         "chinese_name": "打码量",
+         "column": "dama_qty",
+         "table": "ods.ods_卷烟码段流水"
+        },
+        {
+         "chinese_name": "跳码量",
+         "column": "tiaoma_qty",
+         "table": "ods.ods_卷烟码段流水"
+        }
+       ],
+       "source_file": "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "ods.ods_卷烟码段流水"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.85,
+       "notes": "脚本注释：打码占比（打码量/产量）；口径本体已剥离一致的聚合函数 SUM()（共 3 个依赖字段）",
+       "unit": null,
+       "depends_text": "chongma_qty 重码量 dama_qty 打码量 tiaoma_qty 跳码量",
+       "_kind": "metrics",
+       "score": 52.0,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 5.3
+      },
+      {
+       "metric_name": "dama_cig_qty",
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "chinese_name": "打码量（条）",
+       "chinese_source": "exact_glossary",
+       "layer": "dwd",
+       "metric_type": "聚合",
+       "aggregate_func": "SUM",
+       "functions": [
+        "SUM"
+       ],
+       "expression_raw": "SUM(b.dama_qty) * 250 AS dama_cig_qty",
+       "expression_normalized": "SUM(dama_qty) * 250",
+       "formula": "打码量（条） = 打码量 * 250",
+       "formula_full": "打码量（条） = SUM(打码量) * 250",
+       "depends_on": [
+        {
+         "chinese_name": "打码量",
+         "column": "dama_qty",
+         "table": "ods.ods_卷烟码段流水"
+        }
+       ],
+       "source_file": "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql",
+       "source_stmt": 1,
+       "source_task_type": "INSERT_SELECT",
+       "input_tables": [
+        "ods.ods_卷烟码段流水"
+       ],
+       "owner": "",
+       "version": "v1",
+       "confidence": 0.9,
+       "notes": "脚本注释：打码量折条（箱转条）；口径本体已剥离一致的聚合函数 SUM()（共 1 个依赖字段）",
+       "unit": null,
+       "depends_text": "dama_qty 打码量",
+       "_kind": "metrics",
+       "score": 52.0,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 1.1
+      }
+     ],
+     "fields": [
+      {
+       "table_name": "ads.ads_产销存月报",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "ads",
+       "role": "both",
+       "business_desc": "",
+       "sample_expression": "output_qty",
+       "source_files": [
+        "examples/warehouse/ads/ads_产销存月报.sql",
+        "examples/warehouse/ads/ads_经营指标驾驶舱.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "ads.ads_码段产量日报",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "comment",
+       "confidence": 0.9,
+       "unit": "箱",
+       "layer": "ads",
+       "role": "target",
+       "business_desc": "产量（箱）",
+       "sample_expression": "SUM(chanliang_qty)",
+       "source_files": [
+        "examples/knowledge_demo/ads/ads_码段产量日报.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "ads.ads_经营指标明细",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "ads",
+       "role": "both",
+       "business_desc": "",
+       "sample_expression": "output_qty",
+       "source_files": [
+        "examples/warehouse/ads/ads_经营指标驾驶舱.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "ads.ads_经营指标驾驶舱",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "ads",
+       "role": "target",
+       "business_desc": "",
+       "sample_expression": "SUM(output_qty)",
+       "source_files": [
+        "examples/warehouse/ads/ads_经营指标驾驶舱.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "ads.ads_设备运行看板",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "ads",
+       "role": "target",
+       "business_desc": "",
+       "sample_expression": "SUM(total_output_qty)",
+       "source_files": [
+        "examples/warehouse/ads/ads_设备运行看板.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dwd_卷烟产量明细",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "dwd",
+       "role": "both",
+       "business_desc": "",
+       "sample_expression": "output_qty",
+       "source_files": [
+        "examples/warehouse/cdw/dwd_卷烟产量明细.sql",
+        "examples/warehouse/cdw/dws_产销存汇总.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "column_name": "chanliang_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "箱",
+       "layer": "dwd",
+       "role": "both",
+       "business_desc": "产量口径：打码量+跳码量-重码量（箱）",
+       "sample_expression": "SUM(chanliang_qty)",
+       "source_files": [
+        "examples/knowledge_demo/ads/ads_码段产量日报.sql",
+        "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dwd_设备运行明细",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "dwd",
+       "role": "both",
+       "business_desc": "",
+       "sample_expression": "output_qty",
+       "source_files": [
+        "examples/warehouse/cdw/dwd_设备运行明细.sql",
+        "examples/warehouse/cdw/dws_设备效率汇总.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dws_产销存汇总",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "dws",
+       "role": "both",
+       "business_desc": "",
+       "sample_expression": "output_qty",
+       "source_files": [
+        "examples/warehouse/ads/ads_产销存月报.sql",
+        "examples/warehouse/cdw/dws_产销存汇总.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "ods.ods_卷烟产量流水",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "箱",
+       "layer": "ods",
+       "role": "both",
+       "business_desc": "产量（箱）",
+       "sample_expression": "output_qty",
+       "source_files": [
+        "examples/warehouse/cdw/dwd_卷烟产量明细.sql",
+        "examples/warehouse/ods/ods_卷烟产量流水.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "ods.ods_设备运行工况",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "箱",
+       "layer": "ods",
+       "role": "both",
+       "business_desc": "台时产量（箱）",
+       "sample_expression": "output_qty",
+       "source_files": [
+        "examples/warehouse/cdw/dwd_设备运行明细.sql",
+        "examples/warehouse/ods/ods_设备运行工况.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "src.erp_生产工单明细",
+       "column_name": "output_qty",
+       "chinese_name": "产量",
+       "chinese_source": "comment",
+       "confidence": 0.9,
+       "unit": "箱",
+       "layer": "src",
+       "role": "source",
+       "business_desc": "产量（箱）",
+       "sample_expression": "CAST(output_qty AS DECIMAL(18, 4))",
+       "source_files": [
+        "examples/warehouse/ods/ods_卷烟产量流水.sql"
+       ],
+       "_kind": "fields",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dwd_卷烟产量明细",
+       "column_name": "output_qty_cig",
+       "chinese_name": "产量（条）",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "dwd",
+       "role": "target",
+       "business_desc": "箱转条",
+       "sample_expression": "output_qty * 250",
+       "source_files": [
+        "examples/warehouse/cdw/dwd_卷烟产量明细.sql"
+       ],
+       "_kind": "fields",
+       "score": 106.6,
+       "matched_field": "chinese_name",
+       "match_reason": "前缀命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "column_name": "chanliang_cig",
+       "chinese_name": "产量（条）",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "dwd",
+       "role": "both",
+       "business_desc": "产量折条（箱转条）",
+       "sample_expression": "MAX(chanliang_cig)",
+       "source_files": [
+        "examples/knowledge_demo/ads/ads_码段产量日报.sql",
+        "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql"
+       ],
+       "_kind": "fields",
+       "score": 106.6,
+       "matched_field": "chinese_name",
+       "match_reason": "前缀命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "ads.ads_码段产量日报",
+       "column_name": "max_chanliang_cig",
+       "chinese_name": "单工单最高产量",
+       "chinese_source": "comment",
+       "confidence": 0.9,
+       "unit": "条",
+       "layer": "ads",
+       "role": "target",
+       "business_desc": "单工单最高产量（条）",
+       "sample_expression": "MAX(chanliang_cig)",
+       "source_files": [
+        "examples/knowledge_demo/ads/ads_码段产量日报.sql"
+       ],
+       "_kind": "fields",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dwd_设备运行明细",
+       "column_name": "hourly_output",
+       "chinese_name": "台时产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": "箱/小时",
+       "layer": "dwd",
+       "role": "both",
+       "business_desc": "台时产量（箱/小时）",
+       "sample_expression": "CASE WHEN run_minutes > 0 THEN ROUND(output_qty * 60 / run_minutes, 2) ELSE 0 END",
+       "source_files": [
+        "examples/warehouse/cdw/dwd_设备运行明细.sql",
+        "examples/warehouse/cdw/dws_设备效率汇总.sql"
+       ],
+       "_kind": "fields",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "src.iot_设备工况采集",
+       "column_name": "output_qty",
+       "chinese_name": "台时产量",
+       "chinese_source": "comment",
+       "confidence": 0.9,
+       "unit": "箱",
+       "layer": "src",
+       "role": "source",
+       "business_desc": "台时产量（箱）",
+       "sample_expression": "CAST(output_qty AS DECIMAL(18, 4))",
+       "source_files": [
+        "examples/warehouse/ods/ods_设备运行工况.sql"
+       ],
+       "_kind": "fields",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dws_设备效率汇总",
+       "column_name": "avg_hourly_output",
+       "chinese_name": "平均台时产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "dws",
+       "role": "target",
+       "business_desc": "",
+       "sample_expression": "ROUND(AVG(hourly_output), 2)",
+       "source_files": [
+        "examples/warehouse/cdw/dws_设备效率汇总.sql"
+       ],
+       "_kind": "fields",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dws_产量汇总",
+       "column_name": "total_output_qty",
+       "chinese_name": "总产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "dws",
+       "role": "both",
+       "business_desc": "",
+       "sample_expression": "SUM(output_qty)",
+       "source_files": [
+        "examples/warehouse/cdw/dws_产销存汇总.sql",
+        "examples/warehouse/cdw/dws_税利汇总.sql"
+       ],
+       "_kind": "fields",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dws_税利汇总",
+       "column_name": "total_output_qty",
+       "chinese_name": "总产量",
+       "chinese_source": "exact_glossary",
+       "confidence": 1.0,
+       "unit": null,
+       "layer": "dws",
+       "role": "target",
+       "business_desc": "",
+       "sample_expression": "MAX(total_output_qty)",
+       "source_files": [
+        "examples/warehouse/cdw/dws_税利汇总.sql"
+       ],
+       "_kind": "fields",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      }
+     ],
+     "tables": [
+      {
+       "table_name": "cdw.dws_产量汇总",
+       "short_name": "dws_产量汇总",
+       "layer": "dws",
+       "chinese_name": "产量汇总表",
+       "chinese_source": "exact_glossary",
+       "business_desc": "",
+       "column_count": 5,
+       "is_root": 0,
+       "is_leaf": 0,
+       "source_files": [
+        "examples/warehouse/cdw/dws_产销存汇总.sql"
+       ],
+       "_kind": "tables",
+       "score": 106.6,
+       "matched_field": "chinese_name",
+       "match_reason": "前缀命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dwd_卷烟产量明细",
+       "short_name": "dwd_卷烟产量明细",
+       "layer": "dwd",
+       "chinese_name": "卷烟产量明细事实表",
+       "chinese_source": "exact_glossary",
+       "business_desc": "",
+       "column_count": 12,
+       "is_root": 0,
+       "is_leaf": 0,
+       "source_files": [
+        "examples/warehouse/cdw/dwd_卷烟产量明细.sql"
+       ],
+       "_kind": "tables",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "ods.ods_卷烟产量流水",
+       "short_name": "ods_卷烟产量流水",
+       "layer": "ods",
+       "chinese_name": "卷烟产量贴源流水",
+       "chinese_source": "exact_glossary",
+       "business_desc": "",
+       "column_count": 8,
+       "is_root": 0,
+       "is_leaf": 0,
+       "source_files": [
+        "examples/warehouse/ods/ods_卷烟产量流水.sql"
+       ],
+       "_kind": "tables",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "short_name": "dwd_卷烟产量码段明细",
+       "layer": "dwd",
+       "chinese_name": "卷烟产量（码段口径）明细",
+       "chinese_source": "exact_glossary",
+       "business_desc": "",
+       "column_count": 11,
+       "is_root": 0,
+       "is_leaf": 0,
+       "source_files": [
+        "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql"
+       ],
+       "_kind": "tables",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "table_name": "ads.ads_码段产量日报",
+       "short_name": "ads_码段产量日报",
+       "layer": "ads",
+       "chinese_name": "码段产量日报",
+       "chinese_source": "exact_glossary",
+       "business_desc": "",
+       "column_count": 6,
+       "is_root": 0,
+       "is_leaf": 1,
+       "source_files": [
+        "examples/knowledge_demo/ads/ads_码段产量日报.sql"
+       ],
+       "_kind": "tables",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      }
+     ],
+     "terms": [
+      {
+       "term": "chanliang_qty",
+       "chinese_name": "产量",
+       "category": "field",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [],
+       "tables": [
+        "cdw.dwd_卷烟产量码段明细"
+       ],
+       "occurrences": 1,
+       "_kind": "terms",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "term": "output_qty",
+       "chinese_name": "产量",
+       "category": "field",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [],
+       "tables": [
+        "ads.ads_产销存月报",
+        "ads.ads_码段产量日报",
+        "ads.ads_经营指标明细",
+        "ads.ads_经营指标驾驶舱",
+        "ads.ads_设备运行看板",
+        "cdw.dwd_卷烟产量明细",
+        "cdw.dwd_设备运行明细",
+        "cdw.dws_产销存汇总",
+        "ods.ods_卷烟产量流水",
+        "ods.ods_设备运行工况",
+        "src.erp_生产工单明细",
+        "src.iot_设备工况采集"
+       ],
+       "occurrences": 12,
+       "_kind": "terms",
+       "score": 130.0,
+       "matched_field": "chinese_name",
+       "match_reason": "完全相等",
+       "_richness": 0.0
+      },
+      {
+       "term": "dws_产量汇总",
+       "chinese_name": "产量汇总表",
+       "category": "table",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [
+        "cdw.dws_产量汇总",
+        "dws_产量汇总"
+       ],
+       "tables": [],
+       "occurrences": 0,
+       "_kind": "terms",
+       "score": 106.6,
+       "matched_field": "chinese_name",
+       "match_reason": "前缀命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "chanliang_cig",
+       "chinese_name": "产量（条）",
+       "category": "field",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [],
+       "tables": [
+        "cdw.dwd_卷烟产量码段明细"
+       ],
+       "occurrences": 1,
+       "_kind": "terms",
+       "score": 106.6,
+       "matched_field": "chinese_name",
+       "match_reason": "前缀命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "output_qty_cig",
+       "chinese_name": "产量（条）",
+       "category": "field",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [],
+       "tables": [
+        "cdw.dwd_卷烟产量明细"
+       ],
+       "occurrences": 1,
+       "_kind": "terms",
+       "score": 106.6,
+       "matched_field": "chinese_name",
+       "match_reason": "前缀命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "max_chanliang_cig",
+       "chinese_name": "单工单最高产量",
+       "category": "field",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [],
+       "tables": [
+        "ads.ads_码段产量日报"
+       ],
+       "occurrences": 1,
+       "_kind": "terms",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "dwd_卷烟产量明细",
+       "chinese_name": "卷烟产量明细事实表",
+       "category": "table",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [
+        "cdw.dwd_卷烟产量明细",
+        "dwd_卷烟产量明细"
+       ],
+       "tables": [],
+       "occurrences": 0,
+       "_kind": "terms",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "ods_卷烟产量流水",
+       "chinese_name": "卷烟产量贴源流水",
+       "category": "table",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [
+        "ods.ods_卷烟产量流水",
+        "ods_卷烟产量流水"
+       ],
+       "tables": [],
+       "occurrences": 0,
+       "_kind": "terms",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "dwd_卷烟产量码段明细",
+       "chinese_name": "卷烟产量（码段口径）明细",
+       "category": "table",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [
+        "cdw.dwd_卷烟产量码段明细",
+        "dwd_卷烟产量码段明细"
+       ],
+       "tables": [],
+       "occurrences": 0,
+       "_kind": "terms",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "hourly_output",
+       "chinese_name": "台时产量",
+       "category": "field",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [],
+       "tables": [
+        "cdw.dwd_设备运行明细"
+       ],
+       "occurrences": 1,
+       "_kind": "terms",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "avg_hourly_output",
+       "chinese_name": "平均台时产量",
+       "category": "field",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [],
+       "tables": [
+        "cdw.dws_设备效率汇总"
+       ],
+       "occurrences": 1,
+       "_kind": "terms",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "total_output_qty",
+       "chinese_name": "总产量",
+       "category": "field",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [],
+       "tables": [
+        "cdw.dws_产量汇总",
+        "cdw.dws_税利汇总",
+        "cdw.dws_设备效率汇总"
+       ],
+       "occurrences": 3,
+       "_kind": "terms",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "term": "ads_码段产量日报",
+       "chinese_name": "码段产量日报",
+       "category": "table",
+       "source": "builtin",
+       "confidence": 1.0,
+       "domain": "烟草行业",
+       "aliases": [
+        "ads.ads_码段产量日报",
+        "ads_码段产量日报"
+       ],
+       "tables": [],
+       "occurrences": 0,
+       "_kind": "terms",
+       "score": 84.5,
+       "matched_field": "chinese_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      }
+     ],
+     "rules": [
+      {
+       "rule_key": "5365e8e83e4be72b",
+       "rule_type": "业务规则（注释）",
+       "description": "产量为 0 的工单不计入日报（脚本注释）",
+       "expression": "AND d.chanliang_qty > 0",
+       "table_name": "ads.ads_码段产量日报",
+       "layer": "ads",
+       "source_file": "examples/knowledge_demo/ads/ads_码段产量日报.sql",
+       "source_stmt": 1,
+       "source_comment": "产量为 0 的工单不计入日报",
+       "_kind": "rules",
+       "score": 90.2,
+       "matched_field": "description",
+       "match_reason": "前缀命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "36c314873dc60327",
+       "rule_type": "业务规则（注释）",
+       "description": "产量口径：打码量+跳码量-重码量（箱）（脚本注释）",
+       "expression": "SUM(b.dama_qty) + SUM(b.tiaoma_qty) - SUM(b.chongma_qty) AS",
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "layer": "dwd",
+       "source_file": "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql",
+       "source_stmt": 1,
+       "source_comment": "产量口径：打码量+跳码量-重码量（箱）",
+       "_kind": "rules",
+       "score": 90.2,
+       "matched_field": "description",
+       "match_reason": "前缀命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "8d97c970a2c5350e",
+       "rule_type": "分区规则",
+       "description": "分区/时点条件：dt = 2026-01-01",
+       "expression": "dt = '2026-01-01'",
+       "table_name": "ads.ads_码段产量日报",
+       "layer": "ads",
+       "source_file": "examples/knowledge_demo/ads/ads_码段产量日报.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "58bea12d32fe4cbb",
+       "rule_type": "过滤规则",
+       "description": "时点/分区过滤：d.dt = '2026-01-01' AND d.chanliang_qty > 0",
+       "expression": "d.dt = '2026-01-01' AND d.chanliang_qty > 0",
+       "table_name": "ads.ads_码段产量日报",
+       "layer": "ads",
+       "source_file": "examples/knowledge_demo/ads/ads_码段产量日报.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "f2cbd131bc7f0ed6",
+       "rule_type": "关联规则",
+       "description": "p LEFT JOIN bd ON p.brand_code = bd.brand_code",
+       "expression": "p.brand_code = bd.brand_code",
+       "table_name": "cdw.dwd_卷烟产量明细",
+       "layer": "dwd",
+       "source_file": "examples/warehouse/cdw/dwd_卷烟产量明细.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "40475b3f9e406e70",
+       "rule_type": "关联规则",
+       "description": "p LEFT JOIN pl ON p.plant_code = pl.plant_code",
+       "expression": "p.plant_code = pl.plant_code",
+       "table_name": "cdw.dwd_卷烟产量明细",
+       "layer": "dwd",
+       "source_file": "examples/warehouse/cdw/dwd_卷烟产量明细.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "781a84c7ec444f12",
+       "rule_type": "分区规则",
+       "description": "分区/时点条件：dt = 2026-01-01",
+       "expression": "dt = '2026-01-01'",
+       "table_name": "cdw.dwd_卷烟产量明细",
+       "layer": "dwd",
+       "source_file": "examples/warehouse/cdw/dwd_卷烟产量明细.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "ae6e13b9e699958c",
+       "rule_type": "过滤规则",
+       "description": "时点/分区过滤：p.dt = '2026-01-01'",
+       "expression": "p.dt = '2026-01-01'",
+       "table_name": "cdw.dwd_卷烟产量明细",
+       "layer": "dwd",
+       "source_file": "examples/warehouse/cdw/dwd_卷烟产量明细.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "d011ee00c5bbfca2",
+       "rule_type": "分区规则",
+       "description": "分区/时点条件：dt = 2026-01-01",
+       "expression": "dt = '2026-01-01'",
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "layer": "dwd",
+       "source_file": "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "8abd8c9a1828e67f",
+       "rule_type": "过滤规则",
+       "description": "时点/分区过滤：b.dt = '2026-01-01'",
+       "expression": "b.dt = '2026-01-01'",
+       "table_name": "cdw.dwd_卷烟产量码段明细",
+       "layer": "dwd",
+       "source_file": "examples/knowledge_demo/cdw/dwd_卷烟产量码段明细.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "ca7040b2d0d54fb9",
+       "rule_type": "分区规则",
+       "description": "分区/时点条件：dt = 2026-01-01",
+       "expression": "dt = '2026-01-01'",
+       "table_name": "cdw.dws_产量汇总",
+       "layer": "dws",
+       "source_file": "examples/warehouse/cdw/dws_产销存汇总.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "53cb47911ce546c6",
+       "rule_type": "过滤规则",
+       "description": "时点/分区过滤：d.dt = '2026-01-01'",
+       "expression": "d.dt = '2026-01-01'",
+       "table_name": "cdw.dws_产量汇总",
+       "layer": "dws",
+       "source_file": "examples/warehouse/cdw/dws_产销存汇总.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "530534d625535153",
+       "rule_type": "分区规则",
+       "description": "分区/时点条件：dt = 2026-01-01",
+       "expression": "dt = '2026-01-01'",
+       "table_name": "ods.ods_卷烟产量流水",
+       "layer": "ods",
+       "source_file": "examples/warehouse/ods/ods_卷烟产量流水.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      },
+      {
+       "rule_key": "862b62c20ade3928",
+       "rule_type": "过滤规则",
+       "description": "时点/分区过滤：a.dt = '2026-01-01' AND a.work_date >= '2026-01-01' AND NOT a.output_qty IS NULL",
+       "expression": "a.dt = '2026-01-01' AND a.work_date >= '2026-01-01' AND NOT a.output_qty IS NULL",
+       "table_name": "ods.ods_卷烟产量流水",
+       "layer": "ods",
+       "source_file": "examples/warehouse/ods/ods_卷烟产量流水.sql",
+       "source_stmt": 1,
+       "source_comment": "",
+       "_kind": "rules",
+       "score": 45.5,
+       "matched_field": "table_name",
+       "match_reason": "子串命中",
+       "_richness": 0.0
+      }
+     ]
+    },
+    "min_score": 0.0
+   }
+  },
+  "kb_ask": {
+   "request": {
+    "path": "/kb/ask",
+    "body": {
+     "question": "ads.ads_产销存月报 的产量怎么来的"
+    }
+   },
+   "http_status": 200,
+   "response": {
+    "success": true,
+    "question": "ads.ads_产销存月报 的产量怎么来的",
+    "intent": "metric_formula",
+    "intent_label": "指标口径查询",
+    "entity": "ads.ads_产销存月报 产量怎么来",
+    "answer": "知识库里没有找到与「ads.ads_产销存月报 产量怎么来」相关的指标口径。\n建议：用 `kb search ads.ads_产销存月报 产量怎么来` 做模糊检索，确认指标/字段名。",
+    "mode": "rule",
+    "llm": {
+     "enabled": false,
+     "model": null,
+     "base_url": null
+    },
+    "evidence": {
+     "entity": "ads.ads_产销存月报 产量怎么来",
+     "metrics": []
+    }
+   }
+  },
+  "upstream": {
+   "request": {
+    "path": "/upstream",
+    "body": {
+     "table": "ads.ads_产销存月报",
+     "depth": 5
+    }
+   },
+   "http_status": 200,
+   "response": {
+    "success": true,
+    "direction": "upstream",
+    "start_table": "ads.ads_产销存月报",
+    "graph_file": "warehouse_graph.json",
+    "found": true,
+    "direct": [
+     "cdw.dws_产销存汇总",
+     "dim.dim_brand",
+     "dim.dim_plant"
+    ],
+    "levels": [
+     {
+      "level": 1,
+      "tables": [
+       "cdw.dws_产销存汇总",
+       "dim.dim_brand",
+       "dim.dim_plant"
+      ]
+     },
+     {
+      "level": 2,
+      "tables": [
+       "cdw.dwd_卷烟销量明细",
+       "cdw.dws_产量汇总",
+       "cdw.dws_库存汇总"
+      ]
+     },
+     {
+      "level": 3,
+      "tables": [
+       "cdw.dwd_卷烟产量明细",
+       "cdw.dwd_成品库存明细",
+       "ods.ods_卷烟销量流水"
+      ]
+     },
+     {
+      "level": 4,
+      "tables": [
+       "ods.ods_卷烟产量流水",
+       "ods.ods_成品库存快照",
+       "src.mes_销售出库明细"
+      ]
+     },
+     {
+      "level": 5,
+      "tables": [
+       "src.erp_生产工单明细",
+       "src.wms_库存快照"
+      ]
+     }
+    ],
+    "tables": [
+     "cdw.dws_产销存汇总",
+     "dim.dim_brand",
+     "dim.dim_plant",
+     "cdw.dwd_卷烟销量明细",
+     "cdw.dws_产量汇总",
+     "cdw.dws_库存汇总",
+     "cdw.dwd_卷烟产量明细",
+     "cdw.dwd_成品库存明细",
+     "ods.ods_卷烟销量流水",
+     "ods.ods_卷烟产量流水",
+     "ods.ods_成品库存快照",
+     "src.mes_销售出库明细",
+     "src.erp_生产工单明细",
+     "src.wms_库存快照"
+    ],
+    "upstream_count": 14,
+    "edge_count": 18,
+    "paths": [
+     [
+      "ads.ads_产销存月报",
+      "cdw.dws_产销存汇总",
+      "cdw.dwd_卷烟销量明细",
+      "dim.dim_brand"
+     ],
+     [
+      "ads.ads_产销存月报",
+      "cdw.dws_产销存汇总",
+      "cdw.dwd_卷烟销量明细",
+      "ods.ods_卷烟销量流水",
+      "src.mes_销售出库明细"
+     ],
+     [
+      "ads.ads_产销存月报",
+      "cdw.dws_产销存汇总",
+      "cdw.dws_产量汇总",
+      "cdw.dwd_卷烟产量明细",
+      "dim.dim_brand"
+     ],
+     [
+      "ads.ads_产销存月报",
+      "cdw.dws_产销存汇总",
+      "cdw.dws_产量汇总",
+      "cdw.dwd_卷烟产量明细",
+      "dim.dim_plant"
+     ],
+     [
+      "ads.ads_产销存月报",
+      "cdw.dws_产销存汇总",
+      "cdw.dws_产量汇总",
+      "cdw.dwd_卷烟产量明细",
+      "ods.ods_卷烟产量流水",
+      "src.erp_生产工单明细"
+     ],
+     [
+      "ads.ads_产销存月报",
+      "cdw.dws_产销存汇总",
+      "cdw.dws_库存汇总",
+      "cdw.dwd_成品库存明细",
+      "dim.dim_plant"
+     ],
+     [
+      "ads.ads_产销存月报",
+      "cdw.dws_产销存汇总",
+      "cdw.dws_库存汇总",
+      "cdw.dwd_成品库存明细",
+      "ods.ods_成品库存快照",
+      "src.wms_库存快照"
+     ],
+     [
+      "ads.ads_产销存月报",
+      "dim.dim_brand"
+     ],
+     [
+      "ads.ads_产销存月报",
+      "dim.dim_plant"
+     ]
+    ]
+   }
+  },
+  "impact": {
+   "request": {
+    "path": "/impact",
+    "body": {
+     "table": "cdw.dws_产销存汇总"
+    }
+   },
+   "http_status": 200,
+   "response": {
+    "success": true,
+    "direction": "downstream",
+    "start_table": "cdw.dws_产销存汇总",
+    "graph_file": "warehouse_graph.json",
+    "found": true,
+    "direct": [
+     "ads.ads_产销存月报",
+     "ads.ads_税利分析"
+    ],
+    "levels": [
+     {
+      "level": 1,
+      "tables": [
+       "ads.ads_产销存月报",
+       "ads.ads_税利分析"
+      ]
+     },
+     {
+      "level": 2,
+      "tables": [
+       "ads.ads_经营指标明细"
+      ]
+     },
+     {
+      "level": 3,
+      "tables": [
+       "ads.ads_经营指标驾驶舱"
+      ]
+     }
+    ],
+    "tables": [
+     "ads.ads_产销存月报",
+     "ads.ads_税利分析",
+     "ads.ads_经营指标明细",
+     "ads.ads_经营指标驾驶舱"
+    ],
+    "downstream_count": 4,
+    "edge_count": 5,
+    "paths": [
+     [
+      "cdw.dws_产销存汇总",
+      "ads.ads_产销存月报",
+      "ads.ads_经营指标明细",
+      "ads.ads_经营指标驾驶舱"
+     ],
+     [
+      "cdw.dws_产销存汇总",
+      "ads.ads_税利分析",
+      "ads.ads_经营指标明细",
+      "ads.ads_经营指标驾驶舱"
+     ]
+    ]
+   }
+  },
+  "kb_summary": {
+   "request": {
+    "path": "/kb/summary",
+    "body": {}
+   },
+   "http_status": 200,
+   "response": {
+    "success": true,
+    "db": "/root/projects/sql-lineage-mvp/data/knowledge.db",
+    "schema_version": "1.0.0",
+    "built_at": "2026-09-20 20:17:25+0800",
+    "counts": {
+     "kb_scripts": 24,
+     "kb_tables": 38,
+     "kb_fields": 298,
+     "kb_metrics": 75,
+     "kb_rules": 76,
+     "kb_terms": 139,
+     "kb_table_lineage": 44,
+     "pending_terms": 1,
+     "fields_with_chinese": 296
+    },
+    "metric_by_type": {
+     "聚合": 41,
+     "函数转换": 17,
+     "条件分支": 8,
+     "算术计算": 5,
+     "窗口函数": 2,
+     "比率": 2
+    },
+    "metric_by_layer": {
+     "ads": 23,
+     "dwd": 15,
+     "dws": 24,
+     "ods": 13
+    },
+    "term_by_source": {
+     "builtin": 131,
+     "rule": 7,
+     "pending": 1
+    },
+    "top_tables": [
+     {
+      "name": "ads.ads_经营指标驾驶舱",
+      "chinese": "经营指标驾驶舱",
+      "layer": "ads",
+      "metric_count": 7
+     },
+     {
+      "name": "cdw.dwd_卷烟产量码段明细",
+      "chinese": "卷烟产量（码段口径）明细",
+      "layer": "dwd",
+      "metric_count": 7
+     },
+     {
+      "name": "ads.ads_设备运行看板",
+      "chinese": "设备运行看板",
+      "layer": "ads",
+      "metric_count": 6
+     },
+     {
+      "name": "cdw.dws_烟叶采购供应商汇总",
+      "chinese": "烟叶采购供应商汇总表",
+      "layer": "dws",
+      "metric_count": 5
+     },
+     {
+      "name": "cdw.dws_税利汇总",
+      "chinese": "税利汇总表",
+      "layer": "dws",
+      "metric_count": 5
+     },
+     {
+      "name": "cdw.dws_设备效率汇总",
+      "chinese": "设备效率汇总表",
+      "layer": "dws",
+      "metric_count": 5
+     },
+     {
+      "name": "ads.ads_码段产量日报",
+      "chinese": "码段产量日报",
+      "layer": "ads",
+      "metric_count": 4
+     },
+     {
+      "name": "cdw.dws_产量汇总",
+      "chinese": "产量汇总表",
+      "layer": "dws",
+      "metric_count": 3
+     },
+     {
+      "name": "cdw.dws_产销存汇总",
+      "chinese": "产销存汇总表",
+      "layer": "dws",
+      "metric_count": 3
+     },
+     {
+      "name": "cdw.dws_库存汇总",
+      "chinese": "库存汇总表",
+      "layer": "dws",
+      "metric_count": 3
+     },
+     {
+      "name": "ods.ods_设备运行工况",
+      "chinese": "设备运行工况贴源表",
+      "layer": "ods",
+      "metric_count": 3
+     },
+     {
+      "name": "ads.ads_产销存月报",
+      "chinese": "产销存月报",
+      "layer": "ads",
+      "metric_count": 2
+     },
+     {
+      "name": "ads.ads_烟叶供应商排名",
+      "chinese": "烟叶供应商排名报表",
+      "layer": "ads",
+      "metric_count": 2
+     },
+     {
+      "name": "ads.ads_税利分析",
+      "chinese": "税利分析报表",
+      "layer": "ads",
+      "metric_count": 2
+     },
+     {
+      "name": "cdw.dwd_卷烟产量明细",
+      "chinese": "卷烟产量明细事实表",
+      "layer": "dwd",
+      "metric_count": 2
+     }
+    ]
+   }
+  }
+ }
+}
