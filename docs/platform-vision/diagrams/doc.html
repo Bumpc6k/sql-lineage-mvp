@@ -1,11 +1,4 @@
-<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>架构讨论·Harness 与插件化</title>
-<style>body{font:13px/1.7 -apple-system,"Microsoft YaHei",sans-serif;max-width:900px;margin:0 auto;padding:26px 30px;color:#111}
-h1{font-size:20px}h2{font-size:16px;margin-top:22px;border-left:3px solid #4f46e5;padding-left:9px}
-h3{font-size:14px}table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12px}
-th,td{border:1px solid #ccc;padding:5px 8px;vertical-align:top}th{background:#f4f5f7}
-code{background:#f2f3f6;padding:1px 5px;border-radius:4px;font-size:11.5px}
-pre{background:#f7f8fa;border:1px solid #e6e8ec;border-radius:6px;padding:8px 10px;font-size:11px;overflow-x:auto}
-li{margin-left:18px}</style></head><body><h1>架构讨论：Harness + 插件化（万物皆 Skill）</h1>
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><style>body{font:13px/1.7 -apple-system,"Microsoft YaHei",sans-serif;max-width:900px;margin:0 auto;padding:24px 28px;color:#111}h1{font-size:20px}h2{font-size:16px;margin-top:20px;border-left:3px solid #4f46e5;padding-left:9px}h3{font-size:14px}table{border-collapse:collapse;width:100%;margin:7px 0;font-size:11.5px}th,td{border:1px solid #ccc;padding:5px 7px;vertical-align:top}th{background:#f4f5f7}code{background:#f2f3f6;padding:1px 4px;border-radius:4px;font-size:11px}pre{background:#f7f8fa;border:1px solid #e6e8ec;border-radius:6px;padding:8px;font-size:10.5px}li{margin-left:18px}</style></head><body><h1>架构讨论：Harness + 插件化（万物皆 Skill）</h1>
 <p>&gt; 2026-09-25 ｜ 提出人：用户 ｜ 本文档回答三件事：<b>你的方案解决了什么</b>、<b>哪些地方必须补硬</b>、<b>还有哪些要敲定</b></p>
 <p>&gt; 配套图：<code>docs/platform-vision/diagrams/harness-architecture.html</code>（架构图 + 流程图）</p>
 <p>---</p>
@@ -147,4 +140,42 @@ MonitorAdapter（监控适配器）
 <tr><td>9</td><td>前端渲染可插拔</td><td>按 skill 声明的 renderer 注册视图</td><td>先做 table / graph / sql / diff 四种</td></tr>
 <tr><td>10</td><td>初始化批量解析</td><td>先一个项目 + <b>只出报告不落库</b> + 人工抽检</td><td>合格后才走候选池入库</td></tr>
 </table>
-<p><b>确认版图</b>：<code>docs/platform-vision/diagrams/harness-architecture-v3.html</code>（v2 为讨论稿，v3 为确认稿）。</p></body></html>
+<p><b>确认版图</b>：<code>docs/platform-vision/diagrams/harness-architecture-v3.html</code>（v2 为讨论稿，v3 为确认稿）。</p>
+<p>---</p>
+<h2>9. 技术选型与契约（2026-09-25 已定）</h2>
+<h3>9.1 Skill 契约（四条原则，用户已确认）</h3>
+<p>1. <b>声明与实现分开</b>：声明文件（YAML）+ 代码实现；加一个 skill = 加一个目录，<b>不改 harness 一行代码</b>。</p>
+<p>2. <b>一个 skill = 一个动作</b>：流程编排留在 harness；确需组合的能力显式标 <code>composite: true</code>，不许把编排藏进 skill。</p>
+<p>3. <b>skill 只申报风险，防火墙最终裁决</b>：即使有人把 <code>drop table</code> 声明成只读，也按策略表拒绝——<b>安全不靠自觉</b>。</p>
+<p>4. <b>新增 skill 必须走 PR + 契约校验</b>：缺字段、声明与实现不符 → 门禁红，不许合并。</p>
+<p>字段集见 §3。两条安全细节同批确认：<b>要执行的 SQL 必须由生成类 skill 产出并先过校验</b>（生成与执行分离）；<b>每个 skill 返回必须带回执</b>（来源端点/耗时/影响行数），供 harness 出口校验。</p>
+<h3>9.2 选型</h3>
+<table>
+<tr><th>#</th><th>选型</th><th>决定</th><th>备注 / 风险</th></tr>
+<tr><td>A</td><td>决策模型</td><td><b>DeepSeek API</b>（先走 API）</td><td>业余开发、暂无正式环境；统一走 <b>OpenAI 兼容协议 + 薄模型网关</b>（换模型/限流/记账不改业务）</td></tr>
+<tr><td>B</td><td>harness 底座</td><td><b>采用 DeepSeek Harness（<code>dsh</code>）</b></td><td>MIT ｜ TypeScript + Cordis 插件框架 ｜ 官方定位 &quot;Everything is a Plugin&quot; ｜ <b>v0.1 开发者预览版（2026-08 开源）</b></td></tr>
+<tr><td>C</td><td>skill 暴露</td><td><b>MCP</b></td><td>skill 声明叠加在 MCP 之上：<b>MCP 管&quot;怎么调&quot;，契约管&quot;能不能调、怎么展示&quot;</b></td></tr>
+</table>
+<p><b>采用 dsh 的边界（必须守住）</b>：防火墙、出口事实校验、审计落库这三件留在<b>自有侧</b>，不塞进 dsh。</p>
+<p><b>风险与对策</b>：dsh 处于预览期、API 可能破坏性变更 → ① 锁定版本，不追 latest；② skill 契约锁在 <b>MCP</b> 层，外壳可替换而 skill 资产不动。</p>
+<h3>9.3 知识库：双通道（用户已确认）</h3>
+<table>
+<tr><th>通道</th><th>存什么</th><th>技术</th><th>角色边界</th></tr>
+<tr><td><b>① 结构化通道（核心）</b></td><td>口径/公式、表、字段、术语、规则、血缘</td><td>既有知识库 + <b>实体锚定 + 精确匹配优先 + 强制来源</b>（脚本 + 行号）</td><td><b>唯一允许产出结论数字的通道</b></td></tr>
+<tr><td><b>② 文档通道（补充）</b></td><td>脚本注释、需求文档、SOP、会议纪要</td><td><b>WeKnora</b>（腾讯开源，MIT，v0.8.0：BM25 + 向量 + 重排 + GraphRAG；官方 MCP server 29 工具）</td><td>只提供背景说明，<b>不产出结论</b></td></tr>
+</table>
+<p><b>为什么不能只靠文档 RAG</b>：v1 实测——一次检索返回 72 条命中，若不按&quot;表名/字段名实体&quot;过滤，会把「产量怎么来的」答成&quot;上游透传&quot;（错的），因为真实公式在 dwd 层而非 ads 层。</p>
+<p><b>知识提炼流水线</b>（唯一没做完的一段）：</p>
+<pre>
+脚本/任务流 → 解析血缘 → LLM 初筛候选口径 → 规则校验（必须有公式 + 依赖字段 + 来源脚本）
+→ 候选池 → 责任人审核 → 版本化入库（可回滚）
+</pre>
+<p><b>质量门禁</b>：<b>没有来源脚本的口径一律不许入库</b>；同字段两条公式冲突必须仲裁，不允许并存。</p>
+<h3>9.4 本批决定之后的待交付</h3>
+<table>
+<tr><th>交付物</th><th>内容</th><th>状态</th></tr>
+<tr><td>《Skill 契约规范 v1》</td><td>契约字段规范 + skill 模板 + <b>标杆示例</b>（把&quot;解析血缘&quot;改写成标准 skill）</td><td>待做</td></tr>
+<tr><td>《harness 选型建议 v1》</td><td>dsh 采用方式、版本锁定策略、风险清单、自有三层的接口</td><td>待做</td></tr>
+<tr><td>《知识库选型与应用 v1》</td><td>双通道设计、提炼流水线、质量门禁、WeKnora 接入方式（MCP）</td><td>待做</td></tr>
+<tr><td><b>v2 架构工作项拆解</b></td><td>按本图拆到&quot;一个 PR 能合并&quot;的粒度（接口/边界/验收方式）</td><td>待做</td></tr>
+</table></body></html>
