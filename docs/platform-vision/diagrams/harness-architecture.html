@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>架构 v2 · Harness + 插件化（万物皆 Skill）</title>
+<style>
+  :root{--bg:#0f1216;--panel:#161b22;--panel2:#1b2129;--line:#2a313a;--fg:#e6e9ee;--dim:#9aa3b0;--dim2:#7b8494;
+        --acc:#8b9cff;--harness:#22d3ee;--fw:#f0b429;--skill:#34d399;--exec:#60a5fa;--data:#a78bfa;--ext:#94a3b8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;padding:26px 30px}
+  h1{font-size:19px;margin-bottom:4px}
+  .sub{color:var(--dim);font-size:12.5px;margin-bottom:18px}
+  h2{font-size:15px;margin:26px 0 10px;padding-left:9px;border-left:3px solid var(--acc)}
+  svg{width:100%;height:auto;display:block}
+  .box{fill:var(--panel);stroke:var(--line);stroke-width:1.2;rx:9}
+  .b-title{fill:var(--fg);font-size:12.5px;font-weight:600}
+  .b-sub{fill:var(--dim);font-size:10.5px}
+  .lay{fill:var(--dim2);font-size:11px;font-weight:600;letter-spacing:.08em}
+  .arw{stroke:var(--line);stroke-width:1.4;fill:none;marker-end:url(#a)}
+  .arw-acc{stroke:var(--acc);stroke-width:1.6;fill:none;marker-end:url(#aa)}
+  .lbl{fill:var(--dim);font-size:10.5px}
+  .lbl-acc{fill:var(--acc);font-size:10.5px}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;color:var(--dim);font-size:12px;margin-top:12px}
+  .legend b{color:var(--fg);font-weight:600}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
+  table{border-collapse:collapse;width:100%;margin-top:8px;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:left}
+  th{background:var(--panel2);color:var(--dim);font-weight:600}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:11.5px}
+</style>
+</head>
+<body>
+
+<h1>数据智能平台 · 架构 v2：Harness + 插件化（万物皆 Skill）</h1>
+<div class="sub">2026-09-25 ｜ 与 v1（对话编排写死在代码里）的关键差异：<b>能力增长靠加 Skill，而不是改内核</b>；新增 <b>智能防火墙</b> 与 <b>执行器协议</b> 两层</div>
+
+<h2>一、分层架构</h2>
+<svg viewBox="0 0 1280 1010" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#2a313a"/></marker>
+    <marker id="aa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#8b9cff"/></marker>
+  </defs>
+
+  <!-- 交互层 -->
+  <text class="lay" x="30" y="30">交互层</text>
+  <rect class="box" x="30" y="40" width="386" height="62" style="stroke:var(--acc)"/>
+    <text class="b-title" x="46" y="66">Web 对话工作台（主入口）</text>
+    <text class="b-sub" x="46" y="85">harness 的脸：提问、凭证、证据面板</text>
+  <rect class="box" x="446" y="40" width="386" height="62"/>
+    <text class="b-title" x="462" y="66">微服务 / OpenAPI 接入</text>
+    <text class="b-sub" x="462" y="85">外部系统按契约调用同一套能力</text>
+  <rect class="box" x="862" y="40" width="388" height="62"/>
+    <text class="b-title" x="878" y="66">飞书 / CLI（后续）</text>
+    <text class="b-sub" x="878" y="85">同一 harness，多入口并列</text>
+
+  <path class="arw-acc" d="M 223 104 L 223 138"/><path class="arw" d="M 639 104 L 639 138"/><path class="arw" d="M 1056 104 L 1056 138"/>
+  <text class="lbl-acc" x="232" y="126">指令 / 确认</text>
+
+  <!-- Harness -->
+  <text class="lay" x="30" y="160">Harness 底座（核心，薄且稳定）</text>
+  <rect class="box" x="30" y="170" width="1220" height="118" style="stroke:var(--harness)"/>
+  <rect class="box" x="46" y="188" width="222" height="82"/>
+    <text class="b-title" x="60" y="214">会话与上下文</text>
+    <text class="b-sub" x="60" y="233">会话/消息/上下文回填</text>
+    <text class="b-sub" x="60" y="250">（已落库 PG）</text>
+  <rect class="box" x="284" y="188" width="222" height="82"/>
+    <text class="b-title" x="298" y="214">决策模型</text>
+    <text class="b-sub" x="298" y="233">LLM / 决策模型：意图 →</text>
+    <text class="b-sub" x="298" y="250">选 skill → 组参 → 循环</text>
+  <rect class="box" x="522" y="188" width="222" height="82"/>
+    <text class="b-title" x="536" y="214">Skill 注册表</text>
+    <text class="b-sub" x="536" y="233">发现/校验/调度、预算</text>
+    <text class="b-sub" x="536" y="250">（单轮最多 N 个 skill）</text>
+  <rect class="box" x="760" y="188" width="222" height="82"/>
+    <text class="b-title" x="774" y="214">结果汇总与渲染路由</text>
+    <text class="b-sub" x="774" y="233">按 skill 声明的 renderer</text>
+    <text class="b-sub" x="774" y="250">分派给对应视图</text>
+  <rect class="box" x="998" y="188" width="236" height="82" style="stroke:var(--fw)"/>
+    <text class="b-title" x="1012" y="214">事实校验（出口）</text>
+    <text class="b-sub" x="1012" y="233">只允许用回执里的数字/</text>
+    <text class="b-sub" x="1012" y="250">表名组答案，无证据不发布</text>
+
+  <path class="arw" d="M 640 288 L 640 322"/>
+  <text class="lbl" x="650" y="310">待执行动作（含风险信息）</text>
+
+  <!-- 防火墙 -->
+  <text class="lay" x="30" y="344">智能防火墙（新增：fail-closed，拿不准就拒）</text>
+  <rect class="box" x="30" y="354" width="1220" height="112" style="stroke:var(--fw)"/>
+  <rect class="box" x="46" y="372" width="222" height="76"/>
+    <text class="b-title" x="60" y="398">身份认证</text>
+    <text class="b-sub" x="60" y="417">OIDC / dev 身份</text>
+    <text class="b-sub" x="60" y="434">（P1 已有两种模式）</text>
+  <rect class="box" x="284" y="372" width="222" height="76"/>
+    <text class="b-title" x="298" y="398">权限校验</text>
+    <text class="b-sub" x="298" y="417">按表/库/动作授权</text>
+    <text class="b-sub" x="298" y="434">跨环境视为高风险</text>
+  <rect class="box" x="522" y="372" width="222" height="76" style="stroke:var(--fw)"/>
+    <text class="b-title" x="536" y="398">风险分级 L0–L4</text>
+    <text class="b-sub" x="536" y="417">只读/低/中/高/禁止</text>
+    <text class="b-sub" x="536" y="434">策略表驱动，可审计</text>
+  <rect class="box" x="760" y="372" width="222" height="76"/>
+    <text class="b-title" x="774" y="398">处置</text>
+    <text class="b-sub" x="774" y="417">通过 / 用户确认 /</text>
+    <text class="b-sub" x="774" y="434">双人复核 / 直接拒绝</text>
+  <rect class="box" x="998" y="372" width="236" height="76"/>
+    <text class="b-title" x="1012" y="398">审批令牌 + 留痕</text>
+    <text class="b-sub" x="1012" y="417">一次性、绑动作指纹</text>
+    <text class="b-sub" x="1012" y="434">5 分钟时效、全程留痕</text>
+
+  <path class="arw-acc" d="M 300 466 L 300 502"/><text class="lbl-acc" x="310" y="488">L0/L1 直接通过</text>
+  <path class="arw" d="M 1030 466 L 1030 502"/><text class="lbl" x="620" y="488">L2 回用户确认 · L3 双人复核 · L4 拒绝</text>
+
+  <!-- Skill 层 -->
+  <text class="lay" x="30" y="524">Skill 插件层（加能力 = 加 skill，内核不动）</text>
+  <rect class="box" x="30" y="534" width="1220" height="112" style="stroke:var(--skill)"/>
+  <rect class="box" x="46" y="552" width="182" height="76"/>
+    <text class="b-title" x="60" y="578">解析血缘</text>
+    <text class="b-sub" x="60" y="597">脚本 / 工作流</text>
+    <text class="b-sub" x="60" y="614">（已可用）</text>
+  <rect class="box" x="244" y="552" width="182" height="76"/>
+    <text class="b-title" x="258" y="578">生成 SQL 与流程</text>
+    <text class="b-sub" x="258" y="597">查询/建表/调度</text>
+    <text class="b-sub" x="258" y="614">草稿 → 校验</text>
+  <rect class="box" x="442" y="552" width="182" height="76"/>
+    <text class="b-title" x="456" y="578">查询与统计</text>
+    <text class="b-sub" x="456" y="597">取数、对比、抽样</text>
+    <text class="b-sub" x="456" y="614">（走只读通道）</text>
+  <rect class="box" x="640" y="552" width="182" height="76"/>
+    <text class="b-title" x="654" y="578">调度操作</text>
+    <text class="b-sub" x="654" y="597">上线/重跑/补数</text>
+    <text class="b-sub" x="654" y="614">（L2 起需审批）</text>
+  <rect class="box" x="838" y="552" width="182" height="76"/>
+    <text class="b-title" x="852" y="578">监控查询</text>
+    <text class="b-sub" x="852" y="597">集群/库/表状态</text>
+    <text class="b-sub" x="852" y="614">慢查询与排队</text>
+  <rect class="box" x="1036" y="552" width="198" height="76" style="stroke:var(--acc)"/>
+    <text class="b-title" x="1050" y="578">视图渲染 renderer</text>
+    <text class="b-sub" x="1050" y="597">表格/依赖图/SQL</text>
+    <text class="b-sub" x="1050" y="614">diff/执行计划</text>
+
+  <path class="arw" d="M 640 646 L 640 682"/><text class="lbl" x="650" y="670">已授权的动作（附令牌）</text>
+
+  <!-- 执行层 -->
+  <text class="lay" x="30" y="704">执行层（解耦点：新增平台只加适配器）</text>
+  <rect class="box" x="30" y="714" width="1220" height="106" style="stroke:var(--exec)"/>
+  <rect class="box" x="46" y="732" width="386" height="70"/>
+    <text class="b-title" x="60" y="758">SchedulerAdapter（调度）</text>
+    <text class="b-sub" x="60" y="777">草稿/校验/上线/重跑/补数/查状态/取日志</text>
+    <text class="b-sub" x="60" y="794">海豚（已实现）｜ DataWorks ｜ Airflow</text>
+  <rect class="box" x="446" y="732" width="386" height="70"/>
+    <text class="b-title" x="460" y="758">MonitorAdapter（监控）</text>
+    <text class="b-sub" x="460" y="777">集群健康/队列/库状态/表统计/慢查询</text>
+    <text class="b-sub" x="460" y="794">P1 只读</text>
+  <rect class="box" x="846" y="732" width="388" height="70"/>
+    <text class="b-title" x="860" y="758">血缘图谱服务（数据智能内核）</text>
+    <text class="b-sub" x="860" y="777">解析 SQL → 表/字段血缘 → 图谱与报告</text>
+    <text class="b-sub" x="860" y="794">契约 17 端点，已冻结可复用</text>
+
+  <path class="arw" d="M 640 820 L 640 856"/><text class="lbl" x="650" y="844">回执：来源/耗时/影响行数（供事实校验）</text>
+
+  <!-- 资产 -->
+  <text class="lay" x="30" y="878">资产与存储</text>
+  <rect class="box" x="30" y="888" width="1220" height="102" style="stroke:var(--data)"/>
+  <rect class="box" x="46" y="906" width="286" height="66"/>
+    <text class="b-title" x="60" y="932">知识库（业务口径）</text>
+    <text class="b-sub" x="60" y="951">口径/表/字段/术语/规则（已有 75/298/139/76）</text>
+  <rect class="box" x="346" y="906" width="286" height="66"/>
+    <text class="b-title" x="360" y="932">血缘图谱</text>
+    <text class="b-sub" x="360" y="951">表级与字段级、可溯源到脚本行</text>
+  <rect class="box" x="646" y="906" width="286" height="66"/>
+    <text class="b-title" x="660" y="932">审计库（PostgreSQL）</text>
+    <text class="b-sub" x="660" y="951">会话/消息/审计：问题+调用+判定+回执+确认人</text>
+  <rect class="box" x="946" y="906" width="288" height="66" style="stroke:var(--fw)"/>
+    <text class="b-title" x="960" y="932">候选知识池（新增）</text>
+    <text class="b-sub" x="960" y="951">回写先入候选 → 责任人审核 → 入库版本化</text>
+</svg>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--harness)"></i><b>Harness</b> 稳定内核：会话 + 决策 + skill 调度 + 事实校验</span>
+  <span><i class="dot" style="background:var(--fw)"></i><b>防火墙</b> 新增层：风险分级与审批，防幻觉指令伤生产</span>
+  <span><i class="dot" style="background:var(--skill)"></i><b>Skill</b> 能力以插件形式增长</span>
+  <span><i class="dot" style="background:var(--exec)"></i><b>执行器</b> 只加适配器即可接新平台</span>
+  <span><i class="dot" style="background:var(--data)"></i><b>资产</b> 知识/血缘/审计/候选池</span>
+</div>
+
+<h2>二、主流程（含三条分支与知识回写闭环）</h2>
+<svg viewBox="0 0 1280 470" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#8b9cff"/></marker>
+    <marker id="c" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#f0b429"/></marker>
+  </defs>
+
+  <!-- 主干 -->
+  <rect class="box" x="30" y="30" width="180" height="66" style="stroke:var(--acc)"/>
+    <text class="b-title" x="44" y="56">用户指令</text><text class="b-sub" x="44" y="76">自然语言 / 贴 SQL</text>
+  <rect class="box" x="240" y="30" width="200" height="66" style="stroke:var(--harness)"/>
+    <text class="b-title" x="254" y="56">Harness 决策</text><text class="b-sub" x="254" y="76">意图 → 选 skill → 组参</text>
+  <rect class="box" x="470" y="30" width="200" height="66" style="stroke:var(--fw)"/>
+    <text class="b-title" x="484" y="56">智能防火墙</text><text class="b-sub" x="484" y="76">身份·权限·风险分级</text>
+  <rect class="box" x="700" y="30" width="200" height="66" style="stroke:var(--exec)"/>
+    <text class="b-title" x="714" y="56">执行器</text><text class="b-sub" x="714" y="76">调度 / 查询 / 监控</text>
+  <rect class="box" x="930" y="30" width="200" height="66" style="stroke:var(--harness)"/>
+    <text class="b-title" x="944" y="56">回执 → 模型汇总</text><text class="b-sub" x="944" y="76">只许用回执里的数据</text>
+  <rect class="box" x="1060" y="120" width="190" height="66" style="stroke:var(--acc)"/>
+    <text class="b-title" x="1074" y="146">对话框输出</text><text class="b-sub" x="1074" y="166">按 renderer 渲染</text>
+
+  <path d="M 210 63 L 236 63" stroke="#8b9cff" stroke-width="1.6" fill="none" marker-end="url(#b)"/>
+  <path d="M 440 63 L 466 63" stroke="#8b9cff" stroke-width="1.6" fill="none" marker-end="url(#b)"/>
+  <path d="M 670 63 L 696 63" stroke="#8b9cff" stroke-width="1.6" fill="none" marker-end="url(#b)"/>
+  <path d="M 900 63 L 926 63" stroke="#8b9cff" stroke-width="1.6" fill="none" marker-end="url(#b)"/>
+  <path d="M 1030 96 L 1060 120" stroke="#8b9cff" stroke-width="1.6" fill="none" marker-end="url(#b)"/>
+
+  <!-- 分支：L2 / L3 / L4 -->
+  <rect class="box" x="470" y="150" width="200" height="60" style="stroke:var(--fw)"/>
+    <text class="b-title" x="484" y="176">L2 中风险</text><text class="b-sub" x="484" y="195">回用户确认（附影响面）</text>
+  <rect class="box" x="470" y="230" width="200" height="60" style="stroke:var(--fw)"/>
+    <text class="b-title" x="484" y="256">L3 高风险</text><text class="b-sub" x="484" y="275">双人复核 + 时效令牌</text>
+  <rect class="box" x="470" y="310" width="200" height="60" style="stroke:#f87171"/>
+    <text class="b-title" x="484" y="336">L4 禁止</text><text class="b-sub" x="484" y="355">直接拒绝 + 留痕</text>
+  <path d="M 570 96 L 570 146" stroke="#f0b429" stroke-width="1.4" fill="none" marker-end="url(#c)"/>
+  <path d="M 640 180 L 668 180 L 668 63" stroke="#f0b429" stroke-width="1.2" fill="none" stroke-dasharray="4 3"/>
+  <text class="lbl" x="676" y="176">带令牌后放行</text>
+  <path d="M 620 260 L 640 260 L 640 200" stroke="#f0b429" stroke-width="1.2" fill="none" stroke-dasharray="4 3"/>
+
+  <!-- 知识回写闭环 -->
+  <rect class="box" x="930" y="230" width="200" height="60" style="stroke:var(--data)"/>
+    <text class="b-title" x="944" y="256">候选知识池</text><text class="b-sub" x="944" y="275">用户确认「值得留下」</text>
+  <rect class="box" x="930" y="310" width="200" height="60" style="stroke:var(--data)"/>
+    <text class="b-title" x="944" y="336">责任人审核</text><text class="b-sub" x="944" y="355">去重/冲突仲裁/版本</text>
+  <rect class="box" x="930" y="390" width="200" height="60" style="stroke:var(--data)"/>
+    <text class="b-title" x="944" y="416">知识库（口径/表/字段）</text><text class="b-sub" x="944" y="435">带来源与版本，可回滚</text>
+  <path d="M 1030 186 L 1030 226" stroke="#a78bfa" stroke-width="1.4" fill="none" marker-end="url(#b)"/>
+  <path d="M 1030 290 L 1030 306" stroke="#a78bfa" stroke-width="1.4" fill="none" marker-end="url(#b)"/>
+  <path d="M 1030 370 L 1030 386" stroke="#a78bfa" stroke-width="1.4" fill="none" marker-end="url(#b)"/>
+
+  <!-- 二次查询 -->
+  <rect class="box" x="700" y="230" width="200" height="60" style="stroke:var(--data)"/>
+    <text class="b-title" x="714" y="256">知识库优先命中</text><text class="b-sub" x="714" y="275">二次查询先查本地知识</text>
+  <path d="M 900 260 L 1016 410" stroke="#a78bfa" stroke-width="1.2" fill="none" stroke-dasharray="4 3"/>
+  <path d="M 930 275 L 906 275" stroke="#a78bfa" stroke-width="1.2" fill="none" stroke-dasharray="4 3"/>
+  <path d="M 700 260 L 676 260 L 676 96" stroke="#a78bfa" stroke-width="1.2" fill="none" stroke-dasharray="4 3" marker-end="url(#b)"/>
+  <text class="lbl" x="560" y="228">命中即不再打扰模型</text>
+</svg>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--acc)"></i>主干（蓝实线）</span>
+  <span><i class="dot" style="background:var(--fw)"></i>风险分支（黄）</span>
+  <span><i class="dot" style="background:var(--data)"></i>知识闭环（紫虚线）</span>
+  <span><b>初始化（可选）</b>：调度器已有任务 → 批量解析 → 出报告与候选知识（默认不落库）→ 人工抽检 → 入库</span>
+</div>
+
+<h2>三、与 v1 的差异一览</h2>
+<table>
+  <tr><th>维度</th><th>v1（已实现）</th><th>v2（本图）</th></tr>
+  <tr><td>决策方式</td><td>规则优先，LLM 兜底</td><td><b>决策模型为主</b>，保留降级模式</td></tr>
+  <tr><td>能力扩展</td><td>改编排代码（entity/intent/planner/assemble）</td><td><b>加一个 Skill</b>，内核不动</td></tr>
+  <tr><td>安全</td><td>原则（写操作三步走）+ 静态校验</td><td><b>独立防火墙</b>：L0–L4 分级 + 令牌 + 双人复核 + 留痕</td></tr>
+  <tr><td>平台接入</td><td>只有海豚（旁路插件）</td><td>调度/监控<b>两个适配器协议</b>，新平台只加适配器</td></tr>
+  <tr><td>知识回写</td><td>无（只有离线构建）</td><td>候选池 → 责任人审核 → 版本化入库</td></tr>
+  <tr><td>事实可信</td><td>规则模式天然成立</td><td><b>出口事实校验</b>：只许用回执数据，无证据不发布</td></tr>
+</table>
+
+</body>
+</html>
