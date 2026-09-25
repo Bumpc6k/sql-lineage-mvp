@@ -1,30 +1,37 @@
 #!/usr/bin/env bash
-# ============================================================
-# 血缘解析 HTTP 服务启动脚本（供 DolphinScheduler 插件调用）
-# 幂等：已在运行则跳过。日志: /var/log/lineage-api.log
-# 用法: bash ops/start-lineage-api.sh
-# ============================================================
+# 拉起身血服务（血缘 + 知识库 HTTP 服务，:18080）。幂等：已在跑就不重启。
+#
+# 注意：必须显式设置 PYTHONPATH —— 本仓库是「多单元源码树」，不是安装包；
+# 干净克隆下直接 `python -m lineage.serve.api_server` 会报 ModuleNotFoundError: lineage_core
+# （协作验证报告 P1-5b）。下面按仓库根逐个挂载单元源码。
 set -uo pipefail
-PORT=${LINEAGE_API_PORT:-18080}
-ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
-APP="$ROOT/apps/lineage-api"          # 后端服务单元（lineage 包所在目录）
-PY="$ROOT/.venv/bin/python"
-LOG=/var/log/lineage-api.log
-SESSION=lineage-api
+cd "$(dirname "$0")/.."
+ROOT="$(pwd)"
+SESSION=${SESSION:-lineage-api}
+PORT=${LINEAGE_PORT:-18080}
+PY=${PY:-"$ROOT/.venv/bin/python"}
+[ -x "$PY" ] || PY=python3
+export PYTHONPATH="$ROOT:$ROOT/apps/lineage-api:$ROOT/packages/lineage-core"
 
-if pgrep -f "lineage.api_server" > /dev/null 2>&1; then
-    echo "血缘服务已在运行（端口 $PORT）"
-    exit 0
+if curl -s --noproxy '*' -o /dev/null --max-time 2 "http://127.0.0.1:$PORT/health"; then
+  echo "  内核已在运行：http://127.0.0.1:$PORT/health"
+  exit 0
 fi
-[ -x "$PY" ] || { echo "❌ 找不到 venv python: $PY"; exit 1; }
-cd "$APP" || exit 1
-tmux kill-session -t "$SESSION" 2>/dev/null || true
-tmux new-session -d -s "$SESSION" "$PY -m lineage.api_server --host 0.0.0.0 --port $PORT >> $LOG 2>&1"
-sleep 3
-if pgrep -f "lineage.api_server" > /dev/null 2>&1; then
-    echo "✅ 血缘服务已启动: http://0.0.0.0:$PORT （tmux 会话 $SESSION，工作目录 $APP）"
-    curl -s -m 5 "http://localhost:$PORT/health" | head -c 200
-    echo
+
+CMD="$PY -m lineage.serve.api_server --host 127.0.0.1 --port $PORT"
+if command -v tmux >/dev/null 2>&1; then
+  tmux has-session -t "$SESSION" 2>/dev/null && tmux kill-session -t "$SESSION"
+  tmux new-session -d -s "$SESSION" -c "$ROOT" "$CMD"
+  echo "  tmux 会话 $SESSION 已启动"
 else
-    echo "❌ 启动失败，请查看 $LOG"; tail -10 "$LOG" 2>/dev/null; exit 1
+  # 无 tmux（如 Git Bash / 精简环境）就直接后台跑
+  nohup $CMD >/tmp/lineage-api.log 2>&1 &
+  echo "  无 tmux：已后台启动，日志 /tmp/lineage-api.log"
 fi
+
+for _ in $(seq 1 20); do
+  curl -s --noproxy '*' -o /dev/null --max-time 1 "http://127.0.0.1:$PORT/health" && break
+  sleep 1
+done
+CODE=$(curl -s --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:$PORT/health" || echo 000)
+echo "  内核 :$PORT → HTTP $CODE"
